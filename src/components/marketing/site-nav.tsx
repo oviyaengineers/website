@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, ArrowRight } from "lucide-react";
+import { LogoMark } from "./logo";
 
 const links = [
   { href: "/", label: "Home" },
@@ -21,9 +22,7 @@ export function SiteNav() {
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="group flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-sm font-extrabold text-zinc-950 shadow-lg shadow-amber-500/25 transition-transform group-hover:scale-105">
-            OE
-          </div>
+          <LogoMark className="h-9 w-9 shrink-0 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)] transition-transform group-hover:scale-105" />
           <span className="text-lg font-bold tracking-tight text-white">
             Oviya Engineers
           </span>

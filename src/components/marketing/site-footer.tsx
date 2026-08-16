@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
+import { LogoMark } from "./logo";
 
 export function SiteFooter() {
   return (
@@ -9,9 +10,7 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-xs font-extrabold text-zinc-950">
-                OE
-              </div>
+              <LogoMark className="h-8 w-8 shrink-0" />
               <span className="text-base font-bold text-white">Oviya Engineers</span>
             </div>
             <p className="mt-3 text-sm text-zinc-400">
