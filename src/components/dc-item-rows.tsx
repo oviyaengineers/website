@@ -30,7 +30,6 @@ function emptyRow(): Row {
     sent_qty: 0,
     material_problem_qty: 0,
     rejection_qty: 0,
-    remarks: "",
     key: nextId(),
   };
 }
@@ -64,7 +63,7 @@ export function DcItemRows({
 
   return (
     <div className="space-y-3">
-      <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_1fr_36px]">
+      <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_36px]">
         <span>Component</span>
         <span>Material</span>
         <span>Received</span>
@@ -72,7 +71,6 @@ export function DcItemRows({
         <span>Material Problem</span>
         <span>Rejection</span>
         <span>Total</span>
-        <span>Remarks</span>
         <span />
       </div>
       {rows.map((row) => {
@@ -83,7 +81,7 @@ export function DcItemRows({
         return (
           <div
             key={row.key}
-            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_1fr_36px] sm:items-center sm:border-0 sm:p-0"
+            className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_36px] sm:items-center sm:border-0 sm:p-0"
           >
             <div className="space-y-1">
               <Label className="sm:hidden">Component</Label>
@@ -186,15 +184,6 @@ export function DcItemRows({
             <div className="space-y-1">
               <Label className="sm:hidden">Total</Label>
               <Input disabled value={total} className="bg-muted" />
-            </div>
-            <div className="space-y-1">
-              <Label className="sm:hidden">Remarks</Label>
-              <Input
-                name="item_remarks"
-                placeholder="Optional"
-                value={row.remarks ?? ""}
-                onChange={(e) => updateRow(row.key, { remarks: e.target.value })}
-              />
             </div>
             <Button
               type="button"

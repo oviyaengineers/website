@@ -100,7 +100,6 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 <TableHead>Material Problem</TableHead>
                 <TableHead>Rejection</TableHead>
                 <TableHead>Total</TableHead>
-                <TableHead>Remarks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -113,7 +112,6 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                   <TableCell>{item.material_problem_qty}</TableCell>
                   <TableCell>{item.rejection_qty}</TableCell>
                   <TableCell>{item.total_qty}</TableCell>
-                  <TableCell>{item.remarks ?? "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

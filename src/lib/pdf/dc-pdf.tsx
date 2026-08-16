@@ -15,14 +15,13 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d9dee7" },
   th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7" },
   td: { padding: 6 },
-  colComponent: { width: "16%" },
-  colMaterial: { width: "14%" },
-  colReceived: { width: "10%" },
-  colSent: { width: "10%" },
-  colMaterialProblem: { width: "12%" },
+  colComponent: { width: "20%" },
+  colMaterial: { width: "18%" },
+  colReceived: { width: "13%" },
+  colSent: { width: "13%" },
+  colMaterialProblem: { width: "15%" },
   colRejection: { width: "10%" },
-  colTotal: { width: "10%" },
-  colRemarks: { width: "18%" },
+  colTotal: { width: "11%" },
   sigRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48 },
   sigBox: { width: "45%", borderTopWidth: 1, borderTopColor: "#000", paddingTop: 4, textAlign: "center" },
 });
@@ -45,7 +44,6 @@ export type DcPdfData = {
     material_problem_qty: number;
     rejection_qty: number;
     total_qty: number;
-    remarks: string | null;
   }[];
 };
 
@@ -98,7 +96,6 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
             <Text style={[styles.th, styles.colMaterialProblem]}>Material Problem</Text>
             <Text style={[styles.th, styles.colRejection]}>Rejection</Text>
             <Text style={[styles.th, styles.colTotal]}>Total</Text>
-            <Text style={[styles.th, styles.colRemarks]}>Remarks</Text>
           </View>
           {dc.items.map((item, i) => (
             <View style={styles.tr} key={i}>
@@ -109,7 +106,6 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
               <Text style={[styles.td, styles.colMaterialProblem]}>{item.material_problem_qty}</Text>
               <Text style={[styles.td, styles.colRejection]}>{item.rejection_qty}</Text>
               <Text style={[styles.td, styles.colTotal]}>{item.total_qty}</Text>
-              <Text style={[styles.td, styles.colRemarks]}>{item.remarks ?? ""}</Text>
             </View>
           ))}
         </View>

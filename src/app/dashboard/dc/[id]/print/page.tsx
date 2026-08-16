@@ -33,7 +33,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
       material_problem_qty: i.material_problem_qty,
       rejection_qty: i.rejection_qty,
       total_qty: i.total_qty,
-      remarks: i.remarks,
     })),
   };
 
@@ -105,7 +104,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Material Problem</th>
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Rejection</th>
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Total</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Remarks</th>
                 </tr>
               </thead>
               <tbody>
@@ -119,7 +117,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
                     <td className="border border-[#d9dee7] p-2">{item.material_problem_qty}</td>
                     <td className="border border-[#d9dee7] p-2">{item.rejection_qty}</td>
                     <td className="border border-[#d9dee7] p-2">{item.total_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.remarks ?? ""}</td>
                   </tr>
                 ))}
               </tbody>

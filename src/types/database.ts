@@ -124,7 +124,6 @@ export type DeliveryChallanItemRow = {
   material_problem_qty: number;
   rejection_qty: number;
   total_qty: number;
-  remarks: string | null;
   sort_order: number;
 };
 export type DeliveryChallanItemInsert = {
@@ -136,7 +135,6 @@ export type DeliveryChallanItemInsert = {
   sent_qty?: number;
   material_problem_qty?: number;
   rejection_qty?: number;
-  remarks?: string | null;
   sort_order?: number;
 };
 export type DeliveryChallanItemUpdate = {
@@ -148,7 +146,6 @@ export type DeliveryChallanItemUpdate = {
   sent_qty?: number;
   material_problem_qty?: number;
   rejection_qty?: number;
-  remarks?: string | null;
   sort_order?: number;
 };
 

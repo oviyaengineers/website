@@ -40,7 +40,6 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
           sent_qty: i.sent_qty,
           material_problem_qty: i.material_problem_qty,
           rejection_qty: i.rejection_qty,
-          remarks: i.remarks,
         }))}
         action={boundAction}
         components={components}
