@@ -2,6 +2,18 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { DcPrintActions } from "@/components/dc-print-actions";
+import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
+
+type PrintItem = {
+  id: string;
+  component: string;
+  material: string | null;
+  received_qty: number;
+  sent_qty: number;
+  material_problem_qty: number;
+  rejection_qty: number;
+  total_qty: number;
+};
 
 export default async function DcPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,7 +45,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
       material_problem_qty: i.material_problem_qty,
       rejection_qty: i.rejection_qty,
       total_qty: i.total_qty,
-      remarks: i.remarks,
     })),
   };
 
@@ -43,106 +54,132 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
         <DcPrintActions dc={pdfData} />
       </div>
 
-      <div className="mx-auto max-w-4xl pb-10 dc-print-sheet">
-        <header className="mb-5 flex items-start justify-between rounded-t-2xl bg-[#10233f] px-6 py-5 text-white print:rounded-none">
-          <div>
-            <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
-            <div className="mt-1 text-xs opacity-80">Delivery Challan Management</div>
-          </div>
-          <div className="text-right text-xs opacity-90">
-            <p>DC ENTRY</p>
-          </div>
-        </header>
-
-        <section className="mb-5 rounded-2xl border border-transparent bg-white p-5 shadow-sm print:rounded-none print:border-[#222] print:shadow-none">
-          <h2 className="mb-4 text-lg font-bold text-[#172033]">Delivery Challan</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Our DC Number</p>
-              <p>{dc.dc_number}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Date</p>
-              <p>{format(new Date(dc.dc_date), "dd MMM yyyy")}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Number</p>
-              <p>{dc.customer_dc_number ?? "-"}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Date</p>
-              <p>{dc.customer_dc_date ? format(new Date(dc.customer_dc_date), "dd MMM yyyy") : "-"}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer Name</p>
-              <p className="font-medium">{customer?.name ?? "-"}</p>
-              <p className="text-gray-600">{customer?.address ?? ""}</p>
-              <p className="text-gray-600">{customer?.phone ?? ""}</p>
-              {customer?.gst_number && <p className="text-gray-600">GST: {customer.gst_number}</p>}
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Job Order / PO No.</p>
-              <p>{dc.job_order_no ?? "-"}</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase text-gray-500">Vehicle No.</p>
-              <p>{dc.vehicle_number ?? "-"}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mb-5 rounded-2xl border border-transparent bg-white p-5 shadow-sm print:rounded-none print:border-[#222] print:shadow-none">
-          <div className="mb-3 font-bold text-[#172033]">Material / Component Details</div>
-          <div className="overflow-auto">
-            <table className="w-full min-w-[700px] border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">S.No.</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Component</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Material</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Received Qty</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Sent Qty</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Material Problem</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Rejection</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Total</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(items ?? []).map((item, idx) => (
-                  <tr key={item.id}>
-                    <td className="border border-[#d9dee7] p-2">{idx + 1}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.component}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.material ?? ""}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.received_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.sent_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.material_problem_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.rejection_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.total_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.remarks ?? ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {dc.remarks && (
-          <section className="mb-5 rounded-2xl border border-transparent bg-white p-5 shadow-sm print:rounded-none print:border-[#222] print:shadow-none">
-            <p className="mb-1 font-bold text-[#172033]">General Remarks</p>
-            <p className="text-sm">{dc.remarks}</p>
-          </section>
-        )}
-
-        <section className="rounded-2xl border border-transparent bg-white p-5 shadow-sm print:rounded-none print:border-[#222] print:shadow-none">
-          <div className="mt-8 flex justify-between text-sm">
-            <div className="w-2/5 border-t border-black pt-2 text-center">Receiver&apos;s Signature</div>
-            <div className="w-2/5 border-t border-black pt-2 text-center">
-              {dc.authorized_by || "Authorized Signatory"}
-            </div>
-          </div>
-        </section>
+      <div className="mx-auto max-w-4xl pb-10 print:pb-0 print:h-[273mm] print:overflow-hidden">
+        <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={items ?? []} />
+        <div className="my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400 print:my-2 print:h-[6mm]">
+          <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
+        </div>
+        <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={items ?? []} />
       </div>
+    </div>
+  );
+}
+
+function DcCopy({
+  label,
+  dc,
+  customer,
+  items,
+}: {
+  label: string;
+  dc: DeliveryChallanRow;
+  customer: CustomerRow | null;
+  items: PrintItem[];
+}) {
+  return (
+    <div className="dc-print-sheet break-inside-avoid print:h-[130mm] print:overflow-hidden">
+      <header className="relative mb-3 rounded-t-2xl bg-[#10233f] px-6 py-3 text-white print:rounded-none print:py-2">
+        <div className="absolute right-4 top-4 text-xs opacity-90">
+          <p className="rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
+            {label}
+          </p>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          {/* TODO: company logo goes here once available */}
+          <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
+          <div className="mt-1 text-xs opacity-80">
+            40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
+          </div>
+          <div className="mt-0.5 text-xs opacity-80">Ph: 9965902970, 9965702970</div>
+        </div>
+      </header>
+
+      <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
+        <h2 className="mb-3 text-base font-bold text-[#172033]">Delivery Challan</h2>
+        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Our DC Number</p>
+            <p>{dc.dc_number}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Date</p>
+            <p>{format(new Date(dc.dc_date), "dd MMM yyyy")}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Number</p>
+            <p>{dc.customer_dc_number ?? "-"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Date</p>
+            <p>{dc.customer_dc_date ? format(new Date(dc.customer_dc_date), "dd MMM yyyy") : "-"}</p>
+          </div>
+          <div className="col-span-2">
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer Name</p>
+            <p className="font-medium">{customer?.name ?? "-"}</p>
+            <p className="text-gray-600">{customer?.address ?? ""}</p>
+            <p className="text-gray-600">{customer?.phone ?? ""}</p>
+            {customer?.gst_number && <p className="text-gray-600">GST: {customer.gst_number}</p>}
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Job Order / PO No.</p>
+            <p>{dc.job_order_no ?? "-"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Vehicle No.</p>
+            <p>{dc.vehicle_number ?? "-"}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
+        <div className="mb-2 text-sm font-bold text-[#172033]">Material / Component Details</div>
+        <div className="overflow-auto">
+          <table className="w-full min-w-[700px] border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">S.No.</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Component</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Material</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Received</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Sent</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Mat. Problem</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Rejection</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr key={item.id}>
+                  <td className="border border-[#d9dee7] p-1.5">{idx + 1}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.component}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.material ?? ""}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.received_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.sent_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.material_problem_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.rejection_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5">{item.total_qty}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {dc.remarks && (
+        <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
+          <p className="mb-1 text-sm font-bold text-[#172033]">General Remarks</p>
+          <p className="text-xs">{dc.remarks}</p>
+        </section>
+      )}
+
+      <section className="rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
+        <div className="mt-4 flex justify-between text-xs">
+          <div className="w-2/5 border-t border-black pt-1 text-center">Receiver&apos;s Signature</div>
+          <div className="w-2/5 border-t border-black pt-1 text-center">
+            {dc.authorized_by || "Authorized Signatory"}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
