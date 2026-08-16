@@ -10,6 +10,7 @@ import {
   Wallet,
   BarChart3,
   LogOut,
+  Settings,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const baseNav = [
 const adminNav = [
   { href: "/dashboard/costs", label: "Costs", icon: Wallet },
   { href: "/dashboard/reports/outstanding", label: "Reports", icon: BarChart3 },
+  { href: "/dashboard/settings/components", label: "Settings", icon: Settings },
 ];
 
 export function AppSidebar({

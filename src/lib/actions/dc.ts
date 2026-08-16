@@ -10,6 +10,8 @@ export type DcItemInput = {
   material: string | null;
   received_qty: number;
   sent_qty: number;
+  material_problem_qty: number;
+  rejection_qty: number;
   remarks: string | null;
 };
 
@@ -20,7 +22,6 @@ export type DcFormValues = {
   customer_dc_date: string | null;
   job_order_no: string | null;
   vehicle_number: string | null;
-  driver_name: string | null;
   authorized_by: string | null;
   remarks: string | null;
   items: DcItemInput[];
@@ -35,7 +36,6 @@ function parseDcForm(formData: FormData): DcFormValues {
   const customer_dc_date = (formData.get("customer_dc_date") as string) || null;
   const job_order_no = (formData.get("job_order_no") as string) || null;
   const vehicle_number = (formData.get("vehicle_number") as string) || null;
-  const driver_name = (formData.get("driver_name") as string) || null;
   const authorized_by = (formData.get("authorized_by") as string) || null;
   const remarks = (formData.get("remarks") as string) || null;
 
@@ -43,6 +43,8 @@ function parseDcForm(formData: FormData): DcFormValues {
   const materials = formData.getAll("item_material") as string[];
   const receivedQtys = formData.getAll("item_received_qty") as string[];
   const sentQtys = formData.getAll("item_sent_qty") as string[];
+  const materialProblemQtys = formData.getAll("item_material_problem_qty") as string[];
+  const rejectionQtys = formData.getAll("item_rejection_qty") as string[];
   const itemRemarks = formData.getAll("item_remarks") as string[];
 
   const items: DcItemInput[] = components
@@ -51,6 +53,8 @@ function parseDcForm(formData: FormData): DcFormValues {
       material: materials[i]?.trim() || null,
       received_qty: Number(receivedQtys[i] ?? 0) || 0,
       sent_qty: Number(sentQtys[i] ?? 0) || 0,
+      material_problem_qty: Number(materialProblemQtys[i] ?? 0) || 0,
+      rejection_qty: Number(rejectionQtys[i] ?? 0) || 0,
       remarks: itemRemarks[i]?.trim() || null,
     }))
     .filter((item) => item.component.length > 0);
@@ -62,7 +66,6 @@ function parseDcForm(formData: FormData): DcFormValues {
     customer_dc_date,
     job_order_no,
     vehicle_number,
-    driver_name,
     authorized_by,
     remarks,
     items,
@@ -92,7 +95,6 @@ export async function createDcAction(
       customer_dc_date: values.customer_dc_date,
       job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
-      driver_name: values.driver_name,
       authorized_by: values.authorized_by,
       remarks: values.remarks,
       created_by: user?.id ?? null,
@@ -111,6 +113,8 @@ export async function createDcAction(
       material: item.material,
       received_qty: item.received_qty,
       sent_qty: item.sent_qty,
+      material_problem_qty: item.material_problem_qty,
+      rejection_qty: item.rejection_qty,
       remarks: item.remarks,
       sort_order: index,
     }))
@@ -148,7 +152,6 @@ export async function updateDcAction(
       customer_dc_date: values.customer_dc_date,
       job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
-      driver_name: values.driver_name,
       authorized_by: values.authorized_by,
       remarks: values.remarks,
     })
@@ -170,6 +173,8 @@ export async function updateDcAction(
       material: item.material,
       received_qty: item.received_qty,
       sent_qty: item.sent_qty,
+      material_problem_qty: item.material_problem_qty,
+      rejection_qty: item.rejection_qty,
       remarks: item.remarks,
       sort_order: index,
     }))

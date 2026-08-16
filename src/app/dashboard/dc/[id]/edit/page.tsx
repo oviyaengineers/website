@@ -10,15 +10,19 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: dc }, { data: items }, { data: customers }] = await Promise.all([
-    supabase.from("delivery_challans").select("*").eq("id", id).single(),
-    supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
-    supabase.from("customers").select("id, name").order("name"),
-  ]);
+  const [{ data: dc }, { data: items }, { data: customers }, { data: picklistItems }] =
+    await Promise.all([
+      supabase.from("delivery_challans").select("*").eq("id", id).single(),
+      supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
+      supabase.from("customers").select("id, name").order("name"),
+      supabase.from("dc_picklist_items").select("*").order("name"),
+    ]);
 
   if (!dc) notFound();
 
   const boundAction = updateDcAction.bind(null, id);
+  const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);
+  const materials = (picklistItems ?? []).filter((i) => i.kind === "material").map((i) => i.name);
 
   return (
     <div className="space-y-6">
@@ -34,9 +38,13 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
           material: i.material,
           received_qty: i.received_qty,
           sent_qty: i.sent_qty,
+          material_problem_qty: i.material_problem_qty,
+          rejection_qty: i.rejection_qty,
           remarks: i.remarks,
         }))}
         action={boundAction}
+        components={components}
+        materials={materials}
       />
     </div>
   );

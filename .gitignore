@@ -42,3 +42,5 @@ next-env.d.ts
 
 devserver.log
 devserver.err.log
+
+.claude/

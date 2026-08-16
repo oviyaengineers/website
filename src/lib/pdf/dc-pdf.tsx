@@ -15,11 +15,13 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d9dee7" },
   th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7" },
   td: { padding: 6 },
-  colComponent: { width: "22%" },
-  colMaterial: { width: "18%" },
-  colReceived: { width: "14%" },
-  colSent: { width: "14%" },
-  colBalance: { width: "14%" },
+  colComponent: { width: "16%" },
+  colMaterial: { width: "14%" },
+  colReceived: { width: "10%" },
+  colSent: { width: "10%" },
+  colMaterialProblem: { width: "12%" },
+  colRejection: { width: "10%" },
+  colTotal: { width: "10%" },
   colRemarks: { width: "18%" },
   sigRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48 },
   sigBox: { width: "45%", borderTopWidth: 1, borderTopColor: "#000", paddingTop: 4, textAlign: "center" },
@@ -32,7 +34,6 @@ export type DcPdfData = {
   customer_dc_date: string | null;
   job_order_no: string | null;
   vehicle_number: string | null;
-  driver_name: string | null;
   authorized_by: string | null;
   remarks: string | null;
   customer: { name: string; address: string | null; phone: string | null; gst_number: string | null } | null;
@@ -41,7 +42,9 @@ export type DcPdfData = {
     material: string | null;
     received_qty: number;
     sent_qty: number;
-    balance: number;
+    material_problem_qty: number;
+    rejection_qty: number;
+    total_qty: number;
     remarks: string | null;
   }[];
 };
@@ -83,7 +86,6 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
           <View style={styles.box}>
             <Text style={styles.label}>Transport</Text>
             <Text>Vehicle No: {dc.vehicle_number ?? "-"}</Text>
-            <Text>Driver: {dc.driver_name ?? "-"}</Text>
           </View>
         </View>
 
@@ -93,7 +95,9 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
             <Text style={[styles.th, styles.colMaterial]}>Material</Text>
             <Text style={[styles.th, styles.colReceived]}>Received Qty</Text>
             <Text style={[styles.th, styles.colSent]}>Sent Qty</Text>
-            <Text style={[styles.th, styles.colBalance]}>Balance</Text>
+            <Text style={[styles.th, styles.colMaterialProblem]}>Material Problem</Text>
+            <Text style={[styles.th, styles.colRejection]}>Rejection</Text>
+            <Text style={[styles.th, styles.colTotal]}>Total</Text>
             <Text style={[styles.th, styles.colRemarks]}>Remarks</Text>
           </View>
           {dc.items.map((item, i) => (
@@ -102,7 +106,9 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
               <Text style={[styles.td, styles.colMaterial]}>{item.material ?? ""}</Text>
               <Text style={[styles.td, styles.colReceived]}>{item.received_qty}</Text>
               <Text style={[styles.td, styles.colSent]}>{item.sent_qty}</Text>
-              <Text style={[styles.td, styles.colBalance]}>{item.balance}</Text>
+              <Text style={[styles.td, styles.colMaterialProblem]}>{item.material_problem_qty}</Text>
+              <Text style={[styles.td, styles.colRejection]}>{item.rejection_qty}</Text>
+              <Text style={[styles.td, styles.colTotal]}>{item.total_qty}</Text>
               <Text style={[styles.td, styles.colRemarks]}>{item.remarks ?? ""}</Text>
             </View>
           ))}

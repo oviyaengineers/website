@@ -7,10 +7,13 @@ export const metadata: Metadata = { title: "New Delivery Challan | Oviya Enginee
 
 export default async function NewDcPage() {
   const supabase = await createClient();
-  const [{ data: customers }, { data: nextDcNumber }] = await Promise.all([
+  const [{ data: customers }, { data: nextDcNumber }, { data: picklistItems }] = await Promise.all([
     supabase.from("customers").select("id, name").order("name"),
     supabase.rpc("generate_dc_number"),
+    supabase.from("dc_picklist_items").select("*").order("name"),
   ]);
+  const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);
+  const materials = (picklistItems ?? []).filter((i) => i.kind === "material").map((i) => i.name);
 
   return (
     <div className="space-y-6">
@@ -22,6 +25,8 @@ export default async function NewDcPage() {
         customers={customers ?? []}
         nextDcNumber={typeof nextDcNumber === "string" ? nextDcNumber : null}
         action={createDcAction}
+        components={components}
+        materials={materials}
       />
     </div>
   );

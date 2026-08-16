@@ -80,7 +80,6 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p>Vehicle: {dc.vehicle_number ?? "-"}</p>
-            <p>Driver: {dc.driver_name ?? "-"}</p>
             <p>Authorized by: {dc.authorized_by ?? "-"}</p>
           </CardContent>
         </Card>
@@ -98,7 +97,9 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 <TableHead>Material</TableHead>
                 <TableHead>Received Qty</TableHead>
                 <TableHead>Sent Qty</TableHead>
-                <TableHead>Balance</TableHead>
+                <TableHead>Material Problem</TableHead>
+                <TableHead>Rejection</TableHead>
+                <TableHead>Total</TableHead>
                 <TableHead>Remarks</TableHead>
               </TableRow>
             </TableHeader>
@@ -109,7 +110,9 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                   <TableCell>{item.material ?? "-"}</TableCell>
                   <TableCell>{item.received_qty}</TableCell>
                   <TableCell>{item.sent_qty}</TableCell>
-                  <TableCell>{item.balance}</TableCell>
+                  <TableCell>{item.material_problem_qty}</TableCell>
+                  <TableCell>{item.rejection_qty}</TableCell>
+                  <TableCell>{item.total_qty}</TableCell>
                   <TableCell>{item.remarks ?? "-"}</TableCell>
                 </TableRow>
               ))}
