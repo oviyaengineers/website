@@ -95,7 +95,9 @@ function DcCopy({
       </header>
 
       <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-        <h2 className="mb-3 text-center text-base font-bold text-[#172033]">Delivery Challan</h2>
+        <h2 className="mb-3 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
+          Delivery Challan
+        </h2>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
             <p className="mb-1 text-xs font-bold uppercase text-gray-500">Our DC Number</p>
