@@ -107,13 +107,22 @@ function DcCopy({
             <p className="mb-1 text-xs font-bold uppercase text-gray-500">Date</p>
             <p>{format(new Date(dc.dc_date), "dd MMM yyyy")}</p>
           </div>
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Number</p>
-            <p>{dc.customer_dc_number ?? "-"}</p>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Date</p>
-            <p>{dc.customer_dc_date ? format(new Date(dc.customer_dc_date), "dd MMM yyyy") : "-"}</p>
+          <div className="col-span-2">
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">
+              Customer DC Number(s)
+            </p>
+            {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
+              dc.customer_dc_number.map((num, i) => (
+                <p key={i}>
+                  {num || "-"}
+                  {dc.customer_dc_date?.[i]
+                    ? ` (${format(new Date(dc.customer_dc_date[i] as string), "dd MMM yyyy")})`
+                    : ""}
+                </p>
+              ))
+            ) : (
+              <p>-</p>
+            )}
           </div>
           <div className="col-span-2">
             <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer Name</p>
