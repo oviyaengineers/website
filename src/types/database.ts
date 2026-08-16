@@ -70,6 +70,9 @@ export type DeliveryChallanRow = {
   dc_number: string;
   customer_id: string;
   dc_date: string;
+  customer_dc_number: string | null;
+  customer_dc_date: string | null;
+  job_order_no: string | null;
   vehicle_number: string | null;
   driver_name: string | null;
   status: DcStatus;
@@ -84,6 +87,9 @@ export type DeliveryChallanInsert = {
   dc_number?: string | null;
   customer_id: string;
   dc_date?: string;
+  customer_dc_number?: string | null;
+  customer_dc_date?: string | null;
+  job_order_no?: string | null;
   vehicle_number?: string | null;
   driver_name?: string | null;
   status?: DcStatus;
@@ -98,6 +104,9 @@ export type DeliveryChallanUpdate = {
   dc_number?: string | null;
   customer_id?: string;
   dc_date?: string;
+  customer_dc_number?: string | null;
+  customer_dc_date?: string | null;
+  job_order_no?: string | null;
   vehicle_number?: string | null;
   driver_name?: string | null;
   status?: DcStatus;
@@ -111,27 +120,31 @@ export type DeliveryChallanUpdate = {
 export type DeliveryChallanItemRow = {
   id: string;
   dc_id: string;
-  description: string;
-  quantity: number;
-  unit: string;
+  component: string;
+  material: string | null;
+  received_qty: number;
+  sent_qty: number;
+  balance: number;
   remarks: string | null;
   sort_order: number;
 };
 export type DeliveryChallanItemInsert = {
   id?: string;
   dc_id: string;
-  description: string;
-  quantity?: number;
-  unit?: string;
+  component: string;
+  material?: string | null;
+  received_qty?: number;
+  sent_qty?: number;
   remarks?: string | null;
   sort_order?: number;
 };
 export type DeliveryChallanItemUpdate = {
   id?: string;
   dc_id?: string;
-  description?: string;
-  quantity?: number;
-  unit?: string;
+  component?: string;
+  material?: string | null;
+  received_qty?: number;
+  sent_qty?: number;
   remarks?: string | null;
   sort_order?: number;
 };

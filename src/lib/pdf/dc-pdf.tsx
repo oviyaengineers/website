@@ -1,22 +1,26 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+const NAVY = "#10233f";
+
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
   header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
   companyName: { fontSize: 16, fontWeight: 700 },
   muted: { color: "#555" },
-  title: { fontSize: 14, fontWeight: 700, marginBottom: 8, textAlign: "center" },
-  section: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-  box: { width: "48%" },
-  label: { fontWeight: 700, marginBottom: 2 },
-  table: { marginTop: 8, borderWidth: 1, borderColor: "#ccc" },
-  tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#ccc" },
-  th: { padding: 6, fontWeight: 700, backgroundColor: "#f1f5f9" },
+  title: { fontSize: 14, fontWeight: 700, marginBottom: 8, textAlign: "center", color: NAVY },
+  section: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap" },
+  box: { width: "48%", marginBottom: 8 },
+  label: { fontWeight: 700, marginBottom: 2, color: NAVY },
+  table: { marginTop: 8, borderWidth: 1, borderColor: "#d9dee7" },
+  tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d9dee7" },
+  th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7" },
   td: { padding: 6 },
-  colDesc: { width: "40%" },
-  colQty: { width: "15%" },
-  colUnit: { width: "15%" },
-  colRemarks: { width: "30%" },
+  colComponent: { width: "22%" },
+  colMaterial: { width: "18%" },
+  colReceived: { width: "14%" },
+  colSent: { width: "14%" },
+  colBalance: { width: "14%" },
+  colRemarks: { width: "18%" },
   sigRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 48 },
   sigBox: { width: "45%", borderTopWidth: 1, borderTopColor: "#000", paddingTop: 4, textAlign: "center" },
 });
@@ -24,12 +28,22 @@ const styles = StyleSheet.create({
 export type DcPdfData = {
   dc_number: string;
   dc_date: string;
+  customer_dc_number: string | null;
+  customer_dc_date: string | null;
+  job_order_no: string | null;
   vehicle_number: string | null;
   driver_name: string | null;
   authorized_by: string | null;
   remarks: string | null;
   customer: { name: string; address: string | null; phone: string | null; gst_number: string | null } | null;
-  items: { description: string; quantity: number; unit: string; remarks: string | null }[];
+  items: {
+    component: string;
+    material: string | null;
+    received_qty: number;
+    sent_qty: number;
+    balance: number;
+    remarks: string | null;
+  }[];
 };
 
 export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
@@ -38,8 +52,8 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.companyName}>Oviya Engineers</Text>
-            <Text style={styles.muted}>Precision Engineering & Fabrication</Text>
+            <Text style={[styles.companyName, { color: NAVY }]}>OVIYA ENGINEERS</Text>
+            <Text style={styles.muted}>Delivery Challan Management</Text>
           </View>
           <View>
             <Text>DC No: {dc.dc_number}</Text>
@@ -58,6 +72,15 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
             {dc.customer?.gst_number && <Text>GST: {dc.customer.gst_number}</Text>}
           </View>
           <View style={styles.box}>
+            <Text style={styles.label}>Reference</Text>
+            <Text>Customer DC No: {dc.customer_dc_number ?? "-"}</Text>
+            <Text>
+              Customer DC Date:{" "}
+              {dc.customer_dc_date ? new Date(dc.customer_dc_date).toLocaleDateString("en-IN") : "-"}
+            </Text>
+            <Text>Job Order / PO No: {dc.job_order_no ?? "-"}</Text>
+          </View>
+          <View style={styles.box}>
             <Text style={styles.label}>Transport</Text>
             <Text>Vehicle No: {dc.vehicle_number ?? "-"}</Text>
             <Text>Driver: {dc.driver_name ?? "-"}</Text>
@@ -66,16 +89,20 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
 
         <View style={styles.table}>
           <View style={styles.tr}>
-            <Text style={[styles.th, styles.colDesc]}>Description</Text>
-            <Text style={[styles.th, styles.colQty]}>Qty</Text>
-            <Text style={[styles.th, styles.colUnit]}>Unit</Text>
+            <Text style={[styles.th, styles.colComponent]}>Component</Text>
+            <Text style={[styles.th, styles.colMaterial]}>Material</Text>
+            <Text style={[styles.th, styles.colReceived]}>Received Qty</Text>
+            <Text style={[styles.th, styles.colSent]}>Sent Qty</Text>
+            <Text style={[styles.th, styles.colBalance]}>Balance</Text>
             <Text style={[styles.th, styles.colRemarks]}>Remarks</Text>
           </View>
           {dc.items.map((item, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={[styles.td, styles.colDesc]}>{item.description}</Text>
-              <Text style={[styles.td, styles.colQty]}>{item.quantity}</Text>
-              <Text style={[styles.td, styles.colUnit]}>{item.unit}</Text>
+              <Text style={[styles.td, styles.colComponent]}>{item.component}</Text>
+              <Text style={[styles.td, styles.colMaterial]}>{item.material ?? ""}</Text>
+              <Text style={[styles.td, styles.colReceived]}>{item.received_qty}</Text>
+              <Text style={[styles.td, styles.colSent]}>{item.sent_qty}</Text>
+              <Text style={[styles.td, styles.colBalance]}>{item.balance}</Text>
               <Text style={[styles.td, styles.colRemarks]}>{item.remarks ?? ""}</Text>
             </View>
           ))}

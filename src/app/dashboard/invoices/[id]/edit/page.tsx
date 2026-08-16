@@ -38,7 +38,12 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
       customer_id: dc.customer_id,
       items: (allItems ?? [])
         .filter((i) => i.dc_id === dc.id)
-        .map((i) => ({ description: i.description, quantity: i.quantity, unit: i.unit, unit_price: 0 })),
+        .map((i) => ({
+          description: [i.component, i.material].filter(Boolean).join(" - "),
+          quantity: i.sent_qty,
+          unit: "nos",
+          unit_price: 0,
+        })),
     }));
   }
 

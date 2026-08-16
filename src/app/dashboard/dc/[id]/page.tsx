@@ -66,6 +66,12 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             <p className="font-medium">{customer?.name ?? "-"}</p>
             <p className="text-muted-foreground">{customer?.phone ?? "-"}</p>
             <p className="text-muted-foreground">{customer?.address ?? "-"}</p>
+            <p>Customer DC No: {dc.customer_dc_number ?? "-"}</p>
+            <p>
+              Customer DC Date:{" "}
+              {dc.customer_dc_date ? format(new Date(dc.customer_dc_date), "dd MMM yyyy") : "-"}
+            </p>
+            <p>Job Order / PO No: {dc.job_order_no ?? "-"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -82,24 +88,28 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Items</CardTitle>
+          <CardTitle className="text-base">Material / Component Details</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Unit</TableHead>
+                <TableHead>Component</TableHead>
+                <TableHead>Material</TableHead>
+                <TableHead>Received Qty</TableHead>
+                <TableHead>Sent Qty</TableHead>
+                <TableHead>Balance</TableHead>
                 <TableHead>Remarks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(items ?? []).map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.description}</TableCell>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell>{item.unit}</TableCell>
+                  <TableCell>{item.component}</TableCell>
+                  <TableCell>{item.material ?? "-"}</TableCell>
+                  <TableCell>{item.received_qty}</TableCell>
+                  <TableCell>{item.sent_qty}</TableCell>
+                  <TableCell>{item.balance}</TableCell>
                   <TableCell>{item.remarks ?? "-"}</TableCell>
                 </TableRow>
               ))}

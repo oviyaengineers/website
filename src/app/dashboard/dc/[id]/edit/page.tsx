@@ -30,9 +30,10 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
         customers={customers ?? []}
         dc={dc}
         items={(items ?? []).map((i) => ({
-          description: i.description,
-          quantity: i.quantity,
-          unit: i.unit,
+          component: i.component,
+          material: i.material,
+          received_qty: i.received_qty,
+          sent_qty: i.sent_qty,
           remarks: i.remarks,
         }))}
         action={boundAction}

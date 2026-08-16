@@ -6,15 +6,19 @@ import { createClient } from "@/lib/supabase/server";
 import type { DcStatus } from "@/types/database";
 
 export type DcItemInput = {
-  description: string;
-  quantity: number;
-  unit: string;
+  component: string;
+  material: string | null;
+  received_qty: number;
+  sent_qty: number;
   remarks: string | null;
 };
 
 export type DcFormValues = {
   customer_id: string;
   dc_date: string;
+  customer_dc_number: string | null;
+  customer_dc_date: string | null;
+  job_order_no: string | null;
   vehicle_number: string | null;
   driver_name: string | null;
   authorized_by: string | null;
@@ -27,26 +31,42 @@ export type DcFormState = { error: string | null };
 function parseDcForm(formData: FormData): DcFormValues {
   const customer_id = String(formData.get("customer_id") ?? "");
   const dc_date = String(formData.get("dc_date") ?? "");
+  const customer_dc_number = (formData.get("customer_dc_number") as string) || null;
+  const customer_dc_date = (formData.get("customer_dc_date") as string) || null;
+  const job_order_no = (formData.get("job_order_no") as string) || null;
   const vehicle_number = (formData.get("vehicle_number") as string) || null;
   const driver_name = (formData.get("driver_name") as string) || null;
   const authorized_by = (formData.get("authorized_by") as string) || null;
   const remarks = (formData.get("remarks") as string) || null;
 
-  const descriptions = formData.getAll("item_description") as string[];
-  const quantities = formData.getAll("item_quantity") as string[];
-  const units = formData.getAll("item_unit") as string[];
+  const components = formData.getAll("item_component") as string[];
+  const materials = formData.getAll("item_material") as string[];
+  const receivedQtys = formData.getAll("item_received_qty") as string[];
+  const sentQtys = formData.getAll("item_sent_qty") as string[];
   const itemRemarks = formData.getAll("item_remarks") as string[];
 
-  const items: DcItemInput[] = descriptions
-    .map((description, i) => ({
-      description: description?.trim() ?? "",
-      quantity: Number(quantities[i] ?? 1) || 1,
-      unit: units[i]?.trim() || "nos",
+  const items: DcItemInput[] = components
+    .map((component, i) => ({
+      component: component?.trim() ?? "",
+      material: materials[i]?.trim() || null,
+      received_qty: Number(receivedQtys[i] ?? 0) || 0,
+      sent_qty: Number(sentQtys[i] ?? 0) || 0,
       remarks: itemRemarks[i]?.trim() || null,
     }))
-    .filter((item) => item.description.length > 0);
+    .filter((item) => item.component.length > 0);
 
-  return { customer_id, dc_date, vehicle_number, driver_name, authorized_by, remarks, items };
+  return {
+    customer_id,
+    dc_date,
+    customer_dc_number,
+    customer_dc_date,
+    job_order_no,
+    vehicle_number,
+    driver_name,
+    authorized_by,
+    remarks,
+    items,
+  };
 }
 
 export async function createDcAction(
@@ -68,6 +88,9 @@ export async function createDcAction(
     .insert({
       customer_id: values.customer_id,
       dc_date: values.dc_date || undefined,
+      customer_dc_number: values.customer_dc_number,
+      customer_dc_date: values.customer_dc_date,
+      job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
       driver_name: values.driver_name,
       authorized_by: values.authorized_by,
@@ -84,9 +107,10 @@ export async function createDcAction(
   const { error: itemsError } = await supabase.from("delivery_challan_items").insert(
     values.items.map((item, index) => ({
       dc_id: dc.id,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit,
+      component: item.component,
+      material: item.material,
+      received_qty: item.received_qty,
+      sent_qty: item.sent_qty,
       remarks: item.remarks,
       sort_order: index,
     }))
@@ -120,6 +144,9 @@ export async function updateDcAction(
     .update({
       customer_id: values.customer_id,
       dc_date: values.dc_date || undefined,
+      customer_dc_number: values.customer_dc_number,
+      customer_dc_date: values.customer_dc_date,
+      job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
       driver_name: values.driver_name,
       authorized_by: values.authorized_by,
@@ -139,9 +166,10 @@ export async function updateDcAction(
   const { error: itemsError } = await supabase.from("delivery_challan_items").insert(
     values.items.map((item, index) => ({
       dc_id: id,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit,
+      component: item.component,
+      material: item.material,
+      received_qty: item.received_qty,
+      sent_qty: item.sent_qty,
       remarks: item.remarks,
       sort_order: index,
     }))
