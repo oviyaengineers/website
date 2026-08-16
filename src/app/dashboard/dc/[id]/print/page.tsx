@@ -142,7 +142,7 @@ function DcCopy({
             <thead>
               <tr>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Component</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Description</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Material</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Received</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Sent</th>

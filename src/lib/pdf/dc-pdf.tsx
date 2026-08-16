@@ -101,7 +101,7 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
 
         <View style={styles.table}>
           <View style={styles.tr}>
-            <Text style={[styles.th, styles.colComponent]}>Component</Text>
+            <Text style={[styles.th, styles.colComponent]}>Description</Text>
             <Text style={[styles.th, styles.colMaterial]}>Material</Text>
             <Text style={[styles.th, styles.colReceived]}>Received Qty</Text>
             <Text style={[styles.th, styles.colSent]}>Sent Qty</Text>
