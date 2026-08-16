@@ -4,8 +4,8 @@ const NAVY = "#10233f";
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
-  header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
-  companyName: { fontSize: 16, fontWeight: 700 },
+  header: { alignItems: "center", marginBottom: 16 },
+  companyName: { fontSize: 16, fontWeight: 700, textAlign: "center" },
   muted: { color: "#555" },
   title: { fontSize: 14, fontWeight: 700, marginBottom: 8, textAlign: "center", color: NAVY },
   section: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap" },
@@ -52,19 +52,24 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.companyName, { color: NAVY }]}>OVIYA ENGINEERS</Text>
-            <Text style={styles.muted}>Delivery Challan Management</Text>
-          </View>
-          <View>
-            <Text>DC No: {dc.dc_number}</Text>
-            <Text>Date: {new Date(dc.dc_date).toLocaleDateString("en-IN")}</Text>
-          </View>
+          {/* TODO: company logo goes here once available */}
+          <Text style={[styles.companyName, { color: NAVY }]}>OVIYA ENGINEERS</Text>
+          <Text style={[styles.muted, { textAlign: "center" }]}>
+            40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
+          </Text>
+          <Text style={[styles.muted, { textAlign: "center" }]}>
+            Ph: 9965902970, 9965702970
+          </Text>
         </View>
 
         <Text style={styles.title}>DELIVERY CHALLAN</Text>
 
         <View style={styles.section}>
+          <View style={styles.box}>
+            <Text style={styles.label}>Our DC</Text>
+            <Text>DC No: {dc.dc_number}</Text>
+            <Text>Date: {new Date(dc.dc_date).toLocaleDateString("en-IN")}</Text>
+          </View>
           <View style={styles.box}>
             <Text style={styles.label}>Customer</Text>
             <Text>{dc.customer?.name ?? "-"}</Text>

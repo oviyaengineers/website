@@ -78,15 +78,19 @@ function DcCopy({
 }) {
   return (
     <div className="dc-print-sheet break-inside-avoid print:h-[130mm] print:overflow-hidden">
-      <header className="mb-3 flex items-start justify-between rounded-t-2xl bg-[#10233f] px-6 py-4 text-white print:rounded-none">
-        <div>
-          <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
-          <div className="mt-1 text-xs opacity-80">Delivery Challan Management</div>
-        </div>
-        <div className="text-right text-xs opacity-90">
+      <header className="relative mb-3 rounded-t-2xl bg-[#10233f] px-6 py-3 text-white print:rounded-none print:py-2">
+        <div className="absolute right-4 top-4 text-xs opacity-90">
           <p className="rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
             {label}
           </p>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          {/* TODO: company logo goes here once available */}
+          <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
+          <div className="mt-1 text-xs opacity-80">
+            40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
+          </div>
+          <div className="mt-0.5 text-xs opacity-80">Ph: 9965902970, 9965702970</div>
         </div>
       </header>
 
