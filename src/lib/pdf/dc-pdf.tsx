@@ -7,14 +7,21 @@ const styles = StyleSheet.create({
   header: { alignItems: "center", marginBottom: 16 },
   companyName: { fontSize: 16, fontWeight: 700, textAlign: "center" },
   muted: { color: "#555" },
-  title: { fontSize: 14, fontWeight: 700, marginBottom: 8, textAlign: "center", color: NAVY },
+  title: {
+    fontSize: 16,
+    fontWeight: 700,
+    marginBottom: 8,
+    textAlign: "center",
+    color: NAVY,
+    textDecoration: "underline",
+  },
   section: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap" },
   box: { width: "48%", marginBottom: 8 },
   label: { fontWeight: 700, marginBottom: 2, color: NAVY },
   table: { marginTop: 8, borderWidth: 1, borderColor: "#d9dee7" },
   tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d9dee7" },
-  th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7" },
-  td: { padding: 6 },
+  th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7", textAlign: "center" },
+  td: { padding: 6, textAlign: "center" },
   colComponent: { width: "20%" },
   colMaterial: { width: "18%" },
   colReceived: { width: "13%" },
@@ -94,7 +101,7 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
 
         <View style={styles.table}>
           <View style={styles.tr}>
-            <Text style={[styles.th, styles.colComponent]}>Component</Text>
+            <Text style={[styles.th, styles.colComponent]}>Description</Text>
             <Text style={[styles.th, styles.colMaterial]}>Material</Text>
             <Text style={[styles.th, styles.colReceived]}>Received Qty</Text>
             <Text style={[styles.th, styles.colSent]}>Sent Qty</Text>
@@ -111,6 +118,17 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
               <Text style={[styles.td, styles.colMaterialProblem]}>{item.material_problem_qty}</Text>
               <Text style={[styles.td, styles.colRejection]}>{item.rejection_qty}</Text>
               <Text style={[styles.td, styles.colTotal]}>{item.total_qty}</Text>
+            </View>
+          ))}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View style={styles.tr} key={`blank-${i}`}>
+              <Text style={[styles.td, styles.colComponent]}> </Text>
+              <Text style={[styles.td, styles.colMaterial]}> </Text>
+              <Text style={[styles.td, styles.colReceived]}> </Text>
+              <Text style={[styles.td, styles.colSent]}> </Text>
+              <Text style={[styles.td, styles.colMaterialProblem]}> </Text>
+              <Text style={[styles.td, styles.colRejection]}> </Text>
+              <Text style={[styles.td, styles.colTotal]}> </Text>
             </View>
           ))}
         </View>

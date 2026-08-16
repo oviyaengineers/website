@@ -93,7 +93,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Component</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Material</TableHead>
                 <TableHead>Received Qty</TableHead>
                 <TableHead>Sent Qty</TableHead>

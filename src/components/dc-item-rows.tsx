@@ -64,7 +64,7 @@ export function DcItemRows({
   return (
     <div className="space-y-3">
       <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_36px]">
-        <span>Component</span>
+        <span>Description</span>
         <span>Material</span>
         <span>Received</span>
         <span>Sent</span>
@@ -84,7 +84,7 @@ export function DcItemRows({
             className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_36px] sm:items-center sm:border-0 sm:p-0"
           >
             <div className="space-y-1">
-              <Label className="sm:hidden">Component</Label>
+              <Label className="sm:hidden">Description</Label>
               <input type="hidden" name="item_component" value={row.component} />
               <Select
                 value={row.component || undefined}

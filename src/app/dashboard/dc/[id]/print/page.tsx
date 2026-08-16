@@ -54,7 +54,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
         <DcPrintActions dc={pdfData} />
       </div>
 
-      <div className="mx-auto max-w-4xl pb-10 print:pb-0 print:h-[273mm] print:overflow-hidden">
+      <div className="mx-auto max-w-4xl pb-10 print:pb-0">
         <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={items ?? []} />
         <div className="my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400 print:my-2 print:h-[6mm]">
           <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
@@ -77,7 +77,7 @@ function DcCopy({
   items: PrintItem[];
 }) {
   return (
-    <div className="dc-print-sheet break-inside-avoid print:h-[130mm] print:overflow-hidden">
+    <div className="dc-print-sheet break-inside-avoid">
       <header className="relative mb-3 rounded-t-2xl bg-[#10233f] px-6 py-3 text-white print:rounded-none print:py-2">
         <div className="absolute right-4 top-4 text-xs opacity-90">
           <p className="rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
@@ -95,7 +95,9 @@ function DcCopy({
       </header>
 
       <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-        <h2 className="mb-3 text-base font-bold text-[#172033]">Delivery Challan</h2>
+        <h2 className="mb-3 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
+          Delivery Challan
+        </h2>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
             <p className="mb-1 text-xs font-bold uppercase text-gray-500">Our DC Number</p>
@@ -132,32 +134,48 @@ function DcCopy({
       </section>
 
       <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-        <div className="mb-2 text-sm font-bold text-[#172033]">Material / Component Details</div>
+        <div className="mb-2 text-center text-sm font-bold text-[#172033]">
+          Material / Component Details
+        </div>
         <div className="overflow-auto">
           <table className="w-full min-w-[700px] border-collapse text-xs">
             <thead>
               <tr>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">S.No.</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Component</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Material</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Received</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Sent</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Mat. Problem</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Rejection</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-left">Total</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Description</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Material</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Received</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Sent</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Mat. Problem</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Rejection</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id}>
-                  <td className="border border-[#d9dee7] p-1.5">{idx + 1}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.component}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.material ?? ""}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.received_qty}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.sent_qty}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.material_problem_qty}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.rejection_qty}</td>
-                  <td className="border border-[#d9dee7] p-1.5">{item.total_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{idx + 1}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.component}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.material ?? ""}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.received_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.sent_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">
+                    {item.material_problem_qty}
+                  </td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.rejection_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.total_qty}</td>
+                </tr>
+              ))}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <tr key={`blank-${i}`}>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
                 </tr>
               ))}
             </tbody>
