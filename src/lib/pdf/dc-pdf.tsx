@@ -13,8 +13,8 @@ const styles = StyleSheet.create({
   label: { fontWeight: 700, marginBottom: 2, color: NAVY },
   table: { marginTop: 8, borderWidth: 1, borderColor: "#d9dee7" },
   tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#d9dee7" },
-  th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7" },
-  td: { padding: 6 },
+  th: { padding: 6, fontWeight: 700, backgroundColor: "#eef2f7", textAlign: "center" },
+  td: { padding: 6, textAlign: "center" },
   colComponent: { width: "20%" },
   colMaterial: { width: "18%" },
   colReceived: { width: "13%" },
@@ -111,6 +111,17 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
               <Text style={[styles.td, styles.colMaterialProblem]}>{item.material_problem_qty}</Text>
               <Text style={[styles.td, styles.colRejection]}>{item.rejection_qty}</Text>
               <Text style={[styles.td, styles.colTotal]}>{item.total_qty}</Text>
+            </View>
+          ))}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View style={styles.tr} key={`blank-${i}`}>
+              <Text style={[styles.td, styles.colComponent]}> </Text>
+              <Text style={[styles.td, styles.colMaterial]}> </Text>
+              <Text style={[styles.td, styles.colReceived]}> </Text>
+              <Text style={[styles.td, styles.colSent]}> </Text>
+              <Text style={[styles.td, styles.colMaterialProblem]}> </Text>
+              <Text style={[styles.td, styles.colRejection]}> </Text>
+              <Text style={[styles.td, styles.colTotal]}> </Text>
             </View>
           ))}
         </View>
