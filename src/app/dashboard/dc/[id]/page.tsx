@@ -66,11 +66,18 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             <p className="font-medium">{customer?.name ?? "-"}</p>
             <p className="text-muted-foreground">{customer?.phone ?? "-"}</p>
             <p className="text-muted-foreground">{customer?.address ?? "-"}</p>
-            <p>Customer DC No: {dc.customer_dc_number ?? "-"}</p>
-            <p>
-              Customer DC Date:{" "}
-              {dc.customer_dc_date ? format(new Date(dc.customer_dc_date), "dd MMM yyyy") : "-"}
-            </p>
+            {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
+              dc.customer_dc_number.map((num, i) => (
+                <p key={i}>
+                  Customer DC No: {num || "-"}
+                  {dc.customer_dc_date?.[i]
+                    ? ` (${format(new Date(dc.customer_dc_date[i] as string), "dd MMM yyyy")})`
+                    : ""}
+                </p>
+              ))
+            ) : (
+              <p>Customer DC No: -</p>
+            )}
             <p>Job Order / PO No: {dc.job_order_no ?? "-"}</p>
           </CardContent>
         </Card>

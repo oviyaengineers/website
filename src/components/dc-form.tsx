@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomerCombobox, type ComboboxCustomer } from "@/components/customer-combobox";
 import { DatePicker } from "@/components/date-picker";
 import { DcItemRows } from "@/components/dc-item-rows";
+import { CustomerDcRefs } from "@/components/customer-dc-refs";
 import type { DcFormState, DcItemInput } from "@/lib/actions/dc";
 import type { DeliveryChallanRow } from "@/types/database";
 
@@ -32,7 +33,6 @@ export function DcForm({
   const [state, formAction, pending] = useActionState(action, { error: null });
   const [customerId, setCustomerId] = useState(dc?.customer_id ?? "");
   const [date, setDate] = useState(dc?.dc_date ?? new Date().toISOString().slice(0, 10));
-  const [customerDcDate, setCustomerDcDate] = useState(dc?.customer_dc_date ?? "");
 
   useEffect(() => {
     if (dc?.customer_id) setCustomerId(dc.customer_id);
@@ -57,23 +57,14 @@ export function DcForm({
             <Label htmlFor="dc_date">Date *</Label>
             <DatePicker value={date} onChange={setDate} name="dc_date" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="customer_dc_number">Customer DC Number</Label>
-            <Input
-              id="customer_dc_number"
-              name="customer_dc_number"
-              placeholder="Customer DC No."
-              defaultValue={dc?.customer_dc_number ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="customer_dc_date">Customer DC Date</Label>
-            <DatePicker value={customerDcDate} onChange={setCustomerDcDate} name="customer_dc_date" />
-          </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Customer Name *</Label>
             <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
           </div>
+          <CustomerDcRefs
+            initialNumbers={dc?.customer_dc_number}
+            initialDates={dc?.customer_dc_date}
+          />
           <div className="space-y-2">
             <Label htmlFor="job_order_no">Job Order / PO No.</Label>
             <Input

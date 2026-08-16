@@ -17,8 +17,8 @@ export type DcItemInput = {
 export type DcFormValues = {
   customer_id: string;
   dc_date: string;
-  customer_dc_number: string | null;
-  customer_dc_date: string | null;
+  customer_dc_number: string[] | null;
+  customer_dc_date: (string | null)[] | null;
   job_order_no: string | null;
   vehicle_number: string | null;
   authorized_by: string | null;
@@ -31,8 +31,16 @@ export type DcFormState = { error: string | null };
 function parseDcForm(formData: FormData): DcFormValues {
   const customer_id = String(formData.get("customer_id") ?? "");
   const dc_date = String(formData.get("dc_date") ?? "");
-  const customer_dc_number = (formData.get("customer_dc_number") as string) || null;
-  const customer_dc_date = (formData.get("customer_dc_date") as string) || null;
+
+  const customerDcNumbers = formData.getAll("customer_dc_number") as string[];
+  const customerDcDates = formData.getAll("customer_dc_date") as string[];
+  const customerDcRefs = customerDcNumbers
+    .map((num, i) => ({ num: num?.trim() ?? "", date: customerDcDates[i]?.trim() ?? "" }))
+    .filter((ref) => ref.num.length > 0 || ref.date.length > 0);
+  const customer_dc_number = customerDcRefs.length > 0 ? customerDcRefs.map((r) => r.num) : null;
+  const customer_dc_date =
+    customerDcRefs.length > 0 ? customerDcRefs.map((r) => r.date || null) : null;
+
   const job_order_no = (formData.get("job_order_no") as string) || null;
   const vehicle_number = (formData.get("vehicle_number") as string) || null;
   const authorized_by = (formData.get("authorized_by") as string) || null;

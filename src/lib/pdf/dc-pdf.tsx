@@ -36,8 +36,8 @@ const styles = StyleSheet.create({
 export type DcPdfData = {
   dc_number: string;
   dc_date: string;
-  customer_dc_number: string | null;
-  customer_dc_date: string | null;
+  customer_dc_number: string[] | null;
+  customer_dc_date: (string | null)[] | null;
   job_order_no: string | null;
   vehicle_number: string | null;
   authorized_by: string | null;
@@ -86,11 +86,18 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
           </View>
           <View style={styles.box}>
             <Text style={styles.label}>Reference</Text>
-            <Text>Customer DC No: {dc.customer_dc_number ?? "-"}</Text>
-            <Text>
-              Customer DC Date:{" "}
-              {dc.customer_dc_date ? new Date(dc.customer_dc_date).toLocaleDateString("en-IN") : "-"}
-            </Text>
+            {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
+              dc.customer_dc_number.map((num, i) => (
+                <Text key={i}>
+                  Customer DC No: {num || "-"}
+                  {dc.customer_dc_date?.[i]
+                    ? ` (${new Date(dc.customer_dc_date[i] as string).toLocaleDateString("en-IN")})`
+                    : ""}
+                </Text>
+              ))
+            ) : (
+              <Text>Customer DC No: -</Text>
+            )}
             <Text>Job Order / PO No: {dc.job_order_no ?? "-"}</Text>
           </View>
           <View style={styles.box}>

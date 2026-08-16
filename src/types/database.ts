@@ -70,8 +70,8 @@ export type DeliveryChallanRow = {
   dc_number: string;
   customer_id: string;
   dc_date: string;
-  customer_dc_number: string | null;
-  customer_dc_date: string | null;
+  customer_dc_number: string[] | null;
+  customer_dc_date: string[] | null;
   job_order_no: string | null;
   vehicle_number: string | null;
   status: DcStatus;
@@ -86,8 +86,8 @@ export type DeliveryChallanInsert = {
   dc_number?: string | null;
   customer_id: string;
   dc_date?: string;
-  customer_dc_number?: string | null;
-  customer_dc_date?: string | null;
+  customer_dc_number?: string[] | null;
+  customer_dc_date?: (string | null)[] | null;
   job_order_no?: string | null;
   vehicle_number?: string | null;
   status?: DcStatus;
@@ -102,8 +102,8 @@ export type DeliveryChallanUpdate = {
   dc_number?: string | null;
   customer_id?: string;
   dc_date?: string;
-  customer_dc_number?: string | null;
-  customer_dc_date?: string | null;
+  customer_dc_number?: string[] | null;
+  customer_dc_date?: (string | null)[] | null;
   job_order_no?: string | null;
   vehicle_number?: string | null;
   status?: DcStatus;
