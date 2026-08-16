@@ -3,7 +3,6 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevenueCostChart } from "@/components/revenue-cost-chart";
 import { Truck, Receipt, Users, AlertCircle } from "lucide-react";
-import type { InvoiceRow, JobCostRow } from "@/types/database";
 
 export default async function DashboardHomePage() {
   const { profile } = await getCurrentUserAndProfile();
@@ -25,9 +24,7 @@ export default async function DashboardHomePage() {
       supabase
         .from("invoices")
         .select("grand_total, amount_paid, payment_status")
-        .neq("payment_status", "paid") as unknown as Promise<{
-        data: Pick<InvoiceRow, "grand_total" | "amount_paid" | "payment_status">[] | null;
-      }>,
+        .neq("payment_status", "paid"),
     ]);
 
   const outstandingTotal = (outstandingInvoices ?? []).reduce(
@@ -37,16 +34,12 @@ export default async function DashboardHomePage() {
 
   let revenueVsCost: { month: string; revenue: number; cost: number }[] = [];
   if (isAdmin) {
-    const { data: invoices } = (await supabase
+    const { data: invoices } = await supabase
       .from("invoices")
-      .select("grand_total, invoice_date")) as unknown as {
-      data: Pick<InvoiceRow, "grand_total" | "invoice_date">[] | null;
-    };
-    const { data: jobCosts } = (await supabase
+      .select("grand_total, invoice_date");
+    const { data: jobCosts } = await supabase
       .from("job_costs")
-      .select("total_cost, created_at")) as unknown as {
-      data: Pick<JobCostRow, "total_cost" | "created_at">[] | null;
-    };
+      .select("total_cost, created_at");
     const monthMap = new Map<string, { revenue: number; cost: number }>();
     for (const inv of invoices ?? []) {
       const key = String(inv.invoice_date).slice(0, 7);
