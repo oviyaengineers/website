@@ -121,7 +121,9 @@ export type DeliveryChallanItemRow = {
   material: string | null;
   received_qty: number;
   sent_qty: number;
-  balance: number;
+  material_problem_qty: number;
+  rejection_qty: number;
+  total_qty: number;
   remarks: string | null;
   sort_order: number;
 };
@@ -132,6 +134,8 @@ export type DeliveryChallanItemInsert = {
   material?: string | null;
   received_qty?: number;
   sent_qty?: number;
+  material_problem_qty?: number;
+  rejection_qty?: number;
   remarks?: string | null;
   sort_order?: number;
 };
@@ -142,6 +146,8 @@ export type DeliveryChallanItemUpdate = {
   material?: string | null;
   received_qty?: number;
   sent_qty?: number;
+  material_problem_qty?: number;
+  rejection_qty?: number;
   remarks?: string | null;
   sort_order?: number;
 };
@@ -276,6 +282,30 @@ export type JobCostUpdate = {
   created_at?: string;
 };
 
+export type DcPicklistKind = "component" | "material";
+
+export type DcPicklistItemRow = {
+  id: string;
+  kind: DcPicklistKind;
+  name: string;
+  created_at: string;
+  created_by: string | null;
+};
+export type DcPicklistItemInsert = {
+  id?: string;
+  kind: DcPicklistKind;
+  name: string;
+  created_at?: string;
+  created_by?: string | null;
+};
+export type DcPicklistItemUpdate = {
+  id?: string;
+  kind?: DcPicklistKind;
+  name?: string;
+  created_at?: string;
+  created_by?: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -319,6 +349,12 @@ export type Database = {
         Row: JobCostRow;
         Insert: JobCostInsert;
         Update: JobCostUpdate;
+        Relationships: [];
+      };
+      dc_picklist_items: {
+        Row: DcPicklistItemRow;
+        Insert: DcPicklistItemInsert;
+        Update: DcPicklistItemUpdate;
         Relationships: [];
       };
     };

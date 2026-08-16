@@ -18,12 +18,16 @@ export function DcForm({
   items,
   nextDcNumber,
   action,
+  components,
+  materials,
 }: {
   customers: ComboboxCustomer[];
   dc?: DeliveryChallanRow;
   items?: DcItemInput[];
   nextDcNumber?: string | null;
   action: (state: DcFormState, formData: FormData) => Promise<DcFormState>;
+  components: string[];
+  materials: string[];
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
   const [customerId, setCustomerId] = useState(dc?.customer_id ?? "");
@@ -96,7 +100,7 @@ export function DcForm({
           <CardTitle className="text-base text-[#10233f]">Material / Component Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <DcItemRows initialItems={items} />
+          <DcItemRows initialItems={items} components={components} materials={materials} />
         </CardContent>
       </Card>
 

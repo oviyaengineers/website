@@ -30,7 +30,9 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
       material: i.material,
       received_qty: i.received_qty,
       sent_qty: i.sent_qty,
-      balance: i.balance,
+      material_problem_qty: i.material_problem_qty,
+      rejection_qty: i.rejection_qty,
+      total_qty: i.total_qty,
       remarks: i.remarks,
     })),
   };
@@ -100,7 +102,9 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Material</th>
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Received Qty</th>
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Sent Qty</th>
-                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Balance</th>
+                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Material Problem</th>
+                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Rejection</th>
+                  <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Total</th>
                   <th className="border border-[#d9dee7] bg-[#eef2f7] p-2 text-left">Remarks</th>
                 </tr>
               </thead>
@@ -112,7 +116,9 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
                     <td className="border border-[#d9dee7] p-2">{item.material ?? ""}</td>
                     <td className="border border-[#d9dee7] p-2">{item.received_qty}</td>
                     <td className="border border-[#d9dee7] p-2">{item.sent_qty}</td>
-                    <td className="border border-[#d9dee7] p-2">{item.balance}</td>
+                    <td className="border border-[#d9dee7] p-2">{item.material_problem_qty}</td>
+                    <td className="border border-[#d9dee7] p-2">{item.rejection_qty}</td>
+                    <td className="border border-[#d9dee7] p-2">{item.total_qty}</td>
                     <td className="border border-[#d9dee7] p-2">{item.remarks ?? ""}</td>
                   </tr>
                 ))}
