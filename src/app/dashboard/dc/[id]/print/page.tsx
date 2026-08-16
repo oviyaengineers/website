@@ -22,7 +22,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     customer_dc_date: dc.customer_dc_date,
     job_order_no: dc.job_order_no,
     vehicle_number: dc.vehicle_number,
-    driver_name: dc.driver_name,
     authorized_by: dc.authorized_by,
     remarks: dc.remarks,
     customer,
@@ -86,7 +85,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
             <div>
               <p className="mb-1 text-xs font-bold uppercase text-gray-500">Vehicle No.</p>
               <p>{dc.vehicle_number ?? "-"}</p>
-              {dc.driver_name && <p className="text-gray-600">Driver: {dc.driver_name}</p>}
             </div>
           </div>
         </section>

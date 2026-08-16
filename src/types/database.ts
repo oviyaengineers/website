@@ -74,7 +74,6 @@ export type DeliveryChallanRow = {
   customer_dc_date: string | null;
   job_order_no: string | null;
   vehicle_number: string | null;
-  driver_name: string | null;
   status: DcStatus;
   remarks: string | null;
   authorized_by: string | null;
@@ -91,7 +90,6 @@ export type DeliveryChallanInsert = {
   customer_dc_date?: string | null;
   job_order_no?: string | null;
   vehicle_number?: string | null;
-  driver_name?: string | null;
   status?: DcStatus;
   remarks?: string | null;
   authorized_by?: string | null;
@@ -108,7 +106,6 @@ export type DeliveryChallanUpdate = {
   customer_dc_date?: string | null;
   job_order_no?: string | null;
   vehicle_number?: string | null;
-  driver_name?: string | null;
   status?: DcStatus;
   remarks?: string | null;
   authorized_by?: string | null;

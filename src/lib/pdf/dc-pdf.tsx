@@ -32,7 +32,6 @@ export type DcPdfData = {
   customer_dc_date: string | null;
   job_order_no: string | null;
   vehicle_number: string | null;
-  driver_name: string | null;
   authorized_by: string | null;
   remarks: string | null;
   customer: { name: string; address: string | null; phone: string | null; gst_number: string | null } | null;
@@ -83,7 +82,6 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
           <View style={styles.box}>
             <Text style={styles.label}>Transport</Text>
             <Text>Vehicle No: {dc.vehicle_number ?? "-"}</Text>
-            <Text>Driver: {dc.driver_name ?? "-"}</Text>
           </View>
         </View>
 

@@ -80,7 +80,6 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p>Vehicle: {dc.vehicle_number ?? "-"}</p>
-            <p>Driver: {dc.driver_name ?? "-"}</p>
             <p>Authorized by: {dc.authorized_by ?? "-"}</p>
           </CardContent>
         </Card>

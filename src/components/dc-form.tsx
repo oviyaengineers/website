@@ -88,10 +88,6 @@ export function DcForm({
               defaultValue={dc?.vehicle_number ?? ""}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="driver_name">Driver Name</Label>
-            <Input id="driver_name" name="driver_name" defaultValue={dc?.driver_name ?? ""} />
-          </div>
         </CardContent>
       </Card>
 

@@ -20,7 +20,6 @@ export type DcFormValues = {
   customer_dc_date: string | null;
   job_order_no: string | null;
   vehicle_number: string | null;
-  driver_name: string | null;
   authorized_by: string | null;
   remarks: string | null;
   items: DcItemInput[];
@@ -35,7 +34,6 @@ function parseDcForm(formData: FormData): DcFormValues {
   const customer_dc_date = (formData.get("customer_dc_date") as string) || null;
   const job_order_no = (formData.get("job_order_no") as string) || null;
   const vehicle_number = (formData.get("vehicle_number") as string) || null;
-  const driver_name = (formData.get("driver_name") as string) || null;
   const authorized_by = (formData.get("authorized_by") as string) || null;
   const remarks = (formData.get("remarks") as string) || null;
 
@@ -62,7 +60,6 @@ function parseDcForm(formData: FormData): DcFormValues {
     customer_dc_date,
     job_order_no,
     vehicle_number,
-    driver_name,
     authorized_by,
     remarks,
     items,
@@ -92,7 +89,6 @@ export async function createDcAction(
       customer_dc_date: values.customer_dc_date,
       job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
-      driver_name: values.driver_name,
       authorized_by: values.authorized_by,
       remarks: values.remarks,
       created_by: user?.id ?? null,
@@ -148,7 +144,6 @@ export async function updateDcAction(
       customer_dc_date: values.customer_dc_date,
       job_order_no: values.job_order_no,
       vehicle_number: values.vehicle_number,
-      driver_name: values.driver_name,
       authorized_by: values.authorized_by,
       remarks: values.remarks,
     })
