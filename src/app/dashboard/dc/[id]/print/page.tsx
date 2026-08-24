@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
+import { LogoMark } from "@/components/marketing/logo";
 
 type PrintItem = {
   id: string;
@@ -85,7 +86,9 @@ function DcCopy({
           </p>
         </div>
         <div className="flex flex-col items-center text-center">
-          {/* TODO: company logo goes here once available */}
+          <div className="mb-1 flex h-12 w-16 items-center justify-center rounded-lg bg-white/95 p-1">
+            <LogoMark className="h-full w-full" />
+          </div>
           <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
           <div className="mt-1 text-xs opacity-80">
             40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
