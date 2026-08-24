@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 
 const NAVY = "#10233f";
 
@@ -59,7 +59,7 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          {/* TODO: company logo goes here once available */}
+          <Image src="/logo.png" style={{ width: 60, height: 39, marginBottom: 4 }} />
           <Text style={[styles.companyName, { color: NAVY }]}>OVIYA ENGINEERS</Text>
           <Text style={[styles.muted, { textAlign: "center" }]}>
             40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
