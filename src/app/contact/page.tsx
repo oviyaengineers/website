@@ -41,7 +41,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-white">Phone</p>
-                  <p className="text-sm text-zinc-400">h+91 h 00000</p>
+                  <p className="text-sm text-zinc-400">h+91 9965902970, 9965702970</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
@@ -60,7 +60,7 @@ export default function ContactPage() {
                 <div>
                   <p className="font-semibold text-white">Workshop</p>
                   <p className="text-sm text-zinc-400">
-                    Industrial Estate, Tamil Nadu, India
+                    40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore. Tamil Nadu, India
                   </p>
                 </div>
               </div>
