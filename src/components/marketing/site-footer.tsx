@@ -41,13 +41,13 @@ export function SiteFooter() {
             <p className="text-sm font-semibold text-white">Get in touch</p>
             <div className="mt-3 flex flex-col gap-2.5 text-sm text-zinc-400">
               <span className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-cyan-400" /> +91 00000 00000
+                <Phone className="h-4 w-4 text-cyan-400" /> +91 9965902970, +91 9965702970
               </span>
               <span className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-cyan-400" /> info@oviyaengineers.com
               </span>
               <span className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" /> Industrial Estate,
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" /> 40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111.
                 Tamil Nadu, India
               </span>
             </div>
