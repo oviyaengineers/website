@@ -9,7 +9,9 @@ export default async function NewInvoicePage() {
   const supabase = await createClient();
   const [{ data: customers }, { data: nextInvoiceNumber }, { data: dcs }] = await Promise.all([
     supabase.from("customers").select("id, name").order("name"),
-    supabase.rpc("generate_invoice_number"),
+    // peek_invoice_number() only reads the counter; generate_invoice_number()
+    // increments it, which burned a number on every page view.
+    supabase.rpc("peek_invoice_number"),
     supabase
       .from("delivery_challans")
       .select("id, dc_number, customer_id")

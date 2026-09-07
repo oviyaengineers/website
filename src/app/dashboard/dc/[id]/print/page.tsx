@@ -5,6 +5,9 @@ import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
 import { LogoMark } from "@/components/marketing/logo";
 
+/** Rows shown in the items table, padded with blanks when a DC is short. */
+const MIN_TABLE_ROWS = 4;
+
 type PrintItem = {
   id: string;
   component: string;
@@ -33,10 +36,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     dc_date: dc.dc_date,
     customer_dc_number: dc.customer_dc_number,
     customer_dc_date: dc.customer_dc_date,
-    job_order_no: dc.job_order_no,
-    vehicle_number: dc.vehicle_number,
     authorized_by: dc.authorized_by,
-    remarks: dc.remarks,
     customer,
     items: (items ?? []).map((i) => ({
       component: i.component,
@@ -55,9 +55,9 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
         <DcPrintActions dc={pdfData} />
       </div>
 
-      <div className="mx-auto max-w-4xl pb-10 print:pb-0">
+      <div className="dc-print-page mx-auto max-w-4xl pb-10 print:pb-0">
         <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={items ?? []} />
-        <div className="my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400 print:my-2 print:h-[6mm]">
+        <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
           <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
         </div>
         <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={items ?? []} />
@@ -81,15 +81,15 @@ function DcCopy({
     <div className="dc-print-sheet break-inside-avoid">
       <header className="relative mb-3 rounded-t-2xl bg-[#10233f] px-6 py-3 text-white print:rounded-none print:py-2">
         <div className="absolute right-4 top-4 text-xs opacity-90">
-          <p className="rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
+          <p className="dc-print-copy-label rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
             {label}
           </p>
         </div>
         <div className="flex flex-col items-center text-center">
-          <div className="mb-1 flex h-12 w-16 items-center justify-center rounded-lg bg-white/95 p-1">
+          <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center rounded-lg bg-white/95 p-1">
             <LogoMark className="h-full w-full" />
           </div>
-          <div className="text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
+          <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
           <div className="mt-1 text-xs opacity-80">
             40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
           </div>
@@ -98,10 +98,10 @@ function DcCopy({
       </header>
 
       <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-        <h2 className="mb-3 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
+        <h2 className="dc-print-title mb-3 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
           Delivery Challan
         </h2>
-        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div className="dc-print-meta grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
           <div>
             <p className="mb-1 text-xs font-bold uppercase text-gray-500">Our DC Number</p>
             <p>{dc.dc_number}</p>
@@ -134,14 +134,6 @@ function DcCopy({
             <p className="text-gray-600">{customer?.phone ?? ""}</p>
             {customer?.gst_number && <p className="text-gray-600">GST: {customer.gst_number}</p>}
           </div>
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Job Order / PO No.</p>
-            <p>{dc.job_order_no ?? "-"}</p>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Vehicle No.</p>
-            <p>{dc.vehicle_number ?? "-"}</p>
-          </div>
         </div>
       </section>
 
@@ -149,15 +141,13 @@ function DcCopy({
         <div className="mb-2 text-center text-sm font-bold text-[#172033]">
           Material / Component Details
         </div>
-        <div className="overflow-auto">
+        <div className="dc-print-table-wrap overflow-auto">
           <table className="w-full min-w-[700px] border-collapse text-xs">
             <thead>
               <tr>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Description</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Material</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Received</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Sent</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Qty</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Mat. Problem</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Rejection</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Total</th>
@@ -168,8 +158,7 @@ function DcCopy({
                 <tr key={item.id}>
                   <td className="border border-[#d9dee7] p-1.5 text-center">{idx + 1}</td>
                   <td className="border border-[#d9dee7] p-1.5 text-center">{item.component}</td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.material ?? ""}</td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.received_qty}</td>
+                  {/* The "Qty" column on the printed challan is the sent quantity. */}
                   <td className="border border-[#d9dee7] p-1.5 text-center">{item.sent_qty}</td>
                   <td className="border border-[#d9dee7] p-1.5 text-center">
                     {item.material_problem_qty}
@@ -178,10 +167,10 @@ function DcCopy({
                   <td className="border border-[#d9dee7] p-1.5 text-center">{item.total_qty}</td>
                 </tr>
               ))}
-              {Array.from({ length: 4 }).map((_, i) => (
+              {/* Pad short challans out to a consistent form height, but never
+                  add filler that would push the second copy onto page two. */}
+              {Array.from({ length: Math.max(0, MIN_TABLE_ROWS - items.length) }).map((_, i) => (
                 <tr key={`blank-${i}`}>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
                   <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
                   <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
                   <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
@@ -195,15 +184,13 @@ function DcCopy({
         </div>
       </section>
 
-      {dc.remarks && (
-        <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-          <p className="mb-1 text-sm font-bold text-[#172033]">General Remarks</p>
-          <p className="text-xs">{dc.remarks}</p>
-        </section>
-      )}
+      {/* Standing note printed on every challan. */}
+      <section className="mb-3 rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
+        <p className="text-sm font-semibold text-[#172033]">Sent after machining</p>
+      </section>
 
       <section className="rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
-        <div className="mt-4 flex justify-between text-xs">
+        <div className="dc-print-sign mt-4 flex justify-between text-xs">
           <div className="w-2/5 border-t border-black pt-1 text-center">Receiver&apos;s Signature</div>
           <div className="w-2/5 border-t border-black pt-1 text-center">
             {dc.authorized_by || "Authorized Signatory"}

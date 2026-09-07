@@ -64,7 +64,7 @@ export function InvoiceForm({
           <Label>Invoice Number</Label>
           <Input
             disabled
-            value={invoice?.invoice_number ?? nextInvoiceNumber ?? "Auto-generated"}
+            value={invoice?.invoice_number ?? nextInvoiceNumber ?? "Assigned on save"}
             className="bg-muted"
           />
         </div>

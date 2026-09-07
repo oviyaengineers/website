@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceForm, type DcOption } from "@/components/invoice-form";
+import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { updateInvoiceAction } from "@/lib/actions/invoices";
 
 export const metadata: Metadata = { title: "Edit Invoice | Oviya Engineers" };
@@ -51,6 +52,7 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-6">
+      <BreadcrumbRecordLabel value={invoice.invoice_number} />
       <div>
         <h1 className="text-2xl font-semibold">Edit {invoice.invoice_number}</h1>
         <p className="text-sm text-muted-foreground">Update invoice details.</p>

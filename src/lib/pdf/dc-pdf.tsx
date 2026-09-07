@@ -38,10 +38,7 @@ export type DcPdfData = {
   dc_date: string;
   customer_dc_number: string[] | null;
   customer_dc_date: (string | null)[] | null;
-  job_order_no: string | null;
-  vehicle_number: string | null;
   authorized_by: string | null;
-  remarks: string | null;
   customer: { name: string; address: string | null; phone: string | null; gst_number: string | null } | null;
   items: {
     component: string;
@@ -98,11 +95,6 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
             ) : (
               <Text>Customer DC No: -</Text>
             )}
-            <Text>Job Order / PO No: {dc.job_order_no ?? "-"}</Text>
-          </View>
-          <View style={styles.box}>
-            <Text style={styles.label}>Transport</Text>
-            <Text>Vehicle No: {dc.vehicle_number ?? "-"}</Text>
           </View>
         </View>
 
@@ -140,12 +132,10 @@ export function DcPdfDocument({ dc }: { dc: DcPdfData }) {
           ))}
         </View>
 
-        {dc.remarks && (
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.label}>Remarks</Text>
-            <Text>{dc.remarks}</Text>
-          </View>
-        )}
+        {/* Standing note on every challan, matching the printed layout. */}
+        <View style={{ marginTop: 12 }}>
+          <Text style={styles.label}>Sent after machining</Text>
+        </View>
 
         <View style={styles.sigRow}>
           <View style={styles.sigBox}>

@@ -50,7 +50,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-white">Email</p>
-                  <p className="text-sm text-zinc-400">info@oviyaengineers.com</p>
+                  <p className="text-sm text-zinc-400">oviya.engineers@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 rounded-2xl border border-white/10 bg-zinc-900/50 p-5">

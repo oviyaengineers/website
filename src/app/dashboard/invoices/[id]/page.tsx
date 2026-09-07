@@ -17,6 +17,7 @@ import {
 import { PaymentStatusBadge } from "@/components/status-badge";
 import { PaymentStatusForm } from "@/components/payment-status-form";
 import { DeleteInvoiceButton } from "@/components/delete-invoice-button";
+import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { Pencil, Printer } from "lucide-react";
 
 export const metadata: Metadata = { title: "Invoice | Oviya Engineers" };
@@ -40,6 +41,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6">
+      <BreadcrumbRecordLabel value={invoice.invoice_number} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{invoice.invoice_number}</h1>

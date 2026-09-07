@@ -44,3 +44,5 @@ devserver.log
 devserver.err.log
 
 .claude/
+
+supabase/.temp/

@@ -42,7 +42,7 @@ export default async function CostsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">New Cost Entry</CardTitle>
           </CardHeader>
@@ -51,7 +51,7 @@ export default async function CostsPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {isAdmin && (
             <Card>
               <CardHeader>

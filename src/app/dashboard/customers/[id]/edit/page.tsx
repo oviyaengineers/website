@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CustomerForm } from "@/components/customer-form";
+import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { updateCustomerAction } from "@/lib/actions/customers";
 
 export const metadata: Metadata = { title: "Edit Customer | Oviya Engineers" };
@@ -21,6 +22,7 @@ export default async function EditCustomerPage({
 
   return (
     <div className="space-y-6">
+      <BreadcrumbRecordLabel value={customer.name} />
       <div>
         <h1 className="text-2xl font-semibold">Edit Customer</h1>
         <p className="text-sm text-muted-foreground">Update {customer.name}&apos;s details.</p>

@@ -52,10 +52,13 @@ export function SiteNav() {
           </Link>
         </nav>
 
+        {/* 44x44 is the minimum reliable thumb target; the negative margin keeps
+            the icon optically aligned with the container edge. */}
         <button
-          className="text-zinc-300 md:hidden"
+          className="-mr-2.5 inline-flex h-11 w-11 items-center justify-center text-zinc-300 md:hidden"
           onClick={() => setOpen((o) => !o)}
           aria-label="Toggle menu"
+          aria-expanded={open}
         >
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -68,7 +71,7 @@ export function SiteNav() {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className={`rounded-md px-3 py-2 text-sm font-medium ${
+              className={`flex min-h-11 items-center rounded-md px-3 text-sm font-medium ${
                 pathname === link.href
                   ? "bg-white/5 text-amber-400"
                   : "text-zinc-300"
@@ -80,14 +83,14 @@ export function SiteNav() {
           <Link
             href="/contact"
             onClick={() => setOpen(false)}
-            className="mt-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2 text-center text-sm font-semibold text-zinc-950"
+            className="mt-1 flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 text-center text-sm font-semibold text-zinc-950"
           >
             Get a Quote
           </Link>
           <Link
             href="/auth/login"
             onClick={() => setOpen(false)}
-            className="mt-1 rounded-md px-3 py-2 text-center text-sm font-medium text-zinc-400"
+            className="mt-1 flex min-h-11 items-center justify-center rounded-md px-3 text-center text-sm font-medium text-zinc-400"
           >
             Staff Login
           </Link>

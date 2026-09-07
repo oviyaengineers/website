@@ -31,7 +31,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               required
               autoComplete="email"
               placeholder="you@oviyaengineers.com"
-              className="border-slate-700 bg-slate-950 text-slate-100"
+              className="h-11 border-slate-700 bg-slate-950 text-slate-100"
             />
           </div>
           <div className="space-y-2">
@@ -44,7 +44,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               type="password"
               required
               autoComplete="current-password"
-              className="border-slate-700 bg-slate-950 text-slate-100"
+              className="h-11 border-slate-700 bg-slate-950 text-slate-100"
             />
           </div>
           {state.error && (
@@ -52,7 +52,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               {state.error}
             </p>
           )}
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" className="h-11 w-full" disabled={pending}>
             {pending ? "Signing in..." : "Sign in"}
           </Button>
         </form>

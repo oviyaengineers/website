@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DcForm } from "@/components/dc-form";
+import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { updateDcAction } from "@/lib/actions/dc";
 
 export const metadata: Metadata = { title: "Edit Delivery Challan | Oviya Engineers" };
@@ -26,11 +27,15 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-6">
+      <BreadcrumbRecordLabel value={dc.dc_number} />
       <div>
         <h1 className="text-2xl font-semibold">Edit {dc.dc_number}</h1>
         <p className="text-sm text-muted-foreground">Update delivery challan details.</p>
       </div>
+      {/* Keyed on the DC so switching to a different one remounts the form and
+          re-seeds every field from props, rather than leaving stale state. */}
       <DcForm
+        key={dc.id}
         customers={customers ?? []}
         dc={dc}
         items={(items ?? []).map((i) => ({

@@ -14,10 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
 import { DeleteDcButton } from "@/components/delete-dc-button";
-import { Pencil, Printer } from "lucide-react";
+import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
+import { AlertTriangle, Pencil, Printer } from "lucide-react";
 
 export const metadata: Metadata = { title: "Delivery Challan | Oviya Engineers" };
 
@@ -35,8 +37,11 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
     supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
   ]);
 
+  const overDelivered = findOverDelivered(items ?? []);
+
   return (
     <div className="space-y-6">
+      <BreadcrumbRecordLabel value={dc.dc_number} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{dc.dc_number}</h1>
@@ -78,19 +83,38 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             ) : (
               <p>Customer DC No: -</p>
             )}
-            <p>Job Order / PO No: {dc.job_order_no ?? "-"}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Transport</CardTitle>
+            <CardTitle className="text-base">Authorization</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <p>Vehicle: {dc.vehicle_number ?? "-"}</p>
             <p>Authorized by: {dc.authorized_by ?? "-"}</p>
           </CardContent>
         </Card>
       </div>
+
+      {overDelivered.length > 0 && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              Balance error on {overDelivered.length} row
+              {overDelivered.length === 1 ? "" : "s"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm text-destructive">
+            {overDelivered.map((row) => (
+              <p key={row.position}>
+                Row {row.position} — <span className="font-medium">{row.component}</span>: received{" "}
+                {row.received}, accounted out {row.outward} —{" "}
+                <span className="font-medium">{row.extra} extra.</span>
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -107,33 +131,47 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 <TableHead>Material Problem</TableHead>
                 <TableHead>Rejection</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(items ?? []).map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.component}</TableCell>
-                  <TableCell>{item.material ?? "-"}</TableCell>
-                  <TableCell>{item.received_qty}</TableCell>
-                  <TableCell>{item.sent_qty}</TableCell>
-                  <TableCell>{item.material_problem_qty}</TableCell>
-                  <TableCell>{item.rejection_qty}</TableCell>
-                  <TableCell>{item.total_qty}</TableCell>
-                </TableRow>
-              ))}
+              {(items ?? []).map((item) => {
+                const balance = balanceQty(item);
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.component}</TableCell>
+                    <TableCell>{item.material ?? "-"}</TableCell>
+                    <TableCell>{item.received_qty}</TableCell>
+                    <TableCell>{item.sent_qty}</TableCell>
+                    <TableCell>{item.material_problem_qty}</TableCell>
+                    <TableCell>{item.rejection_qty}</TableCell>
+                    <TableCell>{item.total_qty}</TableCell>
+                    <TableCell
+                      className={
+                        balance < 0
+                          ? "font-medium text-destructive"
+                          : balance > 0
+                            ? "text-amber-600"
+                            : "text-muted-foreground"
+                      }
+                    >
+                      {balance < 0
+                        ? `${balance} extra`
+                        : balance > 0
+                          ? `${balance} pending`
+                          : "0"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {dc.remarks && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Remarks</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">{dc.remarks}</CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardContent className="text-sm font-medium">Sent after machining</CardContent>
+      </Card>
     </div>
   );
 }

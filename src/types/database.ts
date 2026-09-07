@@ -361,7 +361,17 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      /** Reads the next DC number without consuming it (migration 0010). */
+      peek_dc_number: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       generate_invoice_number: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      /** Reads the next invoice number without consuming it (migration 0011). */
+      peek_invoice_number: {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };

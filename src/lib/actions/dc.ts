@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { findOverDelivered } from "@/lib/dc-balance";
+import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import type { DcStatus } from "@/types/database";
 
 export type DcItemInput = {
@@ -19,10 +21,7 @@ export type DcFormValues = {
   dc_date: string;
   customer_dc_number: string[] | null;
   customer_dc_date: (string | null)[] | null;
-  job_order_no: string | null;
-  vehicle_number: string | null;
   authorized_by: string | null;
-  remarks: string | null;
   items: DcItemInput[];
 };
 
@@ -41,10 +40,7 @@ function parseDcForm(formData: FormData): DcFormValues {
   const customer_dc_date =
     customerDcRefs.length > 0 ? customerDcRefs.map((r) => r.date || null) : null;
 
-  const job_order_no = (formData.get("job_order_no") as string) || null;
-  const vehicle_number = (formData.get("vehicle_number") as string) || null;
   const authorized_by = (formData.get("authorized_by") as string) || null;
-  const remarks = (formData.get("remarks") as string) || null;
 
   const components = formData.getAll("item_component") as string[];
   const materials = formData.getAll("item_material") as string[];
@@ -69,10 +65,7 @@ function parseDcForm(formData: FormData): DcFormValues {
     dc_date,
     customer_dc_number,
     customer_dc_date,
-    job_order_no,
-    vehicle_number,
     authorized_by,
-    remarks,
     items,
   };
 }
@@ -86,6 +79,24 @@ export async function createDcAction(
   if (!values.customer_id) return { error: "Please select a customer." };
   if (values.items.length === 0) return { error: "Add at least one item." };
 
+  const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
+  if (duplicateRefs.length > 0) {
+    return {
+      error: `The same customer DC number appears more than once: ${duplicateRefs.join(
+        ", "
+      )}. Each reference may only be listed once.`,
+    };
+  }
+
+  const overDelivered = findOverDelivered(values.items);
+  if (overDelivered.length > 0) {
+    return {
+      error: `More pieces go out than came in on: ${overDelivered
+        .map((row) => `${row.component} (${row.extra} extra)`)
+        .join("; ")}.`,
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -98,10 +109,7 @@ export async function createDcAction(
       dc_date: values.dc_date || undefined,
       customer_dc_number: values.customer_dc_number,
       customer_dc_date: values.customer_dc_date,
-      job_order_no: values.job_order_no,
-      vehicle_number: values.vehicle_number,
       authorized_by: values.authorized_by,
-      remarks: values.remarks,
       created_by: user?.id ?? null,
     })
     .select("id")
@@ -145,6 +153,24 @@ export async function updateDcAction(
   if (!values.customer_id) return { error: "Please select a customer." };
   if (values.items.length === 0) return { error: "Add at least one item." };
 
+  const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
+  if (duplicateRefs.length > 0) {
+    return {
+      error: `The same customer DC number appears more than once: ${duplicateRefs.join(
+        ", "
+      )}. Each reference may only be listed once.`,
+    };
+  }
+
+  const overDelivered = findOverDelivered(values.items);
+  if (overDelivered.length > 0) {
+    return {
+      error: `More pieces go out than came in on: ${overDelivered
+        .map((row) => `${row.component} (${row.extra} extra)`)
+        .join("; ")}.`,
+    };
+  }
+
   const supabase = await createClient();
 
   const { error: dcError } = await supabase
@@ -154,10 +180,7 @@ export async function updateDcAction(
       dc_date: values.dc_date || undefined,
       customer_dc_number: values.customer_dc_number,
       customer_dc_date: values.customer_dc_date,
-      job_order_no: values.job_order_no,
-      vehicle_number: values.vehicle_number,
       authorized_by: values.authorized_by,
-      remarks: values.remarks,
     })
     .eq("id", id);
 

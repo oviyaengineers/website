@@ -7,9 +7,13 @@ export const metadata: Metadata = { title: "New Delivery Challan | Oviya Enginee
 
 export default async function NewDcPage() {
   const supabase = await createClient();
+  // peek_dc_number() only reads the counter. generate_dc_number() increments
+  // it, so calling that here burned a DC number on every page view — the
+  // number must only move when a challan is actually created, which the
+  // insert trigger handles.
   const [{ data: customers }, { data: nextDcNumber }, { data: picklistItems }] = await Promise.all([
     supabase.from("customers").select("id, name").order("name"),
-    supabase.rpc("generate_dc_number"),
+    supabase.rpc("peek_dc_number"),
     supabase.from("dc_picklist_items").select("*").order("name"),
   ]);
   const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);
