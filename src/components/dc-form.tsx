@@ -52,7 +52,12 @@ export function DcForm({
   materials: string[];
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
-  const [customerId, setCustomerId] = useState(dc?.customer_id ?? "");
+  // A new challan opens on the only customer on file, so the field does not
+  // have to be set every time. An existing challan keeps its own customer, and
+  // once there is more than one the field starts empty rather than guessing.
+  const [customerId, setCustomerId] = useState(
+    dc?.customer_id ?? (customers.length === 1 ? customers[0].id : "")
+  );
   const [date, setDate] = useState(dc?.dc_date ?? new Date().toISOString().slice(0, 10));
   const [dcRefs, setDcRefs] = useState(() =>
     makeCustomerDcRefs(dc?.customer_dc_number, dc?.customer_dc_date)

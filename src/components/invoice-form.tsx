@@ -34,7 +34,10 @@ export function InvoiceForm({
   action: (state: InvoiceFormState, formData: FormData) => Promise<InvoiceFormState>;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
-  const [customerId, setCustomerId] = useState(invoice?.customer_id ?? "");
+  // As on the challan form: a new invoice opens on the only customer on file.
+  const [customerId, setCustomerId] = useState(
+    invoice?.customer_id ?? (customers.length === 1 ? customers[0].id : "")
+  );
   const [invoiceDate, setInvoiceDate] = useState(
     invoice?.invoice_date ?? new Date().toISOString().slice(0, 10)
   );
@@ -142,7 +145,11 @@ export function InvoiceForm({
         </div>
         <div className="space-y-2">
           <Label>Grand Total</Label>
-          <Input disabled value={`₹${totals.grandTotal.toFixed(2)}`} className="bg-muted font-medium" />
+          <Input
+            disabled
+            value={`₹${totals.grandTotal.toFixed(2)}`}
+            className="bg-muted font-medium"
+          />
         </div>
       </div>
 
