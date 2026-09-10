@@ -318,17 +318,35 @@ export function matchStoredName(name: string, known: string[]): string | null {
  * Returns null when what remains is too short or has no letters, which is the
  * usual shape of an OCR misread rather than a real part.
  */
+/** Trim a printed description down to the part name alone. */
+function descriptionFrom(text: string): string | null {
+  const name = text
+    .replace(LEADING_SERIAL, "")
+    .replace(/[\s.,;:|\-]+$/, "")
+    .trim();
+  if (name.length < 4 || !/[A-Za-z]/.test(name)) return null;
+  return name;
+}
+
+/**
+ * The quantity from a line that carries nothing else.
+ *
+ * Tesseract often splits a decimal point off from its digits, so "204.000EA"
+ * comes back as "204. 000EA" and a plain match reads it as zero. Closing that
+ * gap first recovers the real figure.
+ */
+function parseBareQuantity(line: string): number {
+  const joined = line.replace(/(\d)\s*[.,]\s*(\d)/g, "$1.$2");
+  const united = joined.match(UNITED_QUANTITY);
+  return united ? toNumber(united[1]) : 0;
+}
+
 function describeUnmatchedLine(line: string, materials: string[]): ScannedNewComponent | null {
   const united = line.match(UNITED_QUANTITY);
   if (!united) return null;
 
-  const name = line
-    .slice(0, line.indexOf(united[0]))
-    .replace(LEADING_SERIAL, "")
-    .replace(/[\s.,;:|\-]+$/, "")
-    .trim();
-
-  if (name.length < 4 || !/[A-Za-z]/.test(name)) return null;
+  const name = descriptionFrom(line.slice(0, line.indexOf(united[0])));
+  if (!name) return null;
 
   // The grade is usually printed inside the part name, so read it from there.
   const material = findCandidate(name, materials);
@@ -391,14 +409,78 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
   const unmatchedLines: string[] = [];
   const newComponents: ScannedNewComponent[] = [];
   const seenNewNames = new Set<string>();
+  /**
+   * A description still waiting for its quantity.
+   *
+   * On a boxed challan Tesseract reads the description column and the quantity
+   * column as separate lines, so a row arrives as "3P DN50RB ... Casting" and
+   * then "200.000EA" on its own. Holding the description until a quantity turns
+   * up keeps those rows instead of discarding both halves.
+   */
+  let pending: { line: string; component: CandidateMatch | null } | null = null;
+
+  /** Records an item, taking its quantity from wherever it was found. */
+  function pushItem(
+    component: string,
+    material: string | null,
+    qty: number,
+    raw: string,
+    score: number
+  ) {
+    items.push({ component, material, received_qty: qty, confidence: score, rawLine: raw });
+  }
+
   for (const line of lines) {
     if (isHeaderLine(line)) continue;
 
+    const hasQuantity = UNITED_QUANTITY.test(line) && !/\btotal\b/i.test(line);
     const component = findCandidate(line, options.components);
+
+    // A description with no quantity of its own: hold it for the next line.
+    if (component && !hasQuantity) {
+      pending = { line, component };
+      continue;
+    }
+    if (!component && !hasQuantity) {
+      if (/[A-Za-z]/.test(line) && line.trim().length >= 4) pending = { line, component: null };
+      continue;
+    }
+
+    // A bare quantity belongs to the description held from a previous line.
+    if (hasQuantity && pending && describeUnmatchedLine(line, options.materials) === null) {
+      // The description came from the held line; only the figure comes from
+      // this one, so neither is re-parsed out of a concatenation.
+      const qty = parseBareQuantity(line);
+      const held = pending;
+      pending = null;
+      const raw = `${held.line}  ${line}`;
+      const material = findCandidate(held.line, options.materials)?.value ?? null;
+
+      if (held.component) {
+        pushItem(held.component.value, material, qty, raw, held.component.score);
+        continue;
+      }
+
+      const name = descriptionFrom(held.line);
+      if (!name) {
+        unmatchedLines.push(line);
+        continue;
+      }
+      const stored = matchStoredName(name, options.components);
+      if (stored) {
+        pushItem(stored, material, qty, raw, 0.85);
+      } else if (!seenNewNames.has(foldOcrConfusables(name))) {
+        seenNewNames.add(foldOcrConfusables(name));
+        newComponents.push({ name, material, received_qty: qty, rawLine: raw });
+      }
+      continue;
+    }
+    pending = null;
+
     if (!component) {
       // A quantity with no recognised component means we are about to drop a
       // real row; keep it so the review step can say so.
-      if (UNITED_QUANTITY.test(line) && !/\btotal\b/i.test(line)) {
+      {
         const candidate = describeUnmatchedLine(line, options.materials);
         if (!candidate) {
           // Nothing usable between the row number and the quantity.
