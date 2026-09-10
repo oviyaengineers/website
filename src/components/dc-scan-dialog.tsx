@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Camera, ImageUp, Loader2, PackagePlus, ScanLine } from "lucide-react";
@@ -29,7 +29,8 @@ import {
   type ScannedNewComponent,
 } from "@/lib/ocr/parse-inward-dc";
 import { addScannedComponentNamesAction } from "@/lib/actions/dc-picklists";
-import { countPendingScans, PENDING_SCAN_CHANGED, takePendingScans } from "@/lib/dc-scan-handoff";
+import { PENDING_SCAN_CHANGED } from "@/lib/dc-scan-handoff";
+import { countPendingScans, discardPendingScans } from "@/lib/actions/dc-scan-queue";
 import {
   correctScannedCustomerDcNumber,
   findDcsByCustomerRef,
@@ -72,15 +73,6 @@ const TILE =
 
 /** Quoted in the warning, so the number the operator sees matches the check. */
 const MIN_READABLE_PX = 1500;
-
-function subscribeToQueue(onChange: () => void) {
-  window.addEventListener(PENDING_SCAN_CHANGED, onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(PENDING_SCAN_CHANGED, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
 
 const PROGRESS_LABELS: Record<string, string> = {
   "loading tesseract core": "Loading the OCR engine",
@@ -138,13 +130,29 @@ export function DcScanDialog({
     matches: StoredDcMatch[];
   } | null>(null);
 
-  // Kept in step with the queue, which now outlives the tab, so the dialog can
-  // say what is waiting and offer to clear it.
-  const waiting = useSyncExternalStore(
-    subscribeToQueue,
-    () => countPendingScans(),
-    () => 0
-  );
+  // The queue lives on the server now, so the count is fetched rather than
+  // read synchronously: on mount, whenever it changes here, and when the window
+  // regains focus, which is when another device's scan is most likely waiting.
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void countPendingScans()
+        .then((n) => {
+          if (!cancelled) setWaiting(n);
+        })
+        .catch(() => {});
+    };
+    const raf = requestAnimationFrame(refresh);
+    window.addEventListener(PENDING_SCAN_CHANGED, refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener(PENDING_SCAN_CHANGED, refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -291,8 +299,9 @@ export function DcScanDialog({
       setStoring(false);
     }
 
-    // Awaited, and the result checked: keeping a scan can fail, and reporting a
-    // capture that never happened is exactly how scans were lost before.
+    // Awaited: the queue is on the server, so this can fail, and reporting a
+    // capture that did not happen is exactly how scans were lost before.
+    setStoring(true);
     const kept = await onApply({
       customerId: fields.customerId ? scan.customerId : null,
       customerDcNumber: fields.customerDcNumber ? scan.customerDcNumber : null,
@@ -308,8 +317,9 @@ export function DcScanDialog({
         })),
       ],
     });
+    setStoring(false);
     // The review stays on screen so the scan can be kept again once whatever
-    // refused it is dealt with.
+    // refused it is fixed.
     if (!kept) return;
 
     if (stored.length > 0) {
@@ -541,8 +551,12 @@ export function DcScanDialog({
                   variant="ghost"
                   className="h-7 text-xs text-destructive"
                   onClick={() => {
-                    const dropped = takePendingScans().length;
-                    toast.success(`Discarded ${dropped} waiting scan${dropped === 1 ? "" : "s"}.`);
+                    void discardPendingScans().then((result) => {
+                      window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
+                      toast.success(
+                        `Discarded ${result.removed} waiting scan${result.removed === 1 ? "" : "s"}.`
+                      );
+                    });
                   }}
                 >
                   Discard them

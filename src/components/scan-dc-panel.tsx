@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { DcScanDialog, type DcScanResult } from "@/components/dc-scan-dialog";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
-import { PENDING_SCAN_EVENT, storePendingScan } from "@/lib/dc-scan-handoff";
+import { PENDING_SCAN_CHANGED, PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
+import { queuePendingScan } from "@/lib/actions/dc-scan-queue";
 
 /**
  * The Scan DC screen.
@@ -26,15 +27,16 @@ export function ScanDcPanel({
 }) {
   const router = useRouter();
 
-  function handleApply(result: DcScanResult): boolean {
-    const queued = storePendingScan(result);
-    if (queued === 0) {
-      toast.error(
-        "This challan could not be held for the delivery challan form. Enter it by hand, or try again outside private browsing."
-      );
+  async function handleApply(result: DcScanResult): Promise<boolean> {
+    const { error } = await queuePendingScan(result);
+    if (error) {
+      // Reporting a capture that did not happen is how scans were lost before.
+      toast.error(`This challan could not be held: ${error}`);
       return false;
     }
+    // The form may already be open in this tab; the badge listens for the other.
     window.dispatchEvent(new Event(PENDING_SCAN_EVENT));
+    window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
     toast.success("Challan captured. Opening the new delivery challan.");
     router.push("/dashboard/dc/new");
     return true;

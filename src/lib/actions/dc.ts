@@ -245,6 +245,11 @@ export async function createDcAction(
     return { error: itemsError };
   }
 
+  // The scans that fed this challan have done their job. Clearing them here
+  // rather than in the browser is the only reliable moment: saving redirects,
+  // so no client code runs afterwards, and the queue is shared across devices.
+  await supabase.from("pending_dc_scans").delete().not("id", "is", null);
+
   revalidatePath("/dashboard/dc");
   redirect(`/dashboard/dc/${dc.id}`);
 }
