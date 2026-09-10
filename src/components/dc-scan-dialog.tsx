@@ -101,7 +101,11 @@ export function DcScanDialog({
   customers: ComboboxCustomer[];
   components: string[];
   materials: string[];
-  onApply: (result: DcScanResult) => void;
+  /**
+   * Takes the reviewed scan. Awaited, and false means it was not kept — the
+   * dialog must not report a capture that never happened.
+   */
+  onApply: (result: DcScanResult) => boolean | Promise<boolean>;
   /** The challan being edited, so it is not reported as its own duplicate. */
   excludeDcId?: string | null;
   /** Icon-only trigger, for the dashboard header bar. */
@@ -287,7 +291,9 @@ export function DcScanDialog({
       setStoring(false);
     }
 
-    onApply({
+    // Awaited, and the result checked: keeping a scan can fail, and reporting a
+    // capture that never happened is exactly how scans were lost before.
+    const kept = await onApply({
       customerId: fields.customerId ? scan.customerId : null,
       customerDcNumber: fields.customerDcNumber ? scan.customerDcNumber : null,
       customerDcDate: fields.customerDcDate ? scan.customerDcDate : null,
@@ -302,6 +308,9 @@ export function DcScanDialog({
         })),
       ],
     });
+    // The review stays on screen so the scan can be kept again once whatever
+    // refused it is dealt with.
+    if (!kept) return;
 
     if (stored.length > 0) {
       toast.success(

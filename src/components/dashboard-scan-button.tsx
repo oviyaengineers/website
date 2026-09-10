@@ -48,7 +48,7 @@ export function DashboardScanButton({
     () => 0
   );
 
-  function handleApply(result: DcScanResult) {
+  function handleApply(result: DcScanResult): boolean {
     const queued = storePendingScan(result);
 
     if (queued === 0) {
@@ -57,7 +57,7 @@ export function DashboardScanButton({
       toast.error(
         "This challan could not be held for the delivery challan form. Enter it by hand, or try again outside private browsing."
       );
-      return;
+      return false;
     }
 
     // An open new-DC form drains the queue at once; otherwise it waits there.
@@ -68,6 +68,7 @@ export function DashboardScanButton({
         ? `${queued} challans captured. They will fill the next new delivery challan.`
         : "Challan captured. It will fill the next new delivery challan."
     );
+    return true;
   }
 
   return (
