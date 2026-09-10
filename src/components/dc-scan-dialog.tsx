@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Camera, ImageUp, Loader2, PackagePlus, ScanLine } from "lucide-react";
@@ -29,6 +29,7 @@ import {
   type ScannedNewComponent,
 } from "@/lib/ocr/parse-inward-dc";
 import { addScannedComponentNamesAction } from "@/lib/actions/dc-picklists";
+import { countPendingScans, PENDING_SCAN_CHANGED, takePendingScans } from "@/lib/dc-scan-handoff";
 import {
   correctScannedCustomerDcNumber,
   findDcsByCustomerRef,
@@ -71,6 +72,15 @@ const TILE =
 
 /** Quoted in the warning, so the number the operator sees matches the check. */
 const MIN_READABLE_PX = 1500;
+
+function subscribeToQueue(onChange: () => void) {
+  window.addEventListener(PENDING_SCAN_CHANGED, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(PENDING_SCAN_CHANGED, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
 const PROGRESS_LABELS: Record<string, string> = {
   "loading tesseract core": "Loading the OCR engine",
@@ -123,6 +133,14 @@ export function DcScanDialog({
     basis: "both" | "number" | "date";
     matches: StoredDcMatch[];
   } | null>(null);
+
+  // Kept in step with the queue, which now outlives the tab, so the dialog can
+  // say what is waiting and offer to clear it.
+  const waiting = useSyncExternalStore(
+    subscribeToQueue,
+    () => countPendingScans(),
+    () => 0
+  );
 
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -495,6 +513,32 @@ export function DcScanDialog({
                 {captured} challan{captured === 1 ? "" : "s"} captured. Scan another, or close this
                 — they will fill the new delivery challan together.
               </p>
+            )}
+
+            {/* The queue now outlives the tab, so it has to be visible and
+                clearable from here. Otherwise a scan taken days ago and never
+                used would quietly fill the next challan. */}
+            {waiting > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {waiting} scanned challan{waiting === 1 ? "" : "s"} waiting
+                  </span>{" "}
+                  to fill the next new delivery challan. They are kept until one is saved.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive"
+                  onClick={() => {
+                    const dropped = takePendingScans().length;
+                    toast.success(`Discarded ${dropped} waiting scan${dropped === 1 ? "" : "s"}.`);
+                  }}
+                >
+                  Discard them
+                </Button>
+              </div>
             )}
 
             <p className="text-xs text-muted-foreground">
