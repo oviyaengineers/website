@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, PackageSearch } from "lucide-react";
+import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { findCustomerDcRefs, type StoredDcItem, type StoredDcMatch } from "@/lib/actions/dc-lookup";
+import { balanceQty } from "@/lib/dc-balance";
 import { formatDcDate } from "@/components/dc-ref-lookup";
 
 /** Wait this long after the date changes before querying. */
@@ -15,21 +16,23 @@ export type DateComponentPick = {
   received_qty: number;
 };
 
-/** One stored challan on the chosen date, with the references pointing at it. */
+/** A row still owing pieces. */
+type PendingRow = { item: StoredDcItem; pending: number };
+
+/** One stored challan on the chosen date, with only its unfinished rows. */
 type DateGroup = {
   match: StoredDcMatch;
   refNumbers: string[];
+  rows: PendingRow[];
 };
 
 /**
- * Every component recorded against a customer on one customer DC date.
+ * The challans still owing work on one customer DC date.
  *
- * The picker beside the field lists references and hides their contents behind
- * a "Details" toggle, which means a date carrying several challans has to be
- * opened one at a time. Here the whole day is laid out at once — a customer
- * often sends one date's goods across more than one challan, and the operator
- * needs to see every component before deciding what this outward challan
- * covers.
+ * Only unfinished rows are listed. A challan whose pieces have all gone back is
+ * settled and says nothing useful while a new one is being raised; what matters
+ * is what is still outstanding on that date. Same reckoning as the balance
+ * page: received minus sent, material problem and rejection.
  *
  * Read-only apart from the fill button, which only populates form state.
  */
@@ -50,8 +53,8 @@ export function DcDateComponents({
   useEffect(() => {
     let cancelled = false;
 
-    // Every state write sits in this callback, so typing a date does not set
-    // state straight from the effect body on each keystroke.
+    // State writes live in the callback so changing the date does not set state
+    // straight from the effect body on each keystroke.
     const timer = setTimeout(async () => {
       if (!customerId || !date.trim()) {
         if (!cancelled) {
@@ -66,7 +69,7 @@ export function DcDateComponents({
         const options = await findCustomerDcRefs({ customerId, date, excludeDcId });
 
         // Several references can cite the same stored challan; collapse them so
-        // its components are listed once, tagged with every reference.
+        // its rows are listed once, tagged with every reference.
         const byDc = new Map<string, DateGroup>();
         for (const option of options) {
           const existing = byDc.get(option.match.id);
@@ -74,11 +77,17 @@ export function DcDateComponents({
             if (!existing.refNumbers.includes(option.number)) {
               existing.refNumbers.push(option.number);
             }
-          } else {
-            byDc.set(option.match.id, { match: option.match, refNumbers: [option.number] });
+            continue;
           }
+          const rows = option.match.items
+            .map((item) => ({ item, pending: balanceQty(item) }))
+            .filter((row) => row.pending > 0);
+          byDc.set(option.match.id, { match: option.match, refNumbers: [option.number], rows });
         }
-        if (!cancelled) setGroups([...byDc.values()]);
+
+        // A challan with nothing outstanding is finished, so it is not listed.
+        const unfinished = [...byDc.values()].filter((group) => group.rows.length > 0);
+        if (!cancelled) setGroups(unfinished);
       } catch {
         if (!cancelled) setGroups([]);
       } finally {
@@ -96,43 +105,46 @@ export function DcDateComponents({
 
   if (loading && groups.length === 0) {
     return (
-      <p className="flex items-center gap-2 px-1 py-1 text-xs text-muted-foreground">
+      <p className="flex items-center gap-1.5 px-1 py-1 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Looking up components for {formatDcDate(date)}…
+        Checking what is still pending on {formatDcDate(date)}…
       </p>
     );
   }
 
   if (groups.length === 0) return null;
 
-  const allItems: StoredDcItem[] = groups.flatMap((group) => group.match.items);
-  if (allItems.length === 0) return null;
+  const rows = groups.flatMap((group) => group.rows);
+  const totalPending = rows.reduce((sum, row) => sum + row.pending, 0);
 
+  // The outstanding count is what a new challan is for, so that is the figure
+  // carried over rather than the original received quantity.
   const fillAll = () =>
     onFill(
-      allItems.map((item) => ({
-        component: item.component,
-        material: item.material,
-        received_qty: item.received_qty,
+      rows.map((row) => ({
+        component: row.item.component,
+        material: row.item.material,
+        received_qty: row.pending,
       })),
       formatDcDate(date)
     );
 
   return (
-    <div className="overflow-hidden rounded-md border bg-muted/20">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/50 px-3 py-2">
+    <div className="overflow-hidden rounded-md border border-amber-500/60 bg-amber-50/60 dark:bg-amber-950/20">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/40 px-3 py-2">
         <div className="min-w-0">
-          <h4 className="flex items-center gap-1.5 text-xs font-medium">
-            <PackageSearch className="h-3.5 w-3.5" />
-            {allItems.length} component{allItems.length === 1 ? "" : "s"} on file for{" "}
-            {formatDcDate(date)}
+          <h4 className="flex items-center gap-1.5 text-xs font-medium text-amber-900 dark:text-amber-200">
+            <ClipboardList className="h-3.5 w-3.5" />
+            {totalPending} pending on {formatDcDate(date)}
           </h4>
           <p className="text-[11px] text-muted-foreground">
-            Across {groups.length} stored challan{groups.length === 1 ? "" : "s"} for this customer.
+            {rows.length} unfinished row{rows.length === 1 ? "" : "s"} across {groups.length}{" "}
+            challan
+            {groups.length === 1 ? "" : "s"}. Settled challans are not listed.
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={fillAll}>
-          Fill all {allItems.length}
+          Fill all {rows.length}
         </Button>
       </div>
 
@@ -146,40 +158,43 @@ export function DcDateComponents({
               · {group.match.dc_number} · {formatDcDate(group.match.dc_date)}
             </p>
 
-            {group.match.items.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">No components recorded.</p>
-            ) : (
-              <table className="mt-1 w-full border-collapse text-xs">
-                <thead>
-                  <tr className="text-left text-[11px] text-muted-foreground">
-                    <th className="py-0.5 font-medium">Component</th>
-                    <th className="w-12 py-0.5 pl-2 text-right font-medium">Recd</th>
-                    <th className="w-12 py-0.5 pl-2 text-right font-medium">Sent</th>
+            <table className="mt-1 w-full border-collapse text-xs">
+              <thead>
+                <tr className="text-left text-[11px] text-muted-foreground">
+                  <th className="py-0.5 font-medium">Component</th>
+                  <th className="w-12 py-0.5 pl-2 text-right font-medium">Recd</th>
+                  <th className="w-12 py-0.5 pl-2 text-right font-medium">Done</th>
+                  <th className="w-14 py-0.5 pl-2 text-right font-medium">Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.rows.map((row, i) => (
+                  <tr key={i} className="align-top">
+                    <td className="py-0.5 pr-2">
+                      {row.item.component}
+                      {row.item.material ? (
+                        <span className="text-muted-foreground"> · {row.item.material}</span>
+                      ) : null}
+                    </td>
+                    <td className="py-0.5 pl-2 text-right tabular-nums">{row.item.received_qty}</td>
+                    <td className="py-0.5 pl-2 text-right tabular-nums">
+                      {row.item.received_qty - row.pending}
+                    </td>
+                    <td className="py-0.5 pl-2 text-right font-medium tabular-nums">
+                      {row.pending}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {group.match.items.map((item, i) => (
-                    <tr key={i} className="align-top">
-                      <td className="py-0.5 pr-2">
-                        {item.component}
-                        {item.material ? (
-                          <span className="text-muted-foreground"> · {item.material}</span>
-                        ) : null}
-                      </td>
-                      <td className="py-0.5 pl-2 text-right tabular-nums">{item.received_qty}</td>
-                      <td className="py-0.5 pl-2 text-right tabular-nums">{item.sent_qty}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+              </tbody>
+            </table>
           </div>
         ))}
       </div>
 
-      <p className="border-t px-3 py-1.5 text-[11px] text-muted-foreground">
-        Received quantities are copied; sent, material problem and rejection stay at zero for you to
-        enter. Nothing is saved until you submit this form.
+      <p className="border-t border-amber-500/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+        Pending is received minus sent, material problem and rejection. Filling copies the pending
+        count; sent, material problem and rejection stay at zero for you to enter. Nothing is saved
+        until you submit this form.
       </p>
     </div>
   );
