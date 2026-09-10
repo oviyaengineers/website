@@ -84,10 +84,18 @@ export function DcRefLookup({
   number,
   date,
   excludeDcId,
+  dateCoveredElsewhere = false,
 }: {
   number: string;
   date: string;
   excludeDcId?: string | null;
+  /**
+   * True when a panel on the row already lists everything stored for this
+   * date, so this floating one would only repeat it — and, being fixed
+   * position, would sit on top of it. A reference number still opens this
+   * panel: matching one exact reference is not what the other panel does.
+   */
+  dateCoveredElsewhere?: boolean;
 }) {
   const [matches, setMatches] = useState<StoredDcMatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,7 +118,9 @@ export function DcRefLookup({
     // Every state write happens inside this callback rather than the effect
     // body, so typing does not trigger a render cascade.
     const timer = setTimeout(async () => {
-      if (!number.trim() && !date.trim()) {
+      const hasNumber = Boolean(number.trim());
+      const searchable = hasNumber || (Boolean(date.trim()) && !dateCoveredElsewhere);
+      if (!searchable) {
         if (!cancelled) {
           setMatches([]);
           setLoading(false);
@@ -133,7 +143,7 @@ export function DcRefLookup({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [number, date, excludeDcId]);
+  }, [number, date, excludeDcId, dateCoveredElsewhere]);
 
   // createPortal needs a DOM, so it only runs after the client takes over.
   useEffect(() => {

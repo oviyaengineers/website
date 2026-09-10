@@ -63,6 +63,12 @@ export function CustomerDcRefs({
     onRowsChange((r) => r.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }
 
+  // With a customer chosen, the panel under each row already lists everything
+  // stored for that date, so the floating lookup would only repeat it — and
+  // cover it, being fixed position. Without one, that panel cannot run and the
+  // floating lookup stays the only way to see a date's challans.
+  const showsDateComponents = Boolean(customerId && onFillDateComponents);
+
   return (
     <div className="space-y-2 sm:col-span-2">
       <Label>Customer DC Number(s)</Label>
@@ -95,7 +101,12 @@ export function CustomerDcRefs({
                     }}
                   />
                 ) : null}
-                <DcRefLookup number={row.number} date={row.date} excludeDcId={excludeDcId} />
+                <DcRefLookup
+                  number={row.number}
+                  date={row.date}
+                  excludeDcId={excludeDcId}
+                  dateCoveredElsewhere={showsDateComponents}
+                />
               </div>
               <Button
                 type="button"
@@ -111,7 +122,12 @@ export function CustomerDcRefs({
 
             {/* Once a customer and a date are both known, everything recorded
                 on that date is listed here without a further click. */}
-            {customerId && onFillDateComponents ? (
+            {/* One panel per row. Once a reference is entered, the lookup for
+                that exact reference is the more specific answer and takes the
+                row; until then this lists the whole date. Written as a
+                truthiness check, not showsDateComponents, so customerId
+                narrows to a string here. */}
+            {customerId && onFillDateComponents && !row.number.trim() ? (
               <DcDateComponents
                 customerId={customerId}
                 date={row.date}
