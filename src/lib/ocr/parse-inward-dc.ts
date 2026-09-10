@@ -306,6 +306,58 @@ export function foldOcrConfusables(value: string): string {
     .replace(/b/g, "8");
 }
 
+/**
+ * Whether two printed names describe the same part.
+ *
+ * Edit distance across a whole name is far too forgiving for these, which share
+ * most of their words and differ in one: "CF8M Bonnet Casting REV 2" scored 90%
+ * against "CF8M Body Casting REV 2", and anything ending "Body ISO 2" matched
+ * "Body ISO" outright because one contains the other. Both recorded the wrong
+ * casting silently, which is worse than failing to recognise it.
+ *
+ * So every word must find its own partner on the other side, and no word may be
+ * left over. Comparing folded words keeps OCR slips together — "DN8ORB" still
+ * pairs with "DN80RB" — while a different or extra word separates them. Erring
+ * towards "not the same part" is deliberate: an unrecognised description is
+ * shown to the operator, who can correct it, whereas a wrong match is silent.
+ */
+function partsAgree(a: string, b: string): boolean {
+  const left = foldOcrConfusables(a).split(" ").filter(Boolean);
+  const right = foldOcrConfusables(b).split(" ").filter(Boolean);
+  if (left.length === 0 || right.length === 0) return false;
+
+  const taken = new Array(right.length).fill(false);
+  for (const word of left) {
+    let bestAt = -1;
+    let bestScore = 0;
+    for (let i = 0; i < right.length; i += 1) {
+      if (taken[i]) continue;
+      const score = similarity(word, right[i]);
+      if (score > bestScore) {
+        bestScore = score;
+        bestAt = i;
+      }
+    }
+    if (bestAt === -1 || bestScore < 0.8) return false;
+    taken[bestAt] = true;
+  }
+  // Every word on the other side must have been claimed as well, so a listed
+  // name that is merely a prefix of what was printed is not a match.
+  return taken.every(Boolean);
+}
+
+/**
+ * The component a printed description names, or null when it names none.
+ *
+ * findCandidate does the fuzzy search; partsAgree then vetoes a match whose
+ * words do not actually line up with the description.
+ */
+function matchComponent(description: string, components: string[]): CandidateMatch | null {
+  const found = findCandidate(description, components);
+  if (!found) return null;
+  return partsAgree(description, found.value) ? found : null;
+}
+
 /** The stored spelling of a name that differs only by confusable characters. */
 export function matchStoredName(name: string, known: string[]): string | null {
   const target = foldOcrConfusables(name);
@@ -515,7 +567,7 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
     const hasQuantity = UNITED_QUANTITY.test(line) && !isTotal;
     const inline = hasQuantity ? describeUnmatchedLine(line, options.materials) : null;
     const description = hasQuantity ? (inline?.name ?? null) : descriptionFrom(line);
-    const component = description ? findCandidate(description, options.components) : null;
+    const component = description ? matchComponent(description, options.components) : null;
 
     // Description and quantity printed together: a complete row already.
     if (inline && description) {
