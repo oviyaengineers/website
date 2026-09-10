@@ -24,6 +24,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,16 @@ export function AppSidebar({
   role: UserRole;
 }) {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
   const items = role === "admin" ? [...baseNav, ...adminNav] : baseNav;
+
+  // On a phone the nav is a sheet over the page, and it stayed open after a
+  // tap — the page had navigated, but the sidebar was still covering it, so
+  // nothing looked like it had happened. Closing it hands the page straight
+  // over. On desktop the sidebar is permanent and nothing needs to close.
+  function closeOnMobile() {
+    if (isMobile) setOpenMobile(false);
+  }
   const displayName = fullName || email || "User";
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -96,7 +106,7 @@ export function AppSidebar({
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={<Link href={item.href} />}
+                      render={<Link href={item.href} onClick={closeOnMobile} />}
                       isActive={isActive}
                       className={cn(
                         // Roomy enough to tap in the mobile sheet; the compact

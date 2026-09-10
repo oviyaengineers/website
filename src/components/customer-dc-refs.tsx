@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/date-picker";
 import { DcRefLookup } from "@/components/dc-ref-lookup";
 import { CustomerDcRefPicker } from "@/components/customer-dc-ref-picker";
+import { DcDateComponents, type DateComponentPick } from "@/components/dc-date-components";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 
 let refId = 0;
@@ -37,6 +38,7 @@ export function CustomerDcRefs({
   excludeDcId,
   customerId,
   onUseStoredDc,
+  onFillDateComponents,
 }: {
   rows: CustomerDcRef[];
   onRowsChange: (updater: (rows: CustomerDcRef[]) => CustomerDcRef[]) => void;
@@ -46,6 +48,8 @@ export function CustomerDcRefs({
   customerId?: string;
   /** Called when a stored reference is chosen, so its items can be copied in. */
   onUseStoredDc?: (match: StoredDcMatch) => void;
+  /** Called to copy every component recorded on a customer DC date. */
+  onFillDateComponents?: (items: DateComponentPick[], sourceLabel: string) => void;
 }) {
   function addRow() {
     onRowsChange((r) => [...r, emptyCustomerDcRef()]);
@@ -64,44 +68,57 @@ export function CustomerDcRefs({
       <Label>Customer DC Number(s)</Label>
       <div className="space-y-2">
         {rows.map((row) => (
-          <div key={row.key} className="grid grid-cols-[1fr_1fr_auto_36px] gap-2">
-            <Input
-              name="customer_dc_number"
-              placeholder="Customer DC No."
-              value={row.number}
-              onChange={(e) => updateRow(row.key, { number: e.target.value })}
-            />
-            <DatePicker
-              value={row.date}
-              onChange={(v) => updateRow(row.key, { date: v })}
-              name="customer_dc_date"
-            />
-            {/* Both of these appear and disappear with the data, so they share
+          <div key={row.key} className="space-y-2">
+            <div className="grid grid-cols-[1fr_1fr_auto_36px] gap-2">
+              <Input
+                name="customer_dc_number"
+                placeholder="Customer DC No."
+                value={row.number}
+                onChange={(e) => updateRow(row.key, { number: e.target.value })}
+              />
+              <DatePicker
+                value={row.date}
+                onChange={(v) => updateRow(row.key, { date: v })}
+                name="customer_dc_date"
+              />
+              {/* Both of these appear and disappear with the data, so they share
                 one cell — otherwise the grid tracks shift as they mount. */}
-            <div className="flex items-center gap-2">
-              {customerId ? (
-                <CustomerDcRefPicker
-                  customerId={customerId}
-                  date={row.date}
-                  excludeDcId={excludeDcId}
-                  onPick={(option) => {
-                    updateRow(row.key, { number: option.number, date: option.date ?? row.date });
-                    onUseStoredDc?.(option.match);
-                  }}
-                />
-              ) : null}
-              <DcRefLookup number={row.number} date={row.date} excludeDcId={excludeDcId} />
+              <div className="flex items-center gap-2">
+                {customerId ? (
+                  <CustomerDcRefPicker
+                    customerId={customerId}
+                    date={row.date}
+                    excludeDcId={excludeDcId}
+                    onPick={(option) => {
+                      updateRow(row.key, { number: option.number, date: option.date ?? row.date });
+                      onUseStoredDc?.(option.match);
+                    }}
+                  />
+                ) : null}
+                <DcRefLookup number={row.number} date={row.date} excludeDcId={excludeDcId} />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-destructive"
+                onClick={() => removeRow(row.key)}
+                disabled={rows.length === 1}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-destructive"
-              onClick={() => removeRow(row.key)}
-              disabled={rows.length === 1}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+
+            {/* Once a customer and a date are both known, everything recorded
+                on that date is listed here without a further click. */}
+            {customerId && onFillDateComponents ? (
+              <DcDateComponents
+                customerId={customerId}
+                date={row.date}
+                excludeDcId={excludeDcId}
+                onFill={onFillDateComponents}
+              />
+            ) : null}
           </div>
         ))}
       </div>

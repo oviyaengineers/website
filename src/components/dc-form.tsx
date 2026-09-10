@@ -104,32 +104,48 @@ export function DcForm({
   }
 
   /**
-   * Copy the components and received quantities from a stored challan the
-   * operator picked by its customer DC number.
+   * Copy components and received quantities in from stored challans — either
+   * one picked by its customer DC number, or every challan on a customer DC
+   * date.
    *
    * The received quantity is what the customer sent in, so it carries over as
    * the starting point; the outward columns stay at zero for this new movement
-   * rather than inheriting the old challan's. Rows already filled in are kept
-   * and a component already present is not added twice.
+   * rather than inheriting the old challan's. Rows already filled in are kept,
+   * and the same part is never added twice.
    */
-  function useStoredDc(match: StoredDcMatch) {
-    if (match.items.length === 0) {
-      toast.info(`${match.dc_number} has no items to copy.`);
+  function copyInItems(
+    source: { component: string; material: string | null; received_qty: number }[],
+    sourceLabel: string
+  ) {
+    if (source.length === 0) {
+      toast.info(`${sourceLabel} has no components to copy.`);
       return;
     }
+
+    // Keyed on component AND material: the same part often comes in under two
+    // materials on one date, and those are genuinely separate rows. Keying on
+    // the component alone silently dropped the second one.
+    const identity = (component: string, material: string | null) =>
+      JSON.stringify([component, material ?? ""]);
 
     let added = 0;
     setItemRows((rows) => {
       const kept = rows.filter((row) => !isBlankDcItemRow(row));
-      const already = new Set(kept.map((row) => row.component));
-      const copied = match.items
-        .filter((item) => !already.has(item.component))
-        .map((item) => ({
+      const already = new Set(kept.map((row) => identity(row.component, row.material)));
+      const copied: typeof kept = [];
+      for (const item of source) {
+        // Guards against both a row already typed in and the same part
+        // appearing on two challans of the same date.
+        const key = identity(item.component, item.material);
+        if (already.has(key)) continue;
+        already.add(key);
+        copied.push({
           ...emptyDcItemRow(),
           component: item.component,
           material: item.material,
           received_qty: item.received_qty,
-        }));
+        });
+      }
       added = copied.length;
       const merged = [...kept, ...copied];
       return merged.length > 0 ? merged : [emptyDcItemRow()];
@@ -138,9 +154,13 @@ export function DcForm({
     // setItemRows runs synchronously here, so `added` is settled by now.
     toast.success(
       added > 0
-        ? `Filled ${added} item${added === 1 ? "" : "s"} from ${match.dc_number}. Check the quantities before saving.`
+        ? `Filled ${added} item${added === 1 ? "" : "s"} from ${sourceLabel}. Check the quantities before saving.`
         : `Those components are already on this challan.`
     );
+  }
+
+  function useStoredDc(match: StoredDcMatch) {
+    copyInItems(match.items, match.dc_number);
   }
 
   // A scan from the header hands its reviewed result over here — either on
@@ -191,6 +211,7 @@ export function DcForm({
             excludeDcId={dc?.id}
             customerId={customerId}
             onUseStoredDc={useStoredDc}
+            onFillDateComponents={(items, label) => copyInItems(items, `challans dated ${label}`)}
           />
         </CardContent>
       </Card>

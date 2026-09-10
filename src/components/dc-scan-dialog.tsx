@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AlertTriangle, Camera, ImageUp, Loader2, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,7 @@ import {
   findDcsByCustomerRef,
   type StoredDcMatch,
 } from "@/lib/actions/dc-lookup";
-import { StoredDcMatchList } from "@/components/dc-ref-lookup";
+import { formatDcDate, StoredDcMatchList } from "@/components/dc-ref-lookup";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
 
 export type ScannedItemSelection = {
@@ -225,15 +226,32 @@ export function DcScanDialog({
     reset();
   }
 
-  const detectedFields: { key: FieldKey; label: string; value: string | null }[] = scan
+  const detectedFields: {
+    key: FieldKey;
+    label: string;
+    value: string | null;
+    /** Shown instead of the value, saying what to do about the gap. */
+    missingHint: string;
+  }[] = scan
     ? [
         {
           key: "customerId",
           label: "Customer",
           value: scan.customerName,
+          missingHint: "No customer on file matched this challan — pick one on the form.",
         },
-        { key: "customerDcNumber", label: "Customer DC No.", value: scan.customerDcNumber },
-        { key: "customerDcDate", label: "Customer DC date", value: scan.customerDcDate },
+        {
+          key: "customerDcNumber",
+          label: "Customer DC No.",
+          value: scan.customerDcNumber,
+          missingHint: "Not read — type it from the paper challan.",
+        },
+        {
+          key: "customerDcDate",
+          label: "Customer DC date",
+          value: scan.customerDcDate,
+          missingHint: "Not read — set it on the form.",
+        },
       ]
     : [];
   const foundFields = detectedFields.filter((field) => field.value);
@@ -243,12 +261,42 @@ export function DcScanDialog({
     items.length === 0 &&
     scan.unmatchedLines.length === 0;
 
+  /**
+   * The customer read off the paper against the customer on the challans
+   * already stored under this reference.
+   *
+   * A disagreement usually means the reference was matched to the wrong
+   * customer's challan, which would attach these goods to the wrong account —
+   * worth stopping for, so it is reported rather than quietly accepted.
+   */
+  const storedCustomerNames = refMatches
+    ? [
+        ...new Set(
+          refMatches.matches
+            .map((m) => m.customer_name)
+            .filter((name): name is string => Boolean(name))
+        ),
+      ]
+    : [];
+  const scannedCustomer = scan?.customerName ?? null;
+  const customerMismatch =
+    scannedCustomer &&
+    storedCustomerNames.length > 0 &&
+    !storedCustomerNames.some((name) => name.toLowerCase() === scannedCustomer.toLowerCase())
+      ? storedCustomerNames
+      : null;
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
+          // Closing mid-review throws the scan away. It used to do so in
+          // silence, which looked identical to a scan that had been kept.
+          if (stage === "review") {
+            toast.warning("That scan was discarded. Nothing was kept for the delivery challan.");
+          }
           reset();
           setCaptured(0);
         }
@@ -287,8 +335,8 @@ export function DcScanDialog({
         <DialogHeader>
           <DialogTitle>Scan inward challan</DialogTitle>
           <DialogDescription>
-            Photograph or upload the customer&apos;s delivery challan. Text is read on this device
-            — the image is never uploaded or stored. Check every value before applying.
+            Photograph or upload the customer&apos;s delivery challan. Text is read on this device —
+            the image is never uploaded or stored. Check every value before applying.
           </DialogDescription>
         </DialogHeader>
 
@@ -368,8 +416,8 @@ export function DcScanDialog({
             )}
 
             <p className="text-xs text-muted-foreground">
-              Lay the challan flat, fill the frame, and avoid shadows and glare. Only components
-              and materials already in Settings can be matched.
+              Lay the challan flat, fill the frame, and avoid shadows and glare. Only components and
+              materials already in Settings can be matched.
             </p>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
@@ -408,8 +456,8 @@ export function DcScanDialog({
 
             {nothingFound && (
               <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                Nothing recognisable was found. Try a sharper, flatter photo — or close this and
-                key the challan in by hand.
+                Nothing recognisable was found. Try a sharper, flatter photo — or close this and key
+                the challan in by hand.
               </p>
             )}
 
@@ -444,24 +492,49 @@ export function DcScanDialog({
               </p>
             )}
 
-            {foundFields.length > 0 && (
+            {customerMismatch && (
+              <div className="rounded-md border border-destructive bg-destructive/5 px-3 py-2">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  Different customer
+                </h3>
+                <p className="text-xs text-destructive/90">
+                  This challan reads as <span className="font-medium">{scan.customerName}</span>,
+                  but the reference is already on file under {customerMismatch.join(", ")}. Check
+                  you are scanning the right paper before applying.
+                </p>
+              </div>
+            )}
+
+            {detectedFields.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Detected details</h3>
-                {foundFields.map((field) => (
+                {/* Every field is listed even when it was not read. Dropping the
+                    row made a failed read look identical to a challan that
+                    simply had no such value, so the gap went unnoticed. */}
+                {detectedFields.map((field) => (
                   <label
                     key={field.key}
-                    className="flex items-center gap-3 rounded-md border p-2 text-sm"
+                    className={cn(
+                      "flex items-center gap-3 rounded-md border p-2 text-sm",
+                      !field.value && "border-dashed bg-muted/30"
+                    )}
                   >
                     <input
                       type="checkbox"
                       className="h-4 w-4 accent-[#10233f]"
-                      checked={fields[field.key]}
-                      onChange={(e) =>
-                        setFields((f) => ({ ...f, [field.key]: e.target.checked }))
-                      }
+                      checked={Boolean(field.value) && fields[field.key]}
+                      disabled={!field.value}
+                      onChange={(e) => setFields((f) => ({ ...f, [field.key]: e.target.checked }))}
                     />
                     <span className="w-36 shrink-0 text-muted-foreground">{field.label}</span>
-                    <span className="font-medium">{field.value}</span>
+                    {field.value ? (
+                      <span className="font-medium">
+                        {field.key === "customerDcDate" ? formatDcDate(field.value) : field.value}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground italic">{field.missingHint}</span>
+                    )}
                   </label>
                 ))}
               </div>
@@ -539,7 +612,10 @@ export function DcScanDialog({
                 </p>
                 <ul className="space-y-1">
                   {scan.unmatchedLines.map((line, i) => (
-                    <li key={i} className="truncate font-mono text-xs text-amber-900 dark:text-amber-200">
+                    <li
+                      key={i}
+                      className="truncate font-mono text-xs text-amber-900 dark:text-amber-200"
+                    >
                       {line}
                     </li>
                   ))}
@@ -561,16 +637,23 @@ export function DcScanDialog({
         <DialogFooter>
           {stage === "review" && (
             <>
+              <p className="mr-auto self-center text-xs text-muted-foreground">
+                Keep it, or it is lost when you close this.
+              </p>
               <Button type="button" variant="outline" onClick={reset}>
                 Discard this scan
               </Button>
+              {/* Named for what it does to THIS challan, not for what might
+                  come next: labelled "Capture & scan next" it read as an
+                  invitation to scan another, so anyone with a single challan
+                  closed the dialog instead and lost the scan. */}
               <Button
                 type="button"
                 className="bg-[#10233f] hover:bg-[#10233f]/90"
                 onClick={apply}
                 disabled={nothingFound}
               >
-                Capture &amp; scan next
+                Keep this challan
               </Button>
             </>
           )}

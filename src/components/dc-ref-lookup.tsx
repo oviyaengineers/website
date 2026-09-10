@@ -147,7 +147,14 @@ export function DcRefLookup({
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
-      const right = Math.max(8, window.innerWidth - rect.right);
+      // Anchored to the trigger's right edge, but never so far right that the
+      // panel's own left edge leaves the screen — on a phone the trigger sits
+      // close enough to the edge for that to push the panel off.
+      const panelWidth = Math.min(22 * 16, window.innerWidth - 32);
+      const right = Math.min(
+        Math.max(8, window.innerWidth - rect.right),
+        Math.max(8, window.innerWidth - panelWidth - 8)
+      );
       const spaceBelow = window.innerHeight - rect.bottom - 12;
       const spaceAbove = rect.top - 12;
 
@@ -199,25 +206,25 @@ export function DcRefLookup({
       }}
       className="z-50 w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
     >
-          <div className="flex items-start justify-between gap-2 border-b bg-muted/50 px-3 py-2">
-            <div>
-              <p className="text-sm font-medium">
-                {matches.length} stored delivery challan{matches.length === 1 ? "" : "s"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Already recorded against {number.trim() ? `“${number.trim()}”` : "this date"}
-                {number.trim() && date.trim() ? ` on ${formatDcDate(date)}` : ""}.
-              </p>
-            </div>
-            <button
-              type="button"
-              aria-label="Hide stored challan details"
-              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-              onClick={() => setDismissed(queryKey)}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
+      <div className="flex items-start justify-between gap-2 border-b bg-muted/50 px-3 py-2">
+        <div>
+          <p className="text-sm font-medium">
+            {matches.length} stored delivery challan{matches.length === 1 ? "" : "s"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Already recorded against {number.trim() ? `“${number.trim()}”` : "this date"}
+            {number.trim() && date.trim() ? ` on ${formatDcDate(date)}` : ""}.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Hide stored challan details"
+          className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+          onClick={() => setDismissed(queryKey)}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       <StoredDcMatchList matches={matches} />
 
