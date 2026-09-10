@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Boxes,
+  CheckCircle2,
   LayoutDashboard,
   Users,
   Truck,
@@ -37,6 +39,13 @@ const baseNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-amber-400" },
   { href: "/dashboard/customers", label: "Customers", icon: Users, color: "text-cyan-400" },
   { href: "/dashboard/dc", label: "Delivery Challans", icon: Truck, color: "text-emerald-400" },
+  {
+    href: "/dashboard/completed",
+    label: "Completed Challans",
+    icon: CheckCircle2,
+    color: "text-lime-400",
+  },
+  { href: "/dashboard/stock", label: "Stock", icon: Boxes, color: "text-fuchsia-400" },
   { href: "/dashboard/invoices", label: "Invoices", icon: Receipt, color: "text-violet-400" },
   { href: "/dashboard/balance", label: "Balance", icon: Scale, color: "text-sky-400" },
 ];
