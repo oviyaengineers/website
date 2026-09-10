@@ -226,6 +226,7 @@ export function DcForm({
             onRowsChange={setItemRows}
             components={components}
             materials={materials}
+            excludeDcId={dc?.id}
           />
         </CardContent>
       </Card>

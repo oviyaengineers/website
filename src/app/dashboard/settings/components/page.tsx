@@ -3,18 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PicklistAddForm } from "@/components/picklist-add-form";
 import { DeletePicklistItemButton } from "@/components/delete-picklist-item-button";
+import { ImportUnlistedNames } from "@/components/import-unlisted-names";
+import { findUnlistedDcNames } from "@/lib/actions/dc-picklists";
 
 export const metadata: Metadata = { title: "Component & Material Settings | Oviya Engineers" };
 
 export default async function DcPicklistSettingsPage() {
   const supabase = await createClient();
-  const { data: items } = await supabase
-    .from("dc_picklist_items")
-    .select("*")
-    .order("name");
+  const { data: items } = await supabase.from("dc_picklist_items").select("*").order("name");
 
   const components = (items ?? []).filter((i) => i.kind === "component");
   const materials = (items ?? []).filter((i) => i.kind === "material");
+  const unlisted = await findUnlistedDcNames();
 
   return (
     <div className="space-y-6">
@@ -24,6 +24,8 @@ export default async function DcPicklistSettingsPage() {
           Manage the dropdown options used on Delivery Challan item rows.
         </p>
       </div>
+
+      <ImportUnlistedNames components={unlisted.components} materials={unlisted.materials} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

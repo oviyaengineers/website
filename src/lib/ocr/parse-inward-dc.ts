@@ -23,11 +23,25 @@ export type ScannedInwardDc = {
   customerDcDate: string | null;
   items: ScannedInwardItem[];
   /**
-   * Lines that carry a quantity but matched no known component — almost always
-   * a part that is not in the Settings picklist yet. Surfaced so a dropped row
-   * is visible instead of silently missing.
+   * Lines that carry a quantity but yielded no readable description at all, so
+   * they became neither an item nor a new component name. Surfaced so a dropped
+   * row is visible instead of silently missing.
    */
   unmatchedLines: string[];
+  /**
+   * Descriptions read off the challan that the component list does not hold
+   * yet, cleaned of row numbers and quantity columns so they can be stored as
+   * component names without a trip to Settings.
+   */
+  newComponents: ScannedNewComponent[];
+};
+
+/** A description found on the challan but absent from the component list. */
+export type ScannedNewComponent = {
+  name: string;
+  material: string | null;
+  received_qty: number;
+  rawLine: string;
 };
 
 export type ParseInwardDcOptions = {
@@ -150,7 +164,10 @@ function fixDigits(value: string): string {
 }
 
 function cleanValue(value: string): string | null {
-  const trimmed = value.replace(/^[\s:.\-#]+/, "").replace(/[\s:.\-]+$/, "").trim();
+  const trimmed = value
+    .replace(/^[\s:.\-#]+/, "")
+    .replace(/[\s:.\-]+$/, "")
+    .trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
@@ -244,7 +261,6 @@ const HEADER_WORDS = [
   "total",
 ];
 
-
 function isHeaderLine(line: string): boolean {
   const text = normalize(line);
   if (!text) return true;
@@ -261,6 +277,67 @@ const DIMENSION_UNITS = /\b(mm|cm|mtr|inch|dia)\b/gi;
 function toNumber(value: string): number {
   const parsed = Number(value.replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** A row number at the head of a printed line: "1", "01.", "2)". */
+const LEADING_SERIAL = /^\s*\d{1,3}\s*[).:\-]?\s+/;
+
+/**
+ * Normalise away the characters Tesseract swaps most often, for comparing two
+ * spellings of the same part name.
+ *
+ * Both sides are folded the same way, so equal names stay equal; what it buys
+ * is that "DN8ORB" read off the paper still equals the stored "DN80RB". The
+ * digit-exactness veto in findCandidate deliberately rejects that pair, which
+ * is right for picking a part but would otherwise let a misread spelling enter
+ * the component list as a second, wrong entry.
+ */
+export function foldOcrConfusables(value: string): string {
+  return normalize(value)
+    .replace(/[oq]/g, "0")
+    .replace(/[il|]/g, "1")
+    .replace(/s/g, "5")
+    .replace(/b/g, "8");
+}
+
+/** The stored spelling of a name that differs only by confusable characters. */
+export function matchStoredName(name: string, known: string[]): string | null {
+  const target = foldOcrConfusables(name);
+  if (!target) return null;
+  return known.find((candidate) => foldOcrConfusables(candidate) === target) ?? null;
+}
+
+/**
+ * Turn a challan line into a component name the picklist could hold.
+ *
+ * The raw line carries the row number and the quantity columns as well as the
+ * description — storing it whole would put "1 ... 250.000EA" in the dropdown.
+ * The description is what sits between the two, so the line is cut at the first
+ * quantity and the serial number trimmed off the front.
+ *
+ * Returns null when what remains is too short or has no letters, which is the
+ * usual shape of an OCR misread rather than a real part.
+ */
+function describeUnmatchedLine(line: string, materials: string[]): ScannedNewComponent | null {
+  const united = line.match(UNITED_QUANTITY);
+  if (!united) return null;
+
+  const name = line
+    .slice(0, line.indexOf(united[0]))
+    .replace(LEADING_SERIAL, "")
+    .replace(/[\s.,;:|\-]+$/, "")
+    .trim();
+
+  if (name.length < 4 || !/[A-Za-z]/.test(name)) return null;
+
+  // The grade is usually printed inside the part name, so read it from there.
+  const material = findCandidate(name, materials);
+  return {
+    name,
+    material: material?.value ?? null,
+    received_qty: toNumber(united[1]),
+    rawLine: line,
+  };
 }
 
 /**
@@ -312,6 +389,8 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
 
   const items: ScannedInwardItem[] = [];
   const unmatchedLines: string[] = [];
+  const newComponents: ScannedNewComponent[] = [];
+  const seenNewNames = new Set<string>();
   for (const line of lines) {
     if (isHeaderLine(line)) continue;
 
@@ -320,7 +399,30 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
       // A quantity with no recognised component means we are about to drop a
       // real row; keep it so the review step can say so.
       if (UNITED_QUANTITY.test(line) && !/\btotal\b/i.test(line)) {
-        unmatchedLines.push(line);
+        const candidate = describeUnmatchedLine(line, options.materials);
+        if (!candidate) {
+          // Nothing usable between the row number and the quantity.
+          unmatchedLines.push(line);
+        } else {
+          // A part already listed but misread — an O for a zero is enough to
+          // get here — is the same part, so it takes the stored spelling
+          // rather than being offered as a new one.
+          const stored = matchStoredName(candidate.name, options.components);
+          if (stored) {
+            items.push({
+              component: stored,
+              material: candidate.material,
+              received_qty: candidate.received_qty,
+              confidence: 0.85,
+              rawLine: line,
+            });
+          } else if (!seenNewNames.has(foldOcrConfusables(candidate.name))) {
+            // Offer it as a component the list does not have yet, so a part
+            // new to this workshop need not be typed into Settings first.
+            seenNewNames.add(foldOcrConfusables(candidate.name));
+            newComponents.push(candidate);
+          }
+        }
       }
       continue;
     }
@@ -345,5 +447,6 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
     customerDcDate: extractDate(lines),
     items,
     unmatchedLines,
+    newComponents,
   };
 }

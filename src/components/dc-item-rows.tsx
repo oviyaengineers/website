@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import type { DcItemInput } from "@/lib/actions/dc";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import { ComponentPendingDcs } from "@/components/component-pending-dcs";
 
 let rowId = 0;
 function nextId() {
@@ -58,11 +59,14 @@ export function DcItemRows({
   onRowsChange,
   components,
   materials,
+  excludeDcId,
 }: {
   rows: DcItemRow[];
   onRowsChange: (updater: (rows: DcItemRow[]) => DcItemRow[]) => void;
   components: string[];
   materials: string[];
+  /** The challan being edited, so it is not listed as pending against itself. */
+  excludeDcId?: string | null;
 }) {
   function addRow() {
     onRowsChange((r) => [...r, emptyDcItemRow()]);
@@ -126,6 +130,9 @@ export function DcItemRows({
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* Choosing a part is the moment to see what is already
+                      outstanding on it elsewhere. */}
+                  <ComponentPendingDcs component={row.component} excludeDcId={excludeDcId} />
                 </div>
                 <div className="space-y-1">
                   <Label className="sm:hidden">Material</Label>

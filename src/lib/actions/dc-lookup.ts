@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { correctScannedDcRef } from "@/lib/dc-refs";
+import { balanceQty, outwardTotal } from "@/lib/dc-balance";
 
 // Read-only lookup used by the DC form: given a customer DC number or date,
 // find the delivery challans already stored against it so the operator can see
@@ -51,6 +52,89 @@ export async function correctScannedCustomerDcNumber(scanned: string): Promise<s
   return correctScannedDcRef(raw, stored);
 }
 
+/** A challan still holding pieces of one component. */
+export type PendingComponentDc = {
+  id: string;
+  dc_number: string;
+  dc_date: string;
+  customer_name: string | null;
+  customer_dc_number: string[] | null;
+  material: string | null;
+  received_qty: number;
+  outward_qty: number;
+  /** Received minus outward: how many pieces are still with us. */
+  pending_qty: number;
+};
+
+/**
+ * Challans that still owe pieces of a component back to the customer.
+ *
+ * "Pending" is the balance, not the status: every challan sits at draft, so a
+ * status filter would list all of them. A row counts as pending while received
+ * exceeds what has gone out as sent, material problem and rejection combined —
+ * the same reckoning the balance page uses. Read-only.
+ */
+export async function findPendingDcsForComponent({
+  component,
+  excludeDcId,
+}: {
+  component?: string | null;
+  excludeDcId?: string | null;
+}): Promise<PendingComponentDc[]> {
+  const wanted = component?.trim();
+  if (!wanted) return [];
+
+  const supabase = await createClient();
+
+  const { data: items, error } = await supabase
+    .from("delivery_challan_items")
+    .select(
+      "dc_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty"
+    )
+    .eq("component", wanted);
+  if (error || !items || items.length === 0) return [];
+
+  const outstanding = items
+    .map((item) => ({
+      ...item,
+      outward: outwardTotal(item),
+      pending: balanceQty(item),
+    }))
+    .filter((item) => item.pending > 0 && item.dc_id !== excludeDcId);
+  if (outstanding.length === 0) return [];
+
+  const dcIds = [...new Set(outstanding.map((i) => i.dc_id))];
+  const { data: dcs } = await supabase
+    .from("delivery_challans")
+    .select("id, dc_number, dc_date, customer_id, customer_dc_number")
+    .in("id", dcIds)
+    .order("dc_date", { ascending: false });
+  if (!dcs || dcs.length === 0) return [];
+
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, name")
+    .in("id", [...new Set(dcs.map((d) => d.customer_id))]);
+  const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+
+  // Ordered by the challans, so the newest challan is listed first.
+  return dcs.flatMap((dc) =>
+    outstanding
+      .filter((item) => item.dc_id === dc.id)
+      .map((item) => ({
+        id: dc.id,
+        dc_number: dc.dc_number,
+        dc_date: dc.dc_date,
+        customer_name: nameById.get(dc.customer_id) ?? null,
+        customer_dc_number: dc.customer_dc_number,
+        material: item.material,
+        received_qty: item.received_qty,
+        outward_qty: item.outward,
+        pending_qty: item.pending,
+      }))
+  );
+}
+
 /** One stored customer DC reference, with the challan it belongs to. */
 export type CustomerDcRefOption = {
   number: string;
@@ -93,7 +177,10 @@ export async function findCustomerDcRefs({
     supabase
       .from("delivery_challan_items")
       .select("*")
-      .in("dc_id", dcs.map((d) => d.id))
+      .in(
+        "dc_id",
+        dcs.map((d) => d.id)
+      )
       .order("sort_order"),
     supabase.from("customers").select("id, name").eq("id", customerId).single(),
   ]);
@@ -183,11 +270,7 @@ export async function findDcsByCustomerRef({
   const customerIds = [...new Set(dcs.map((d) => d.customer_id))];
 
   const [{ data: items }, { data: customers }] = await Promise.all([
-    supabase
-      .from("delivery_challan_items")
-      .select("*")
-      .in("dc_id", dcIds)
-      .order("sort_order"),
+    supabase.from("delivery_challan_items").select("*").in("dc_id", dcIds).order("sort_order"),
     supabase.from("customers").select("id, name").in("id", customerIds),
   ]);
 

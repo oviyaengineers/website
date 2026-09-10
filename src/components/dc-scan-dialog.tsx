@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Camera, ImageUp, Loader2, ScanLine } from "lucide-react";
+import { AlertTriangle, Camera, ImageUp, Loader2, PackagePlus, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { prepareImage, recognizeText, type OcrProgress } from "@/lib/ocr/recognize";
-import { parseInwardDc, type ScannedInwardDc } from "@/lib/ocr/parse-inward-dc";
+import {
+  parseInwardDc,
+  type ScannedInwardDc,
+  type ScannedNewComponent,
+} from "@/lib/ocr/parse-inward-dc";
+import { addScannedComponentNamesAction } from "@/lib/actions/dc-picklists";
 import {
   correctScannedCustomerDcNumber,
   findDcsByCustomerRef,
@@ -50,6 +56,9 @@ type ReviewItem = ScannedItemSelection & {
 
 /** Which single-value fields the operator has ticked to apply. */
 type FieldKey = "customerId" | "customerDcNumber" | "customerDcDate";
+
+/** A scanned description awaiting a decision before it joins the component list. */
+type NewNameEntry = ScannedNewComponent & { key: number; include: boolean };
 
 /** Shared look for the two capture tiles; each wraps its own file input. */
 const TILE =
@@ -93,6 +102,9 @@ export function DcScanDialog({
     customerDcDate: true,
   });
   const [items, setItems] = useState<ReviewItem[]>([]);
+  /** Descriptions the component list does not hold yet, editable before storing. */
+  const [newNames, setNewNames] = useState<NewNameEntry[]>([]);
+  const [storing, setStoring] = useState(false);
   const [dragging, setDragging] = useState(false);
   /** Challans captured since this dialog was opened. */
   const [captured, setCaptured] = useState(0);
@@ -102,6 +114,7 @@ export function DcScanDialog({
     matches: StoredDcMatch[];
   } | null>(null);
 
+  const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
@@ -114,6 +127,7 @@ export function DcScanDialog({
     setRawText("");
     setScan(null);
     setItems([]);
+    setNewNames([]);
     setRefMatches(null);
     setCorrectedFrom(null);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -197,6 +211,13 @@ export function DcScanDialog({
           rawLine: item.rawLine,
         }))
       );
+      setNewNames(
+        parsed.newComponents.map((candidate, index) => ({
+          ...candidate,
+          key: index,
+          include: true,
+        }))
+      );
       setStage("review");
     } catch (e) {
       setError(
@@ -208,17 +229,58 @@ export function DcScanDialog({
     }
   }
 
-  function apply() {
+  async function apply() {
     if (!scan) return;
+
+    // Descriptions new to the component list are stored first, so the rows
+    // built from them have something to select in the Description dropdown.
+    const wanted = newNames
+      .filter((entry) => entry.include && entry.name.trim())
+      .map((entry) => ({ ...entry, name: entry.name.trim() }));
+
+    let stored: string[] = [];
+    if (wanted.length > 0) {
+      setStoring(true);
+      try {
+        const result = await addScannedComponentNamesAction(wanted.map((entry) => entry.name));
+        if (result.error) {
+          toast.error(result.error);
+          setStoring(false);
+          return;
+        }
+        stored = result.added;
+      } catch {
+        toast.error("Could not save the new descriptions. Nothing was kept.");
+        setStoring(false);
+        return;
+      }
+      setStoring(false);
+    }
 
     onApply({
       customerId: fields.customerId ? scan.customerId : null,
       customerDcNumber: fields.customerDcNumber ? scan.customerDcNumber : null,
       customerDcDate: fields.customerDcDate ? scan.customerDcDate : null,
-      items: items
-        .filter((item) => item.include)
-        .map(({ component, material, received_qty }) => ({ component, material, received_qty })),
+      items: [
+        ...items
+          .filter((item) => item.include)
+          .map(({ component, material, received_qty }) => ({ component, material, received_qty })),
+        ...wanted.map(({ name, material, received_qty }) => ({
+          component: name,
+          material,
+          received_qty,
+        })),
+      ],
     });
+
+    if (stored.length > 0) {
+      toast.success(
+        `${stored.length} description${stored.length === 1 ? "" : "s"} added to the component list.`
+      );
+      // The picklists are server data; without this the Description dropdown
+      // would not offer what was just stored until a reload.
+      router.refresh();
+    }
 
     // Return to the capture step instead of closing: several challans are
     // often photographed in one go, and each adds to the same new DC.
@@ -255,6 +317,9 @@ export function DcScanDialog({
       ]
     : [];
   const foundFields = detectedFields.filter((field) => field.value);
+  // Only the lines that yielded nothing usable; anything with a readable
+  // description became an item or a new component name instead.
+  const unreadableLines = scan?.unmatchedLines ?? [];
   const nothingFound =
     scan !== null &&
     foundFields.length === 0 &&
@@ -599,23 +664,66 @@ export function DcScanDialog({
               </div>
             )}
 
-            {scan.unmatchedLines.length > 0 && (
+            {newNames.length > 0 && (
               <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-50 p-3 dark:bg-amber-950/20">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
-                  <AlertTriangle className="h-4 w-4" />
-                  {scan.unmatchedLines.length} row
-                  {scan.unmatchedLines.length === 1 ? "" : "s"} could not be matched
+                  <PackagePlus className="h-4 w-4" />
+                  {newNames.length} new description{newNames.length === 1 ? "" : "s"}
                 </h3>
                 <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                  These lines have a quantity but no matching component in Settings, so they were
-                  left out. Add the component there, or enter the row by hand.
+                  Not in your component list yet. Ticked ones are added to it when you keep this
+                  challan, so there is no need to type them into Settings. Correct any misreading
+                  first — the name is stored exactly as it appears here.
+                </p>
+                {newNames.map((entry) => (
+                  <div key={entry.key} className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-2.5 h-4 w-4 shrink-0 accent-[#10233f]"
+                      checked={entry.include}
+                      onChange={(e) =>
+                        setNewNames((rows) =>
+                          rows.map((row) =>
+                            row.key === entry.key ? { ...row, include: e.target.checked } : row
+                          )
+                        )
+                      }
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <Input
+                        value={entry.name}
+                        aria-label="New component description"
+                        onChange={(e) =>
+                          setNewNames((rows) =>
+                            rows.map((row) =>
+                              row.key === entry.key ? { ...row, name: e.target.value } : row
+                            )
+                          )
+                        }
+                        className="h-9 bg-background text-sm"
+                      />
+                      <p className="truncate font-mono text-[11px] text-amber-900/70 dark:text-amber-200/70">
+                        read: {entry.rawLine} → qty {entry.received_qty}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {unreadableLines.length > 0 && (
+              <div className="space-y-1 rounded-md border border-dashed p-3">
+                <h3 className="flex items-center gap-2 text-sm font-medium">
+                  <AlertTriangle className="h-4 w-4" />
+                  {unreadableLines.length} row{unreadableLines.length === 1 ? "" : "s"} could not be
+                  read
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  These carry a quantity but no description could be made out. Enter them by hand.
                 </p>
                 <ul className="space-y-1">
-                  {scan.unmatchedLines.map((line, i) => (
-                    <li
-                      key={i}
-                      className="truncate font-mono text-xs text-amber-900 dark:text-amber-200"
-                    >
+                  {unreadableLines.map((line, i) => (
+                    <li key={i} className="truncate font-mono text-xs text-muted-foreground">
                       {line}
                     </li>
                   ))}
@@ -650,10 +758,10 @@ export function DcScanDialog({
               <Button
                 type="button"
                 className="bg-[#10233f] hover:bg-[#10233f]/90"
-                onClick={apply}
-                disabled={nothingFound}
+                onClick={() => void apply()}
+                disabled={nothingFound || storing}
               >
-                Keep this challan
+                {storing ? "Saving…" : "Keep this challan"}
               </Button>
             </>
           )}
