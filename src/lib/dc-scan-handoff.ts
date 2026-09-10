@@ -7,7 +7,7 @@ import type { DcScanResult } from "@/components/dc-scan-dialog";
 // same new challan. Stored rather than passed in a query string, because the
 // payload includes item rows.
 //
-// localStorage, not localStorage. The queue has to outlive the tab: challans
+// localStorage, not sessionStorage. The queue has to outlive the tab: challans
 // get photographed on the shop floor and the challan is raised later, and with
 // session storage closing the tab in between silently threw the scans away —
 // which happened repeatedly in practice. It still outlives the new-DC form too:
