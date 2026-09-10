@@ -324,6 +324,23 @@ export function matchStoredName(name: string, known: string[]): string | null {
  * Returns null when what remains is too short or has no letters, which is the
  * usual shape of an OCR misread rather than a real part.
  */
+/**
+ * Whether a line reads like a part description rather than a field or an
+ * address.
+ *
+ * The row number is often lost — the narrow "Sl No." column reads as nothing at
+ * all — so a row cannot be recognised by the number it opens with, and a part
+ * new to the list matches no component either. What these names always have is
+ * ordinary words alongside a code: "Body Casting" next to "DN25FB/32RB". A
+ * reference like "ODC26-27/1062" carries no such words, and a street address
+ * carries no digits.
+ */
+function looksLikePartDescription(text: string): boolean {
+  const words = text.split(/\s+/).filter(Boolean);
+  const spelled = words.filter((word) => /^[A-Za-z]{3,}$/.test(word)).length;
+  return spelled >= 2 && /\d/.test(text);
+}
+
 /** Trim a printed description down to the part name alone. */
 function descriptionFrom(text: string): string | null {
   const name = text
@@ -342,7 +359,11 @@ function descriptionFrom(text: string): string | null {
  * gap first recovers the real figure.
  */
 function parseBareQuantity(line: string): number {
-  const joined = line.replace(/(\d)\s*[.,]\s*(\d)/g, "$1.$2");
+  // The decimal point is routinely lost or spaced out, so "284.000EA" arrives
+  // as "284 000EA" or "204. 000EA" and a plain match reads only the "000".
+  // Rejoining the digits first recovers the figure. Safe here because the line
+  // carries nothing but the quantity column.
+  const joined = line.replace(/(\d)[\s.,]+(\d)/g, "$1.$2");
   const united = joined.match(UNITED_QUANTITY);
   return united ? toNumber(united[1]) : 0;
 }
@@ -513,7 +534,7 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
     // or opens with its row number; that keeps "DC No. ..." and "Total ..."
     // out of the column, which would otherwise shift every pairing by one.
     if (!description || !inTable || isTotal) continue;
-    if (component || LEADING_SERIAL.test(line)) {
+    if (component || LEADING_SERIAL.test(line) || looksLikePartDescription(description)) {
       rowDescriptions.push({ line, description, component });
     }
   }
