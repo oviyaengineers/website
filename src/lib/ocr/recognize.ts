@@ -11,11 +11,36 @@ const MIN_LONG_EDGE = 1200;
 
 export type OcrProgress = { status: string; progress: number };
 
+/**
+ * What the photograph itself was like, before any reading was attempted.
+ *
+ * OCR fails silently on a poor picture: it returns confident-looking nonsense
+ * rather than an error, and the operator has no way to tell a bad photo from a
+ * bad parser. Measuring the input means the dialog can say "retake this" while
+ * the challan is still in front of them.
+ */
+export type ImageQuality = {
+  /** Longest edge of the original file, in px. */
+  longEdge: number;
+  /** Too few pixels across the page for the table text to survive. */
+  tooSmall: boolean;
+};
+
 export type PreparedImage = {
   canvas: HTMLCanvasElement;
   /** data: URL for the review thumbnail. */
   previewUrl: string;
+  quality: ImageQuality;
 };
+
+/** Below this the page simply has too few pixels for the table to be read. */
+const MIN_USABLE_LONG_EDGE = 1500;
+
+/**
+ * Narrowest percentile span worth stretching. Below it the photograph is
+ * already high-contrast and stretching would only destroy it.
+ */
+const MIN_STRETCHABLE_SPAN = 32;
 
 /**
  * Downscale (or gently upscale) the photo, convert to greyscale, and stretch
@@ -24,11 +49,12 @@ export type PreparedImage = {
 export async function prepareImage(file: File): Promise<PreparedImage> {
   const bitmap = await createImageBitmap(file);
   const longEdge = Math.max(bitmap.width, bitmap.height);
-  const scale = longEdge > TARGET_LONG_EDGE
-    ? TARGET_LONG_EDGE / longEdge
-    : longEdge < MIN_LONG_EDGE
-      ? MIN_LONG_EDGE / longEdge
-      : 1;
+  const scale =
+    longEdge > TARGET_LONG_EDGE
+      ? TARGET_LONG_EDGE / longEdge
+      : longEdge < MIN_LONG_EDGE
+        ? MIN_LONG_EDGE / longEdge
+        : 1;
 
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
@@ -59,18 +85,32 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
   const total = canvas.width * canvas.height;
   const low = percentile(histogram, total, 0.02);
   const high = percentile(histogram, total, 0.98);
-  const span = Math.max(1, high - low);
+  const span = high - low;
 
-  for (let i = 0; i < pixels.length; i += 4) {
-    const stretched = Math.min(255, Math.max(0, ((pixels[i] - low) * 255) / span)) | 0;
-    pixels[i] = stretched;
-    pixels[i + 1] = stretched;
-    pixels[i + 2] = stretched;
+  // A sparse page is mostly paper: on a clean, evenly lit shot of this challan
+  // fewer than 2% of pixels are ink, so both percentiles land on white and the
+  // span collapses to nothing. Stretching by that mapped every pixel to black
+  // and Tesseract read an empty rectangle. The stretch only helps when there is
+  // a real spread to open up, so a collapsed one is left alone.
+  if (span >= MIN_STRETCHABLE_SPAN) {
+    for (let i = 0; i < pixels.length; i += 4) {
+      const stretched = Math.min(255, Math.max(0, ((pixels[i] - low) * 255) / span)) | 0;
+      pixels[i] = stretched;
+      pixels[i + 1] = stretched;
+      pixels[i + 2] = stretched;
+    }
   }
 
   ctx.putImageData(image, 0, 0);
 
-  return { canvas, previewUrl: canvas.toDataURL("image/jpeg", 0.7) };
+  return {
+    canvas,
+    previewUrl: canvas.toDataURL("image/jpeg", 0.7),
+    quality: {
+      longEdge,
+      tooSmall: longEdge < MIN_USABLE_LONG_EDGE,
+    },
+  };
 }
 
 function percentile(histogram: Uint32Array, total: number, fraction: number): number {

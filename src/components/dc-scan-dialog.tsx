@@ -17,7 +17,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { prepareImage, recognizeText, type OcrProgress } from "@/lib/ocr/recognize";
+import {
+  prepareImage,
+  recognizeText,
+  type ImageQuality,
+  type OcrProgress,
+} from "@/lib/ocr/recognize";
 import {
   parseInwardDc,
   type ScannedInwardDc,
@@ -64,6 +69,9 @@ type NewNameEntry = ScannedNewComponent & { key: number; include: boolean };
 const TILE =
   "relative flex h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring";
 
+/** Quoted in the warning, so the number the operator sees matches the check. */
+const MIN_READABLE_PX = 1500;
+
 const PROGRESS_LABELS: Record<string, string> = {
   "loading tesseract core": "Loading the OCR engine",
   "initializing tesseract": "Starting the OCR engine",
@@ -94,6 +102,8 @@ export function DcScanDialog({
   const [progress, setProgress] = useState<OcrProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  /** How good the photograph was, so a bad one can be called out. */
+  const [quality, setQuality] = useState<ImageQuality | null>(null);
   const [rawText, setRawText] = useState("");
   const [scan, setScan] = useState<ScannedInwardDc | null>(null);
   const [fields, setFields] = useState<Record<FieldKey, boolean>>({
@@ -124,6 +134,7 @@ export function DcScanDialog({
     setProgress(null);
     setError(null);
     setPreviewUrl(null);
+    setQuality(null);
     setRawText("");
     setScan(null);
     setItems([]);
@@ -175,8 +186,9 @@ export function DcScanDialog({
     setProgress(null);
 
     try {
-      const { canvas, previewUrl: preview } = await prepareImage(file);
+      const { canvas, previewUrl: preview, quality: measured } = await prepareImage(file);
       setPreviewUrl(preview);
+      setQuality(measured);
 
       const text = await recognizeText(canvas, setProgress);
       const parsed = parseInwardDc(text, { customers, components, materials });
@@ -444,11 +456,16 @@ export function DcScanDialog({
               >
                 <Camera className="h-5 w-5" />
                 Take photo
+                {/* No `capture` attribute on purpose. It makes the browser use
+                    a quick in-app camera intent, and on Android that hands back
+                    a heavily downscaled picture — a photographed challan came
+                    through at 73kB, far too coarse for OCR to read a part
+                    number. Without it the phone offers its own camera app,
+                    which saves at full resolution. */}
                 <input
                   ref={cameraInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
@@ -517,6 +534,24 @@ export function DcScanDialog({
                 alt="Scanned challan"
                 className="max-h-40 w-full rounded-md border object-contain"
               />
+            )}
+
+            {quality?.tooSmall && (
+              <div className="space-y-1 rounded-md border border-destructive bg-destructive/5 p-3">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  This photo is too small to read reliably
+                </h3>
+                <p className="text-xs text-destructive/90">
+                  {quality.longEdge}px across, where a part number needs about {MIN_READABLE_PX}px.
+                  Everything below is a guess — check every value, or retake the photo now while the
+                  challan is in front of you.
+                </p>
+                <p className="text-xs text-destructive/80">
+                  Hold the phone square over the sheet and fill the frame with it. If your camera
+                  offers a choice, take the picture with the camera app rather than a quick capture.
+                </p>
+              </div>
             )}
 
             {nothingFound && (
