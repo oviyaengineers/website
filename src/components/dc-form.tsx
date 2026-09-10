@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,13 @@ import {
   makeCustomerDcRefs,
 } from "@/components/customer-dc-refs";
 import type { DcScanResult } from "@/components/dc-scan-dialog";
-import { PENDING_SCAN_EVENT, takePendingScans } from "@/lib/dc-scan-handoff";
+import {
+  PENDING_SCAN_EVENT,
+  peekPendingScans,
+  restorePendingScans,
+  takePendingScans,
+  type PendingScan,
+} from "@/lib/dc-scan-handoff";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
@@ -52,6 +58,10 @@ export function DcForm({
     makeCustomerDcRefs(dc?.customer_dc_number, dc?.customer_dc_date)
   );
   const [itemRows, setItemRows] = useState(() => makeDcItemRows(items));
+  /** Scans this form instance has already folded in, so none is applied twice. */
+  const appliedScanIds = useRef<Set<string>>(new Set());
+  /** The queue while a save is in flight, put back if the save fails. */
+  const heldScans = useRef<PendingScan[] | null>(null);
   const overDelivered = findOverDelivered(itemRows);
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
@@ -167,12 +177,22 @@ export function DcForm({
   // arrival, or via the event when this form was already open (scanning
   // mid-entry must not discard what has been typed).
   //
+  // The queue is read but NOT emptied: it has to outlive this form, because
+  // leaving without saving would otherwise destroy the scans. Applying twice
+  // is prevented by id instead. A fresh mount starts with an empty set and so
+  // repopulates the form from the queue, which is what should happen when the
+  // operator comes back to finish the challan.
+  //
   // Reading in a frame callback rather than the effect body keeps the server
-  // and first client render identical, and takePendingScan clears the handoff
-  // so a result is applied exactly once.
+  // and first client render identical.
   useEffect(() => {
+    const applied = appliedScanIds.current;
     const consume = () => {
-      for (const pending of takePendingScans()) applyScan(pending);
+      for (const pending of peekPendingScans()) {
+        if (applied.has(pending.id)) continue;
+        applied.add(pending.id);
+        applyScan(pending.scan);
+      }
     };
     const raf = requestAnimationFrame(consume);
     window.addEventListener(PENDING_SCAN_EVENT, consume);
@@ -182,8 +202,29 @@ export function DcForm({
     };
   }, []);
 
+  // The save redirects on success, so nothing after it runs here. The queue is
+  // therefore lifted out of storage as the form is submitted and held only in
+  // memory: a challan that saves leaves nothing behind, and a save that comes
+  // back with an error still has this component mounted to put it back.
+  useEffect(() => {
+    if (pending) return;
+    const held = heldScans.current;
+    if (!held) return;
+    if (state.error) restorePendingScans(held);
+    heldScans.current = null;
+  }, [pending, state.error]);
+
   return (
-    <form action={formAction} className="space-y-6 max-w-4xl">
+    <form
+      action={formAction}
+      onSubmit={() => {
+        // Runs before the action. Only a save that succeeds should consume the
+        // queue, so it is held here rather than dropped.
+        const held = takePendingScans();
+        if (held.length > 0) heldScans.current = held;
+      }}
+      className="space-y-6 max-w-4xl"
+    >
       <Card className="border-t-4 border-t-[#10233f]">
         <CardHeader>
           <CardTitle className="text-base text-[#10233f]">Delivery Challan</CardTitle>

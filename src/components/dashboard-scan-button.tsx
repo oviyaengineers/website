@@ -84,7 +84,10 @@ export function DashboardScanButton({
           // pointer-events-none so the badge never swallows a tap meant for
           // the button underneath it.
           className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#10233f] px-1 text-[11px] font-semibold text-white shadow ring-2 ring-background"
-          aria-label={`${pending} scanned challan${pending === 1 ? "" : "s"} waiting for a delivery challan`}
+          // Wording matters: these stay queued until a challan is saved, so
+          // they are "not yet saved" rather than merely "waiting".
+          aria-label={`${pending} scanned challan${pending === 1 ? "" : "s"} not yet saved to a delivery challan`}
+          title={`${pending} scanned challan${pending === 1 ? "" : "s"} not yet saved`}
         >
           {pending}
         </span>
