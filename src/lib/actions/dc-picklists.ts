@@ -173,6 +173,26 @@ export async function addScannedComponentNamesAction(
   return { added: toAdd, error: null };
 }
 
+/**
+ * How many stored challan rows use this name.
+ *
+ * Deleting a name that challans use makes those parts unpickable on any new
+ * challan while leaving the old rows referring to it, so the confirmation says
+ * so before the fact rather than leaving it to be discovered later.
+ */
+export async function countPicklistNameUsage(kind: DcPicklistKind, name: string): Promise<number> {
+  const wanted = name?.trim();
+  if (!wanted) return 0;
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("delivery_challan_items")
+    .select("id", { count: "exact", head: true })
+    .eq(kind === "component" ? "component" : "material", wanted);
+
+  return count ?? 0;
+}
+
 export async function deletePicklistItemAction(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("dc_picklist_items").delete().eq("id", id);

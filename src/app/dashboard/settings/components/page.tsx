@@ -44,7 +44,7 @@ export default async function DcPicklistSettingsPage() {
                   className="flex items-center gap-1 rounded-full border bg-muted/50 py-1 pl-3 pr-1 text-sm"
                 >
                   {c.name}
-                  <DeletePicklistItemButton id={c.id} name={c.name} />
+                  <DeletePicklistItemButton id={c.id} name={c.name} kind="component" />
                 </span>
               ))}
             </div>
@@ -67,7 +67,7 @@ export default async function DcPicklistSettingsPage() {
                   className="flex items-center gap-1 rounded-full border bg-muted/50 py-1 pl-3 pr-1 text-sm"
                 >
                   {m.name}
-                  <DeletePicklistItemButton id={m.id} name={m.name} />
+                  <DeletePicklistItemButton id={m.id} name={m.name} kind="material" />
                 </span>
               ))}
             </div>
