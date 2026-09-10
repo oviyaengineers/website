@@ -347,6 +347,29 @@ function partsAgree(a: string, b: string): boolean {
 }
 
 /**
+ * Whether two stored names look like the same part under different spellings.
+ *
+ * Used to find duplicates that OCR has already put in the list, so one can be
+ * merged away. Deliberately looser than the match used while reading a challan:
+ * here a false positive only offers a suggestion the operator can decline,
+ * whereas a missed duplicate sits in the dropdown forever.
+ */
+export function namesLookAlike(a: string, b: string): boolean {
+  const left = foldOcrConfusables(a);
+  const right = foldOcrConfusables(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  // Word by word, which is what partsAgree does. Comparing whole names by edit
+  // distance was tried and rejected: it rated "DN25FB/32RB ... Body Casting"
+  // against "DN40FB/50RB ... Body Casting" at 89%, and "Body Casting" against
+  // "Bonnet Casting" higher still, offering real parts up as duplicates. Per
+  // word is strict enough to keep those apart while still pairing a dropped
+  // letter, "Casing" with "Casting", inside one word.
+  return partsAgree(a, b);
+}
+
+/**
  * The component a printed description names, or null when it names none.
  *
  * findCandidate does the fuzzy search; partsAgree then vetoes a match whose

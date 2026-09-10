@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { foldOcrConfusables } from "@/lib/ocr/parse-inward-dc";
+import { foldOcrConfusables, namesLookAlike } from "@/lib/ocr/parse-inward-dc";
 import type { DcPicklistKind } from "@/types/database";
 
 export type PicklistFormState = { error: string | null };
@@ -264,6 +264,131 @@ export async function renamePicklistItemAction(
   revalidatePath("/dashboard/settings/components");
   revalidatePath("/dashboard/dc");
   return { renamedRows: moved?.length ?? 0, error: null };
+}
+
+/** One entry in a set of names that look like the same part. */
+export type DuplicateEntry = { id: string; name: string; usedOnRows: number };
+
+/**
+ * Sets of entries that look like the same part spelled differently.
+ *
+ * Scanning puts these there: a zero read as a letter O, "Flg" as "Fig", a
+ * dropped letter in "Casting". Each variant is a separate dropdown entry, and
+ * whoever picks from the list eventually chooses the wrong one. Read-only.
+ */
+export async function findDuplicatePicklistNames(
+  kind: DcPicklistKind
+): Promise<DuplicateEntry[][]> {
+  const supabase = await createClient();
+  const [{ data: entries }, { data: rows }] = await Promise.all([
+    supabase.from("dc_picklist_items").select("id, name").eq("kind", kind).order("name"),
+    supabase.from("delivery_challan_items").select("component, material"),
+  ]);
+  if (!entries || entries.length < 2) return [];
+
+  const usage = new Map<string, number>();
+  for (const row of rows ?? []) {
+    const used = kind === "component" ? row.component : row.material;
+    const name = used?.trim();
+    if (name) usage.set(name, (usage.get(name) ?? 0) + 1);
+  }
+
+  // Union-find over the entries, joining any pair that looks alike, so three
+  // spellings of one part end up in a single set rather than two pairs.
+  const parent = entries.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      if (namesLookAlike(entries[i].name, entries[j].name)) parent[find(j)] = find(i);
+    }
+  }
+
+  const sets = new Map<number, DuplicateEntry[]>();
+  entries.forEach((entry, i) => {
+    const root = find(i);
+    const list = sets.get(root) ?? [];
+    list.push({ id: entry.id, name: entry.name, usedOnRows: usage.get(entry.name) ?? 0 });
+    sets.set(root, list);
+  });
+
+  // Most-used first inside each set: that is usually the correct spelling.
+  return [...sets.values()]
+    .filter((set) => set.length > 1)
+    .map((set) =>
+      [...set].sort((a, b) => b.usedOnRows - a.usedOnRows || a.name.localeCompare(b.name))
+    );
+}
+
+/**
+ * Keeps one spelling and removes the others, moving any challan rows across.
+ *
+ * A plain delete would strand those rows on a name the dropdown no longer
+ * offers, so they are repointed at the kept spelling first.
+ */
+export async function mergePicklistItemsAction(
+  kind: DcPicklistKind,
+  keepId: string,
+  dropIds: string[]
+): Promise<{ movedRows: number; removed: number; error: string | null }> {
+  if (dropIds.length === 0) return { movedRows: 0, removed: 0, error: null };
+
+  const supabase = await createClient();
+  const { data: keep } = await supabase
+    .from("dc_picklist_items")
+    .select("name")
+    .eq("id", keepId)
+    .single();
+  if (!keep) return { movedRows: 0, removed: 0, error: "The entry to keep no longer exists." };
+
+  const { data: drops } = await supabase
+    .from("dc_picklist_items")
+    .select("id, name")
+    .in("id", dropIds);
+  if (!drops || drops.length === 0) {
+    return { movedRows: 0, removed: 0, error: "Nothing to remove." };
+  }
+
+  let movedRows = 0;
+  for (const drop of drops) {
+    if (drop.name === keep.name) continue;
+    const { data: moved, error } =
+      kind === "component"
+        ? await supabase
+            .from("delivery_challan_items")
+            .update({ component: keep.name })
+            .eq("component", drop.name)
+            .select("id")
+        : await supabase
+            .from("delivery_challan_items")
+            .update({ material: keep.name })
+            .eq("material", drop.name)
+            .select("id");
+    if (error) return { movedRows, removed: 0, error: error.message };
+    movedRows += moved?.length ?? 0;
+  }
+
+  const { data: removed, error: deleteError } = await supabase
+    .from("dc_picklist_items")
+    .delete()
+    .in(
+      "id",
+      drops.map((d) => d.id)
+    )
+    .select("id");
+  if (deleteError) {
+    return {
+      movedRows,
+      removed: 0,
+      error:
+        deleteError.code === "42501"
+          ? "Only an admin can remove picklist entries."
+          : deleteError.message,
+    };
+  }
+
+  revalidatePath("/dashboard/settings/components");
+  revalidatePath("/dashboard/dc");
+  return { movedRows, removed: removed?.length ?? 0, error: null };
 }
 
 export async function deletePicklistItemAction(id: string) {

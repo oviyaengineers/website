@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PicklistAddForm } from "@/components/picklist-add-form";
 import { PicklistItemChip } from "@/components/picklist-item-chip";
 import { ImportUnlistedNames } from "@/components/import-unlisted-names";
-import { findUnlistedDcNames } from "@/lib/actions/dc-picklists";
+import { DuplicatePicklistGroups } from "@/components/duplicate-picklist-groups";
+import { findDuplicatePicklistNames, findUnlistedDcNames } from "@/lib/actions/dc-picklists";
 
 export const metadata: Metadata = { title: "Component & Material Settings | Oviya Engineers" };
 
@@ -14,7 +15,11 @@ export default async function DcPicklistSettingsPage() {
 
   const components = (items ?? []).filter((i) => i.kind === "component");
   const materials = (items ?? []).filter((i) => i.kind === "material");
-  const unlisted = await findUnlistedDcNames();
+  const [unlisted, duplicateComponents, duplicateMaterials] = await Promise.all([
+    findUnlistedDcNames(),
+    findDuplicatePicklistNames("component"),
+    findDuplicatePicklistNames("material"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,6 +31,9 @@ export default async function DcPicklistSettingsPage() {
       </div>
 
       <ImportUnlistedNames components={unlisted.components} materials={unlisted.materials} />
+
+      <DuplicatePicklistGroups kind="component" groups={duplicateComponents} />
+      <DuplicatePicklistGroups kind="material" groups={duplicateMaterials} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
