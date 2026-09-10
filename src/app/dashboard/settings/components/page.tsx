@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PicklistAddForm } from "@/components/picklist-add-form";
-import { DeletePicklistItemButton } from "@/components/delete-picklist-item-button";
+import { PicklistItemChip } from "@/components/picklist-item-chip";
 import { ImportUnlistedNames } from "@/components/import-unlisted-names";
 import { findUnlistedDcNames } from "@/lib/actions/dc-picklists";
 
@@ -39,13 +39,7 @@ export default async function DcPicklistSettingsPage() {
                 <p className="text-sm text-muted-foreground">No components added yet.</p>
               )}
               {components.map((c) => (
-                <span
-                  key={c.id}
-                  className="flex items-center gap-1 rounded-full border bg-muted/50 py-1 pl-3 pr-1 text-sm"
-                >
-                  {c.name}
-                  <DeletePicklistItemButton id={c.id} name={c.name} kind="component" />
-                </span>
+                <PicklistItemChip key={c.id} id={c.id} name={c.name} kind="component" />
               ))}
             </div>
           </CardContent>
@@ -62,13 +56,7 @@ export default async function DcPicklistSettingsPage() {
                 <p className="text-sm text-muted-foreground">No materials added yet.</p>
               )}
               {materials.map((m) => (
-                <span
-                  key={m.id}
-                  className="flex items-center gap-1 rounded-full border bg-muted/50 py-1 pl-3 pr-1 text-sm"
-                >
-                  {m.name}
-                  <DeletePicklistItemButton id={m.id} name={m.name} kind="material" />
-                </span>
+                <PicklistItemChip key={m.id} id={m.id} name={m.name} kind="material" />
               ))}
             </div>
           </CardContent>

@@ -193,6 +193,79 @@ export async function countPicklistNameUsage(kind: DcPicklistKind, name: string)
   return count ?? 0;
 }
 
+/**
+ * Renames one dropdown entry, and every challan row that used the old spelling.
+ *
+ * Challan rows store the name as text rather than a reference, so renaming the
+ * entry alone would strand them: the rows would keep a name the dropdown no
+ * longer offers, and the part would become unpickable. Both are changed
+ * together, and the count of rows touched is reported back.
+ */
+export async function renamePicklistItemAction(
+  id: string,
+  kind: DcPicklistKind,
+  rawName: string
+): Promise<{ renamedRows: number; error: string | null }> {
+  const name = rawName?.trim();
+  if (!name) return { renamedRows: 0, error: "Name is required." };
+
+  const supabase = await createClient();
+
+  const { data: current } = await supabase
+    .from("dc_picklist_items")
+    .select("name, kind")
+    .eq("id", id)
+    .single();
+  if (!current) return { renamedRows: 0, error: "That entry no longer exists." };
+  if (current.name === name) return { renamedRows: 0, error: null };
+
+  const { data: updated, error } = await supabase
+    .from("dc_picklist_items")
+    .update({ name })
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    return {
+      renamedRows: 0,
+      error:
+        error.code === "23505"
+          ? "Another entry already has that name."
+          : error.code === "42501"
+            ? "Only an admin can rename picklist entries."
+            : error.message,
+    };
+  }
+  // Row-level security refuses a write by matching no rows rather than by
+  // raising, so a silent no-op reads as success. Without this check the toast
+  // said "Renamed" while the name stayed exactly as it was.
+  if (!updated || updated.length === 0) {
+    return {
+      renamedRows: 0,
+      error: "The database refused the rename. Migration 0012 may not be applied yet.",
+    };
+  }
+
+  // Carry the challan rows across so nothing is left pointing at the old text.
+  // Written out per column rather than with a computed key, which the generated
+  // row types reject.
+  const { data: moved } =
+    kind === "component"
+      ? await supabase
+          .from("delivery_challan_items")
+          .update({ component: name })
+          .eq("component", current.name)
+          .select("id")
+      : await supabase
+          .from("delivery_challan_items")
+          .update({ material: name })
+          .eq("material", current.name)
+          .select("id");
+
+  revalidatePath("/dashboard/settings/components");
+  revalidatePath("/dashboard/dc");
+  return { renamedRows: moved?.length ?? 0, error: null };
+}
+
 export async function deletePicklistItemAction(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("dc_picklist_items").delete().eq("id", id);
