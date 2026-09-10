@@ -253,8 +253,14 @@ const HEADER_WORDS = [
   "particulars",
   "quantity",
   "qty",
+  // "Sl No." comes back as "SI No." — Tesseract reads a lowercase L as a
+  // capital I constantly — so both spellings have to be listed.
   "sl no",
+  "si no",
   "s no",
+  "product",
+  "hsn",
+  "assessable",
   "unit",
   "rate",
   "amount",
@@ -417,109 +423,121 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
    * then "200.000EA" on its own. Holding the description until a quantity turns
    * up keeps those rows instead of discarding both halves.
    */
-  let pending: { line: string; component: CandidateMatch | null } | null = null;
+  /**
+   * The table's two columns, collected separately and paired by position.
+   *
+   * Tesseract reads a boxed challan column by column, not row by row: every
+   * description comes through as one block and every quantity as another, with
+   * the DC number and date in between. Nothing can be paired by adjacency, so
+   * the first description takes the first quantity and so on.
+   */
+  const rowDescriptions: { line: string; description: string; component: CandidateMatch | null }[] =
+    [];
+  const rowQuantities: { value: number; line: string }[] = [];
 
-  /** Records an item, taking its quantity from wherever it was found. */
-  function pushItem(
-    component: string,
+  /**
+   * Files one row: as a known component, as a listed one under a misread
+   * spelling, or as a description the list does not hold yet.
+   */
+  function record(
+    description: string,
+    component: CandidateMatch | null,
     material: string | null,
     qty: number,
-    raw: string,
-    score: number
+    raw: string
   ) {
-    items.push({ component, material, received_qty: qty, confidence: score, rawLine: raw });
+    if (component) {
+      items.push({
+        component: component.value,
+        material,
+        received_qty: qty,
+        confidence: component.score,
+        rawLine: raw,
+      });
+      return;
+    }
+    // A part already listed but misread — an O for a zero is enough — is the
+    // same part, so it takes the stored spelling.
+    const stored = matchStoredName(description, options.components);
+    if (stored) {
+      items.push({
+        component: stored,
+        material,
+        received_qty: qty,
+        confidence: 0.85,
+        rawLine: raw,
+      });
+      return;
+    }
+    // Offer it as a component the list does not have yet, so a part new to
+    // this workshop need not be typed into Settings first.
+    if (!seenNewNames.has(foldOcrConfusables(description))) {
+      seenNewNames.add(foldOcrConfusables(description));
+      newComponents.push({ name: description, material, received_qty: qty, rawLine: raw });
+    }
   }
 
+  /**
+   * Whether the item table has started. The letterhead above it is full of
+   * lines that read like descriptions — an address, a GST number — and they
+   * must not be taken for rows.
+   */
+  let inTable = false;
+
   for (const line of lines) {
-    if (isHeaderLine(line)) continue;
-
-    const hasQuantity = UNITED_QUANTITY.test(line) && !/\btotal\b/i.test(line);
-    const component = findCandidate(line, options.components);
-
-    // A description with no quantity of its own: hold it for the next line.
-    if (component && !hasQuantity) {
-      pending = { line, component };
-      continue;
-    }
-    if (!component && !hasQuantity) {
-      if (/[A-Za-z]/.test(line) && line.trim().length >= 4) pending = { line, component: null };
+    if (isHeaderLine(line)) {
+      inTable = true;
       continue;
     }
 
-    // A bare quantity belongs to the description held from a previous line.
-    if (hasQuantity && pending && describeUnmatchedLine(line, options.materials) === null) {
-      // The description came from the held line; only the figure comes from
-      // this one, so neither is re-parsed out of a concatenation.
-      const qty = parseBareQuantity(line);
-      const held = pending;
-      pending = null;
-      const raw = `${held.line}  ${line}`;
-      const material = findCandidate(held.line, options.materials)?.value ?? null;
+    const isTotal = /\btotal\b/i.test(line);
+    const hasQuantity = UNITED_QUANTITY.test(line) && !isTotal;
+    const inline = hasQuantity ? describeUnmatchedLine(line, options.materials) : null;
+    const description = hasQuantity ? (inline?.name ?? null) : descriptionFrom(line);
+    const component = description ? findCandidate(description, options.components) : null;
 
-      if (held.component) {
-        pushItem(held.component.value, material, qty, raw, held.component.score);
-        continue;
-      }
-
-      const name = descriptionFrom(held.line);
-      if (!name) {
-        unmatchedLines.push(line);
-        continue;
-      }
-      const stored = matchStoredName(name, options.components);
-      if (stored) {
-        pushItem(stored, material, qty, raw, 0.85);
-      } else if (!seenNewNames.has(foldOcrConfusables(name))) {
-        seenNewNames.add(foldOcrConfusables(name));
-        newComponents.push({ name, material, received_qty: qty, rawLine: raw });
-      }
-      continue;
-    }
-    pending = null;
-
-    if (!component) {
-      // A quantity with no recognised component means we are about to drop a
-      // real row; keep it so the review step can say so.
-      {
-        const candidate = describeUnmatchedLine(line, options.materials);
-        if (!candidate) {
-          // Nothing usable between the row number and the quantity.
-          unmatchedLines.push(line);
-        } else {
-          // A part already listed but misread — an O for a zero is enough to
-          // get here — is the same part, so it takes the stored spelling
-          // rather than being offered as a new one.
-          const stored = matchStoredName(candidate.name, options.components);
-          if (stored) {
-            items.push({
-              component: stored,
-              material: candidate.material,
-              received_qty: candidate.received_qty,
-              confidence: 0.85,
-              rawLine: line,
-            });
-          } else if (!seenNewNames.has(foldOcrConfusables(candidate.name))) {
-            // Offer it as a component the list does not have yet, so a part
-            // new to this workshop need not be typed into Settings first.
-            seenNewNames.add(foldOcrConfusables(candidate.name));
-            newComponents.push(candidate);
-          }
-        }
-      }
+    // Description and quantity printed together: a complete row already.
+    if (inline && description) {
+      record(description, component, inline.material, inline.received_qty, line);
       continue;
     }
 
-    const material = findCandidate(line, options.materials);
-    const consumed = [component.value];
-    if (material) consumed.push(material.value);
+    // A quantity column entry, awaiting the description of the same rank.
+    if (hasQuantity) {
+      if (inTable) rowQuantities.push({ value: parseBareQuantity(line), line });
+      else unmatchedLines.push(line);
+      continue;
+    }
 
-    items.push({
-      component: component.value,
-      material: material?.value ?? null,
-      received_qty: extractQuantity(line, consumed),
-      confidence: component.score,
-      rawLine: line,
-    });
+    // A description column entry. A table row either names a known component
+    // or opens with its row number; that keeps "DC No. ..." and "Total ..."
+    // out of the column, which would otherwise shift every pairing by one.
+    if (!description || !inTable || isTotal) continue;
+    if (component || LEADING_SERIAL.test(line)) {
+      rowDescriptions.push({ line, description, component });
+    }
+  }
+
+  // Pair the two columns by position.
+  const rowCount = Math.max(rowDescriptions.length, rowQuantities.length);
+  for (let i = 0; i < rowCount; i += 1) {
+    const desc = rowDescriptions[i];
+    const qty = rowQuantities[i];
+
+    // A figure with no description of its own rank.
+    if (!desc) {
+      if (qty) unmatchedLines.push(qty.line);
+      continue;
+    }
+
+    const material = findCandidate(desc.line, options.materials)?.value ?? null;
+    const consumed = desc.component ? [desc.component.value] : [];
+    if (material) consumed.push(material);
+    // Read from the description, not the raw line: the row number at the head
+    // would otherwise be taken for the quantity.
+    const value = qty ? qty.value : extractQuantity(desc.description, consumed);
+    const raw = qty ? `${desc.line}  ${qty.line}` : desc.line;
+    record(desc.description, desc.component, material, value, raw);
   }
 
   return {
