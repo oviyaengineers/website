@@ -146,6 +146,12 @@
   padding: 2mm;
 }
 
+/* The items table is its own box, so its section adds neither border nor
+   padding. Two rectangles two millimetres apart read as a mistake on paper. */
+.dc-print-block-flush {
+  background: #fff;
+}
+
 .dc-print-fields {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -281,15 +287,8 @@
   padding: 1mm 0.7mm !important;
   word-break: break-word;
 }
-/* 6 columns across ~189mm: give the description the room, keep numbers narrow. */
-.dc-print-sheet th:nth-child(1),
-.dc-print-sheet td:nth-child(1) {
-  width: 9%;
-}
-.dc-print-sheet th:nth-child(2),
-.dc-print-sheet td:nth-child(2) {
-  width: 40%;
-}
+/* Column widths come from the table's own colgroup. Rules here would also
+   land on the merged caption cell and fight it. */
 
 .dc-print-sheet .dc-print-sign {
   margin-top: 1mm !important;

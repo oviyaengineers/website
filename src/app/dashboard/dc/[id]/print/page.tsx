@@ -224,13 +224,34 @@ function DcCopy({
         </div>
       </section>
 
-      <section className="dc-print-block mb-3">
-        <div className="mb-2 text-center text-sm font-bold text-[#172033]">
-          Material / Component Details
-        </div>
+      {/* No block border here: the table draws its own rules, and a bordered
+          block around it printed as two concentric rectangles. The caption
+          rides in the table's first row instead of floating above it. */}
+      <section className="dc-print-block-flush mb-3">
         <div className="dc-print-table-wrap overflow-auto">
           <table className="w-full min-w-[700px] border-collapse text-xs">
+            {/* Widths live here, not on the header cells. The table is laid
+                out fixed, so the first row decides the columns — and the first
+                row is now the single merged caption, which squeezed the
+                description down to a two-line wrap. A colgroup is immune to
+                that. */}
+            <colgroup>
+              <col style={{ width: "8%" }} />
+              <col style={{ width: "44%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
             <thead>
+              <tr>
+                <th
+                  colSpan={6}
+                  className="border border-[#222] bg-[#eef2f7] p-1.5 text-center text-sm font-bold text-[#172033]"
+                >
+                  Material / Component Details
+                </th>
+              </tr>
               <tr>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
                   S.No.
