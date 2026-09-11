@@ -13,5 +13,10 @@
 -- the type and every column using it, which is not worth the risk for two
 -- labels nothing will write again.
 
-alter type dc_status add value if not exists 'active';
-alter type dc_status add value if not exists 'completed';
+-- The type is schema-qualified deliberately. Unqualified, this reported
+-- success three times while public.dc_status stayed untouched, because the
+-- bare name resolved through search_path to a type in another schema. Every
+-- other statement across 0015 to 0017 was already qualified, which is why
+-- this was the only migration silently doing nothing.
+alter type public.dc_status add value if not exists 'active';
+alter type public.dc_status add value if not exists 'completed';
