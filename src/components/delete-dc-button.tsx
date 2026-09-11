@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,12 @@ import { Trash2 } from "lucide-react";
 
 export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const pathname = usePathname();
+  // Deleting from the list leaves the operator on the list, which is right.
+  // Deleting from the challan's own page used to leave them on a 404, because
+  // the page they were standing on had just been removed.
+  const onItsOwnPage = pathname.startsWith(`/dashboard/dc/${id}`);
 
   return (
     <Dialog>
@@ -41,6 +48,9 @@ export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string 
                 try {
                   await deleteDcAction(id);
                   toast.success("Delivery challan deleted");
+                  // replace, not push: the deleted challan must not be sitting
+                  // in history for the back button to return to.
+                  if (onItsOwnPage) router.replace("/dashboard/dc");
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed to delete");
                 }

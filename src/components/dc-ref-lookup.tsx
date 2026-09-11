@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { FileSearch, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { findDcsByCustomerRef, type StoredDcMatch } from "@/lib/actions/dc-lookup";
+import { DC_LIFECYCLE_LABELS, dcLifecycle } from "@/lib/dc-lifecycle";
 
 /** Wait this long after the last keystroke before querying. */
 const DEBOUNCE_MS = 450;
@@ -27,7 +28,12 @@ export function StoredDcMatchList({ matches }: { matches: StoredDcMatch[] }) {
         <div key={match.id} className="space-y-1.5 px-3 py-2.5 text-xs">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-semibold">{match.dc_number}</span>
-            <span className="capitalize text-muted-foreground">{match.status}</span>
+            {/* The lifecycle, not the stored status. This was the one place
+                still showing "dispatched", which is the pre-0017 spelling of
+                Active and appears nowhere else in the app. */}
+            <span className="text-muted-foreground">
+              {DC_LIFECYCLE_LABELS[dcLifecycle(match.status, match.items)]}
+            </span>
           </div>
           <p className="text-muted-foreground">
             {formatDcDate(match.dc_date)} · {match.customer_name ?? "-"}
