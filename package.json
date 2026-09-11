@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./scripts/test-alias-hook.mjs --test \"src/**/*.test.ts\""
+    "test": "node --experimental-strip-types --import ./scripts/test-alias-hook.mjs --test \"src/**/*.test.ts\"",
+    "db:apply": "node scripts/apply-migration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -38,10 +39,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
+    "pg": "^8.23.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
