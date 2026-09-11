@@ -46,3 +46,6 @@ devserver.err.log
 .claude/
 
 supabase/.temp/
+
+# Local scratch for one-off scripts
+.tmp/
