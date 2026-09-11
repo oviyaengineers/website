@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { Boxes } from "lucide-react";
+import Link from "next/link";
+import { Boxes, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DcRowTable } from "@/components/dc-row-table";
 import { fetchDcRows } from "@/lib/dc-rows";
 
-export const metadata: Metadata = { title: "Stock | Oviya Engineers" };
+export const metadata: Metadata = { title: "Stock / Balance | Oviya Engineers" };
 
 /**
  * Item lines still owing work: pieces received that have not gone back.
@@ -33,11 +35,16 @@ export default async function StockPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Stock</h1>
-        <p className="text-sm text-muted-foreground">
-          Pieces received that have not yet gone back — what is still on the floor.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Stock / Balance</h1>
+          <p className="text-sm text-muted-foreground">
+            Pieces received that have not yet gone back — what is still on the floor.
+          </p>
+        </div>
+        <Button render={<Link href="/dashboard/stock/print" />} variant="outline">
+          <Printer className="h-4 w-4" /> Print list
+        </Button>
       </div>
 
       {pending.length === 0 ? (

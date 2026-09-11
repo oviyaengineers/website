@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DcRowTable } from "@/components/dc-row-table";
 import { fetchDcRows } from "@/lib/dc-rows";
 
-export const metadata: Metadata = { title: "Completed Challans | Oviya Engineers" };
+export const metadata: Metadata = { title: "Completed DCs | Oviya Engineers" };
 
 /**
  * Item lines that are finished: every piece received has gone back, whether
@@ -30,11 +32,16 @@ export default async function CompletedChallansPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Completed Challans</h1>
-        <p className="text-sm text-muted-foreground">
-          Lines where everything received has been accounted for back to the customer.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Completed DCs</h1>
+          <p className="text-sm text-muted-foreground">
+            Lines where everything received has been accounted for back to the customer.
+          </p>
+        </div>
+        <Button render={<Link href="/dashboard/completed/print" />} variant="outline">
+          <Printer className="h-4 w-4" /> Print list
+        </Button>
       </div>
 
       {completed.length === 0 ? (
