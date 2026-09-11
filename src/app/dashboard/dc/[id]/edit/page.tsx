@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DcForm } from "@/components/dc-form";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { updateDcAction } from "@/lib/actions/dc";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 
 export const metadata: Metadata = { title: "Edit Delivery Challan | Oviya Engineers" };
@@ -71,7 +72,9 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
         customers={customers ?? []}
         dc={dc}
         items={(items ?? []).map((i) => ({
-          component: i.component,
+          // The current name, so the form's dropdown finds the part rather
+          // than showing an empty select for a row written before a rename.
+          component: componentNameOf(i, componentNameIndex(picklistItems ?? [])),
           material: i.material,
           received_qty: i.received_qty,
           sent_qty: i.sent_qty,

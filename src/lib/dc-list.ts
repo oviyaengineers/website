@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { DeliveryChallanItemRow } from "@/types/database";
 
@@ -56,9 +57,10 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
   if (filters.from) query = query.gte("dc_date", filters.from);
   if (filters.to) query = query.lte("dc_date", filters.to);
 
-  const [{ data: dcs }, { data: customers }] = await Promise.all([
+  const [{ data: dcs }, { data: customers }, { data: picklist }] = await Promise.all([
     query,
     supabase.from("customers").select("id, name"),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
   ]);
 
   const challans = dcs ?? [];
@@ -74,8 +76,14 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     .order("sort_order");
 
   const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+
+  // Each row is given the master list's current spelling of its part, so the
+  // component filter, the search and every printed sheet agree with Settings
+  // without a challan ever being rewritten.
+  const componentNames = componentNameIndex(picklist ?? []);
   const itemsByDc = new Map<string, DeliveryChallanItemRow[]>();
-  for (const item of items ?? []) {
+  for (const row of items ?? []) {
+    const item = { ...row, component: componentNameOf(row, componentNames) };
     const list = itemsByDc.get(item.dc_id);
     if (list) list.push(item);
     else itemsByDc.set(item.dc_id, [item]);

@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
@@ -33,10 +34,13 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
 
-  const [{ data: items }, { data: customer }] = await Promise.all([
+  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
     supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
     supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
   ]);
+  // The master list owns the spelling wherever a row carries a component id.
+  const componentNames = componentNameIndex(picklist ?? []);
 
   const overDelivered = findOverDelivered(items ?? []);
   const lifecycle = dcLifecycle(dc.status, items ?? []);
@@ -145,7 +149,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 const balance = balanceQty(item);
                 return (
                   <TableRow key={item.id}>
-                    <TableCell>{item.component}</TableCell>
+                    <TableCell>{componentNameOf(item, componentNames)}</TableCell>
                     <TableCell>{item.material ?? "-"}</TableCell>
                     <TableCell>{item.received_qty}</TableCell>
                     <TableCell>{item.sent_qty}</TableCell>

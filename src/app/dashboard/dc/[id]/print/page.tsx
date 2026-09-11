@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
 import { LogoMark } from "@/components/marketing/logo";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 
 /** Rows shown in the items table, padded with blanks when a DC is short. */
 const MIN_TABLE_ROWS = 4;
@@ -26,10 +27,20 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
 
-  const [{ data: items }, { data: customer }] = await Promise.all([
+  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
     supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
     supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
   ]);
+  // The printed challan is the document the customer signs, so it must carry
+  // the part's current name rather than the spelling stored at entry.
+  const componentNames = componentNameIndex(picklist ?? []);
+  // Resolved once and used by both the printed sheet and the PDF, so the two
+  // copies of the same document cannot name a part differently.
+  const printItems: PrintItem[] = (items ?? []).map((i) => ({
+    ...i,
+    component: componentNameOf(i, componentNames),
+  }));
 
   const pdfData = {
     dc_number: dc.dc_number,
@@ -38,15 +49,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     customer_dc_date: dc.customer_dc_date,
     authorized_by: dc.authorized_by,
     customer,
-    items: (items ?? []).map((i) => ({
-      component: i.component,
-      material: i.material,
-      received_qty: i.received_qty,
-      sent_qty: i.sent_qty,
-      material_problem_qty: i.material_problem_qty,
-      rejection_qty: i.rejection_qty,
-      total_qty: i.total_qty,
-    })),
+    items: printItems,
   };
 
   return (
@@ -56,11 +59,11 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="dc-print-page mx-auto max-w-4xl pb-10 print:pb-0">
-        <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={items ?? []} />
+        <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={printItems} />
         <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
           <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
         </div>
-        <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={items ?? []} />
+        <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
       </div>
     </div>
   );
@@ -111,9 +114,7 @@ function DcCopy({
             <p>{format(new Date(dc.dc_date), "dd MMM yyyy")}</p>
           </div>
           <div className="col-span-2">
-            <p className="mb-1 text-xs font-bold uppercase text-gray-500">
-              Customer DC Number(s)
-            </p>
+            <p className="mb-1 text-xs font-bold uppercase text-gray-500">Customer DC Number(s)</p>
             {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
               dc.customer_dc_number.map((num, i) => (
                 <p key={i}>
@@ -146,10 +147,16 @@ function DcCopy({
             <thead>
               <tr>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Description</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
+                  Description
+                </th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Qty</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Mat. Problem</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Rejection</th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
+                  Mat. Problem
+                </th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
+                  Rejection
+                </th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Total</th>
               </tr>
             </thead>
@@ -163,7 +170,9 @@ function DcCopy({
                   <td className="border border-[#d9dee7] p-1.5 text-center">
                     {item.material_problem_qty}
                   </td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.rejection_qty}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">
+                    {item.rejection_qty}
+                  </td>
                   <td className="border border-[#d9dee7] p-1.5 text-center">{item.total_qty}</td>
                 </tr>
               ))}
@@ -191,7 +200,9 @@ function DcCopy({
 
       <section className="rounded-2xl border border-transparent bg-white p-4 shadow-sm print:rounded-none print:border-[#222] print:p-3 print:shadow-none">
         <div className="dc-print-sign mt-4 flex justify-between text-xs">
-          <div className="w-2/5 border-t border-black pt-1 text-center">Receiver&apos;s Signature</div>
+          <div className="w-2/5 border-t border-black pt-1 text-center">
+            Receiver&apos;s Signature
+          </div>
           <div className="w-2/5 border-t border-black pt-1 text-center">
             {dc.authorized_by || "Authorized Signatory"}
           </div>

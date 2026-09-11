@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 
 /**
  * One item line, flattened with the challan and customer it belongs to.
@@ -34,17 +35,22 @@ export type DcRow = {
 export async function fetchDcRows(): Promise<DcRow[]> {
   const supabase = await createClient();
 
-  const [{ data: dcs }, { data: items }, { data: customers }] = await Promise.all([
-    supabase
-      .from("delivery_challans")
-      .select("id, dc_number, dc_date, customer_id, customer_dc_number, customer_dc_date")
-      .order("dc_date", { ascending: false }),
-    supabase.from("delivery_challan_items").select("*").order("sort_order"),
-    supabase.from("customers").select("id, name"),
-  ]);
+  const [{ data: dcs }, { data: items }, { data: customers }, { data: picklist }] =
+    await Promise.all([
+      supabase
+        .from("delivery_challans")
+        .select("id, dc_number, dc_date, customer_id, customer_dc_number, customer_dc_date")
+        .order("dc_date", { ascending: false }),
+      supabase.from("delivery_challan_items").select("*").order("sort_order"),
+      supabase.from("customers").select("id, name"),
+      supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+    ]);
 
   const dcById = new Map((dcs ?? []).map((dc) => [dc.id, dc]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  // Names come from the master list wherever the row carries an id, so a
+  // rename in Settings shows up here without rewriting a single challan.
+  const componentNames = componentNameIndex(picklist ?? []);
 
   const rows = (items ?? []).flatMap((item) => {
     const dc = dcById.get(item.dc_id);
@@ -58,7 +64,7 @@ export async function fetchDcRows(): Promise<DcRow[]> {
         customerName: customerById.get(dc.customer_id) ?? "-",
         customerDcNumbers: (dc.customer_dc_number ?? []).filter(Boolean) as string[],
         customerDcDates: (dc.customer_dc_date ?? []).filter(Boolean) as string[],
-        component: item.component,
+        component: componentNameOf(item, componentNames),
         material: item.material,
         received: Number(item.received_qty) || 0,
         sent: Number(item.sent_qty) || 0,

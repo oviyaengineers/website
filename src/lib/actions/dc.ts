@@ -117,6 +117,64 @@ function parseDcForm(formData: FormData): DcFormValues {
   };
 }
 
+/** PostgREST's code for "that column is not in my schema". */
+const UNKNOWN_COLUMN = "PGRST204";
+
+/**
+ * The component master list, keyed by name for looking up a part's id.
+ *
+ * Matched without regard to case or surrounding space, the same way the
+ * backfill in migration 0018 matched.
+ */
+async function componentIdsByName(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from("dc_picklist_items")
+    .select("id, name")
+    .eq("kind", "component");
+  return new Map((data ?? []).map((row) => [row.name.trim().toLowerCase(), row.id]));
+}
+
+/**
+ * Writes the item rows for a challan, with and then without component_id.
+ *
+ * The id is what makes a part stable under renaming, but migration 0018 adds
+ * the column and migrations in this project have a history of reporting
+ * success without landing. Saving a challan must not depend on one having
+ * been applied, so a rejection naming the unknown column is retried with the
+ * name alone. Any other error is the caller's to report.
+ */
+async function insertDcItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dcId: string,
+  items: DcItemInput[]
+): Promise<{ error: string | null }> {
+  const idByName = await componentIdsByName(supabase);
+  const rows = items.map((item, index) => ({
+    dc_id: dcId,
+    component: item.component,
+    material: item.material,
+    received_qty: item.received_qty,
+    sent_qty: item.sent_qty,
+    material_problem_qty: item.material_problem_qty,
+    rejection_qty: item.rejection_qty,
+    sort_order: index,
+  }));
+
+  const withIds = rows.map((row) => ({
+    ...row,
+    component_id: idByName.get(row.component.trim().toLowerCase()) ?? null,
+  }));
+
+  const { error } = await supabase.from("delivery_challan_items").insert(withIds);
+  if (!error) return { error: null };
+  if (error.code !== UNKNOWN_COLUMN) return { error: error.message };
+
+  const retry = await supabase.from("delivery_challan_items").insert(rows);
+  return { error: retry.error?.message ?? null };
+}
+
 export async function createDcAction(
   _prevState: DcFormState,
   formData: FormData
@@ -178,24 +236,13 @@ export async function createDcAction(
     return { error: dcError?.message ?? "Failed to create delivery challan." };
   }
 
-  const { error: itemsError } = await supabase.from("delivery_challan_items").insert(
-    values.items.map((item, index) => ({
-      dc_id: dc.id,
-      component: item.component,
-      material: item.material,
-      received_qty: item.received_qty,
-      sent_qty: item.sent_qty,
-      material_problem_qty: item.material_problem_qty,
-      rejection_qty: item.rejection_qty,
-      sort_order: index,
-    }))
-  );
+  const { error: itemsError } = await insertDcItems(supabase, dc.id, values.items);
 
   if (itemsError) {
     // Partial failure: remove the orphaned DC header so we don't leave a
     // delivery challan with no items behind.
     await supabase.from("delivery_challans").delete().eq("id", dc.id);
-    return { error: itemsError.message };
+    return { error: itemsError };
   }
 
   revalidatePath("/dashboard/dc");
@@ -268,20 +315,9 @@ export async function updateDcAction(
 
   if (deleteError) return { error: deleteError.message };
 
-  const { error: itemsError } = await supabase.from("delivery_challan_items").insert(
-    values.items.map((item, index) => ({
-      dc_id: id,
-      component: item.component,
-      material: item.material,
-      received_qty: item.received_qty,
-      sent_qty: item.sent_qty,
-      material_problem_qty: item.material_problem_qty,
-      rejection_qty: item.rejection_qty,
-      sort_order: index,
-    }))
-  );
+  const { error: itemsError } = await insertDcItems(supabase, id, values.items);
 
-  if (itemsError) return { error: itemsError.message };
+  if (itemsError) return { error: itemsError };
 
   revalidatePath("/dashboard/dc");
   revalidatePath(`/dashboard/dc/${id}`);

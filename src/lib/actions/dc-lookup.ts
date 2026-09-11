@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { correctScannedDcRef } from "@/lib/dc-refs";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
 
@@ -86,12 +87,44 @@ export async function findPendingDcsForComponent({
 
   const supabase = await createClient();
 
-  const { data: items, error } = await supabase
+  // Matched by id where the part is on the master list, so a challan raised
+  // before a rename is still found. The stored text is the fallback, for rows
+  // written before migration 0018 and for a part the list no longer holds.
+  const { data: listed } = await supabase
+    .from("dc_picklist_items")
+    .select("id")
+    .eq("kind", "component")
+    .ilike("name", wanted)
+    .maybeSingle();
+
+  let query = supabase
     .from("delivery_challan_items")
     .select(
       "dc_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty"
-    )
-    .eq("component", wanted);
+    );
+  // The value is quoted because an or() filter treats a comma as its own
+  // separator, and part names carry spaces, slashes and hashes.
+  const quoted = `"${wanted.replace(/"/g, '\\"')}"`;
+  query = listed?.id
+    ? query.or(`component_id.eq.${listed.id},component.eq.${quoted}`)
+    : query.eq("component", wanted);
+
+  let { data: items, error } = await query;
+
+  // Before migration 0018 there is no component_id to match on. Falling back
+  // to the name keeps this panel working rather than emptying it, which would
+  // read as "nothing outstanding" and be worse than a stale spelling.
+  if (error?.code === "42703" || error?.code === "PGRST204") {
+    const byName = await supabase
+      .from("delivery_challan_items")
+      .select(
+        "dc_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty"
+      )
+      .eq("component", wanted);
+    items = byName.data;
+    error = byName.error;
+  }
+
   if (error || !items || items.length === 0) return [];
 
   const outstanding = items
@@ -173,7 +206,7 @@ export async function findCustomerDcRefs({
   const { data: dcs, error } = await query;
   if (error || !dcs || dcs.length === 0) return [];
 
-  const [{ data: items }, { data: customer }] = await Promise.all([
+  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
     supabase
       .from("delivery_challan_items")
       .select("*")
@@ -183,8 +216,12 @@ export async function findCustomerDcRefs({
       )
       .order("sort_order"),
     supabase.from("customers").select("id, name").eq("id", customerId).single(),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
   ]);
 
+  // Names handed to the new-DC form come from the master list, because the
+  // form binds them to a dropdown built from that same list.
+  const componentNames = componentNameIndex(picklist ?? []);
   const wanted = date?.trim() || null;
   const options: CustomerDcRefOption[] = [];
   const seen = new Set<string>();
@@ -201,7 +238,7 @@ export async function findCustomerDcRefs({
       items: (items ?? [])
         .filter((i) => i.dc_id === dc.id)
         .map((i) => ({
-          component: i.component,
+          component: componentNameOf(i, componentNames),
           material: i.material,
           received_qty: i.received_qty,
           sent_qty: i.sent_qty,
@@ -269,12 +306,17 @@ export async function findDcsByCustomerRef({
   const dcIds = dcs.map((d) => d.id);
   const customerIds = [...new Set(dcs.map((d) => d.customer_id))];
 
-  const [{ data: items }, { data: customers }] = await Promise.all([
+  const [{ data: items }, { data: customers }, { data: picklist }] = await Promise.all([
     supabase.from("delivery_challan_items").select("*").in("dc_id", dcIds).order("sort_order"),
     supabase.from("customers").select("id, name").in("id", customerIds),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
   ]);
 
   const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  // Copying a stored challan into a new one fills a dropdown bound to the
+  // master list, so the name handed over has to be the list's current one or
+  // the row arrives with nothing selected.
+  const componentNames = componentNameIndex(picklist ?? []);
 
   return dcs.map((dc) => ({
     id: dc.id,
@@ -287,7 +329,7 @@ export async function findDcsByCustomerRef({
     items: (items ?? [])
       .filter((i) => i.dc_id === dc.id)
       .map((i) => ({
-        component: i.component,
+        component: componentNameOf(i, componentNames),
         material: i.material,
         received_qty: i.received_qty,
         sent_qty: i.sent_qty,

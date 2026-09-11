@@ -124,6 +124,21 @@ export type DeliveryChallanUpdate = {
 export type DeliveryChallanItemRow = {
   id: string;
   dc_id: string;
+  /**
+   * The part, by id, from the component master list (migration 0018).
+   *
+   * Null when the row predates that migration or names something the list
+   * does not hold; the component text below is then all there is.
+   */
+  component_id: string | null;
+  /**
+   * The part's name.
+   *
+   * Kept alongside the id as a fallback for a row whose component was later
+   * removed from the master list. Where an id is present the list is the
+   * source of truth for the spelling, so a rename reaches every challan at
+   * once instead of needing a pass to rewrite them.
+   */
   component: string;
   material: string | null;
   received_qty: number;
@@ -136,6 +151,7 @@ export type DeliveryChallanItemRow = {
 export type DeliveryChallanItemInsert = {
   id?: string;
   dc_id: string;
+  component_id?: string | null;
   component: string;
   material?: string | null;
   received_qty?: number;
@@ -147,6 +163,7 @@ export type DeliveryChallanItemInsert = {
 export type DeliveryChallanItemUpdate = {
   id?: string;
   dc_id?: string;
+  component_id?: string | null;
   component?: string;
   material?: string | null;
   received_qty?: number;
