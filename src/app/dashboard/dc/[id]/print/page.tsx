@@ -1,6 +1,9 @@
+import Link from "next/link";
+import { X } from "lucide-react";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
 import { LogoMark } from "@/components/marketing/logo";
@@ -53,17 +56,30 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
-      <div className="mx-auto flex max-w-4xl justify-end gap-2 p-4 print:hidden">
-        <DcPrintActions dc={pdfData} />
+    <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
+      {/* The overlay covers the whole app, so without this there is no way
+          back to the challan short of the browser's own back button. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
+        <Button render={<Link href={`/dashboard/dc/${dc.id}`} />} variant="outline">
+          <X className="h-4 w-4" /> Close
+        </Button>
+        <div className="flex gap-2">
+          <DcPrintActions dc={pdfData} />
+        </div>
       </div>
 
-      <div className="dc-print-page mx-auto max-w-4xl pb-10 print:pb-0">
+      {/* The sheet below is exactly the printable area of one A4 page, at the
+          same size on screen as on paper. Anything that does not fit inside it
+          here will not be on the printout either, which is the whole point of
+          showing it. */}
+      <div className="dc-print-stage">
+        <div className="dc-print-page">
         <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={printItems} />
         <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
           <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
         </div>
-        <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
+          <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
+        </div>
       </div>
     </div>
   );
