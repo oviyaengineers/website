@@ -50,6 +50,23 @@ export function dcLifecycle(
   return settled ? "completed" : "active";
 }
 
+/**
+ * The value to store for a lifecycle the operator has chosen.
+ *
+ * Deliberately the pre-0017 spellings. They exist in every version of the
+ * dc_status type, whereas 'active' and 'completed' exist only once migration
+ * 0016 has been applied — and that migration has reported success repeatedly
+ * without the type ever gaining them. Writing a label the database may reject
+ * makes Confirm challan fail outright; writing one it always accepts costs
+ * nothing, because normalizeDcStatus reads both spellings as the same thing
+ * and nothing but this function decides what is written.
+ *
+ * When 0016 does land, this is the single line to change.
+ */
+export function storedStatusFor(lifecycle: Exclude<DcLifecycle, "completed">): DcStatus {
+  return lifecycle === "draft" ? "draft" : "dispatched";
+}
+
 export const DC_LIFECYCLE_LABELS: Record<DcLifecycle, string> = {
   draft: "Draft",
   active: "Active",

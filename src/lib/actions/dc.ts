@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
-import type { DcStatus } from "@/types/database";
+import { storedStatusFor } from "@/lib/dc-lifecycle";
 
 export type DcItemInput = {
   component: string;
@@ -288,8 +288,16 @@ export async function updateDcAction(
   redirect(`/dashboard/dc/${id}`);
 }
 
-export async function updateDcStatusAction(id: string, status: DcStatus) {
+/**
+ * Move a challan between Draft and Active.
+ *
+ * Completed is not offered: it is read off the item rows, not stored. The
+ * caller names the lifecycle and storedStatusFor decides the spelling, so the
+ * one place that knows about the old status names stays in dc-lifecycle.
+ */
+export async function updateDcStatusAction(id: string, lifecycle: "draft" | "active") {
   const supabase = await createClient();
+  const status = storedStatusFor(lifecycle);
   const { error } = await supabase.from("delivery_challans").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(`/dashboard/dc/${id}`);
