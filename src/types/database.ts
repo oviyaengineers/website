@@ -303,6 +303,25 @@ export type DcPicklistItemUpdate = {
   created_by?: string | null;
 };
 
+/** The single row controlling DC numbering (migration 0015). */
+export type DcNumberSeriesRow = {
+  id: boolean;
+  prefix: string;
+  fy_label: string;
+  padding: number;
+  next_serial: number;
+  updated_at: string;
+  updated_by: string | null;
+};
+export type DcNumberSeriesUpdate = {
+  prefix?: string;
+  fy_label?: string;
+  padding?: number;
+  next_serial?: number;
+  updated_at?: string;
+  updated_by?: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -348,6 +367,12 @@ export type Database = {
         Update: JobCostUpdate;
         Relationships: [];
       };
+      dc_number_series: {
+        Row: DcNumberSeriesRow;
+        Insert: DcNumberSeriesUpdate & { id?: boolean; fy_label: string };
+        Update: DcNumberSeriesUpdate;
+        Relationships: [];
+      };
       dc_picklist_items: {
         Row: DcPicklistItemRow;
         Insert: DcPicklistItemInsert;
@@ -373,6 +398,11 @@ export type Database = {
       /** Reads the next invoice number without consuming it (migration 0011). */
       peek_invoice_number: {
         Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      /** The Indian financial year containing a date, as "26-27". */
+      financial_year_label: {
+        Args: { p_on?: string };
         Returns: string;
       };
       is_admin: {

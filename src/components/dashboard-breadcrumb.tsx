@@ -13,15 +13,20 @@ import { ChevronRight } from "lucide-react";
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   customers: "Customers",
-  dc: "Delivery Challans",
-  invoices: "Invoices",
+  // Matches the menu, where these all sit under one DC group.
+  dc: "DC",
+  new: "New DC - Manual",
+  scan: "Scan DC",
+  stock: "Stock / Balance",
+  completed: "Completed DCs",
+  invoices: "Billing",
   costs: "Costs",
   reports: "Reports",
   outstanding: "Outstanding Payments",
   settings: "Settings",
   components: "Components & Materials",
+  "dc-numbers": "DC Numbers",
   balance: "Balance",
-  new: "New",
   edit: "Edit",
   print: "Print",
 };
