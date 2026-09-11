@@ -176,18 +176,36 @@ function cleanValue(value: string): string | null {
  * strict pattern gets first refusal before a looser fallback runs. Falls back
  * to the next line when the label sits on its own row, which is common on
  * boxed challan forms.
+ *
+ * `accept` filters both candidates, and the next-line fallback is why it
+ * exists: on a boxed form Tesseract reads the header cells as a column, so the
+ * line after "D.C. No." is very often the neighbouring cell's own caption
+ * rather than a value. With no test of what the field should look like, "Date"
+ * was read as the customer's DC number and stored as one.
  */
-function findLabelled(lines: string[], labels: RegExp[]): string | null {
+/** How far below a label its value may sit on a column-read boxed form. */
+const LABEL_LOOKAHEAD = 3;
+
+function findLabelled(
+  lines: string[],
+  labels: RegExp[],
+  accept: (value: string) => boolean = () => true
+): string | null {
   for (const label of labels) {
     for (let i = 0; i < lines.length; i += 1) {
       const match = lines[i].match(label);
       if (!match) continue;
 
       const inline = cleanValue(match[1] ?? "");
-      if (inline) return inline;
+      if (inline && accept(inline)) return inline;
 
-      const next = cleanValue(lines[i + 1] ?? "");
-      if (next) return next;
+      // Scans a short way down rather than only the next line. Tesseract
+      // reads these boxed headers as a column of captions followed by a column
+      // of values, so the number can be two or three lines below its label.
+      for (let ahead = 1; ahead <= LABEL_LOOKAHEAD; ahead += 1) {
+        const next = cleanValue(lines[i + ahead] ?? "");
+        if (next && accept(next)) return next;
+      }
     }
   }
   return null;
@@ -242,10 +260,33 @@ const DC_NUMBER_LABELS = [
   /^(?:d\.?\s*c\.?|delivery\s*ch[ae]l+an|ch[ae]l+an|invoice)\s*[:.\-]\s*(.*)$/i,
 ];
 
+/**
+ * Captions printed in the boxes around the DC number. Taken for a value they
+ * produce a challan whose customer reference is the word "Date".
+ */
+const FIELD_CAPTIONS =
+  /^(?:date|dated|d\.?\s*c\.?|delivery|challan|ch[ae]l+an|invoice|no|number|num|ref|reference|party|customer|supplier|to|from|gst|gstin|address|page)\b/i;
+
+/**
+ * Whether a value can be a document reference.
+ *
+ * Every DC and invoice number these customers issue carries a digit and a
+ * caption never does, so this single test rejects both a stray caption and the
+ * prose that trails a field.
+ */
+function looksLikeReference(value: string): boolean {
+  if (!/\d/.test(value)) return false;
+  return !FIELD_CAPTIONS.test(value.trim());
+}
+
 /** Keep the first reference-looking token, dropping trailing prose. */
 function firstReferenceToken(value: string): string | null {
-  const match = value.match(/[A-Za-z0-9][A-Za-z0-9/\-_]*/);
-  return match ? match[0] : null;
+  // Every token is tried, not only the first: a form printing "No. 1234"
+  // inside one cell would otherwise yield "No".
+  for (const token of value.match(/[A-Za-z0-9][A-Za-z0-9/\-_]*/g) ?? []) {
+    if (looksLikeReference(token)) return token;
+  }
+  return null;
 }
 
 const HEADER_WORDS = [
@@ -284,6 +325,16 @@ function toNumber(value: string): number {
   const parsed = Number(value.replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
+
+/**
+ * The ruled edge of a table cell, which Tesseract returns as a stray glyph at
+ * the head of the line.
+ *
+ * Left in place it becomes part of the part name: the component list ended up
+ * holding "| 3P DN40FB/50RB CF8M Body Casting REV 2", which no longer matched
+ * the same part read cleanly, so the same casting sat in the list twice.
+ */
+const LEADING_BORDER = /^[\s|![\]{}()<>*_=+~'"`.,;:\-]+/;
 
 /** A row number at the head of a printed line: "1", "01.", "2)". */
 const LEADING_SERIAL = /^\s*\d{1,3}\s*[).:\-]?\s+/;
@@ -416,10 +467,38 @@ function looksLikePartDescription(text: string): boolean {
   return spelled >= 2 && /\d/.test(text);
 }
 
+/**
+ * A scanned description reduced to a storable part name, or null when what was
+ * read is not one.
+ *
+ * The component list is a master list of roughly a dozen real castings, so a
+ * name that cannot be typed by hand has no business being added by a scan.
+ * This is the last gate before one is stored: the review screen can be clicked
+ * through, and once a misread name is in the list it silently becomes a second
+ * entry for a part that is already there.
+ */
+export function cleanComponentName(value: string): string | null {
+  const name = (value ?? "")
+    .replace(LEADING_BORDER, "")
+    .replace(LEADING_SERIAL, "")
+    .replace(LEADING_BORDER, "")
+    .replace(/[\s.,;:|\-]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (name.length < 4 || name.length > 120) return null;
+  // Same shape test the parser uses to tell a part row from a stray line.
+  if (!looksLikePartDescription(name)) return null;
+  return name;
+}
+
 /** Trim a printed description down to the part name alone. */
 function descriptionFrom(text: string): string | null {
+  // Border first, then the row number: the two arrive together as "| 1 3P …"
+  // and stripping only the number leaves the border glued to the name.
   const name = text
+    .replace(LEADING_BORDER, "")
     .replace(LEADING_SERIAL, "")
+    .replace(LEADING_BORDER, "")
     .replace(/[\s.,;:|\-]+$/, "")
     .trim();
   if (name.length < 4 || !/[A-Za-z]/.test(name)) return null;
@@ -505,7 +584,7 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
     ? (options.customers.find((c) => c.name === customerMatch?.value) ?? null)
     : null;
 
-  const dcNumberRaw = findLabelled(lines, DC_NUMBER_LABELS);
+  const dcNumberRaw = findLabelled(lines, DC_NUMBER_LABELS, looksLikeReference);
 
   const items: ScannedInwardItem[] = [];
   const unmatchedLines: string[] = [];

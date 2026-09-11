@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { foldOcrConfusables, namesLookAlike } from "@/lib/ocr/parse-inward-dc";
+import { cleanComponentName, foldOcrConfusables, namesLookAlike } from "@/lib/ocr/parse-inward-dc";
 import type { DcPicklistKind } from "@/types/database";
 
 export type PicklistFormState = { error: string | null };
@@ -126,12 +126,27 @@ export async function addUnlistedDcNamesAction(): Promise<{
 export async function addScannedComponentNamesAction(
   names: string[]
 ): Promise<{ added: string[]; error: string | null }> {
+  // The names arrive from a review screen that can be clicked through, so they
+  // are cleaned and shape-checked again here. A table border read as part of
+  // the text put "| 3P DN40FB/50RB CF8M Body Casting REV 2" in the list beside
+  // the same casting read cleanly, and nothing downstream could tell them
+  // apart afterwards.
   const wanted = new Map<string, string>();
+  const rejected: string[] = [];
   for (const raw of names) {
-    const name = raw?.trim();
+    const name = cleanComponentName(raw ?? "");
     if (name) wanted.set(name.toLowerCase(), name);
+    else if (raw?.trim()) rejected.push(raw.trim());
   }
-  if (wanted.size === 0) return { added: [], error: null };
+  if (wanted.size === 0) {
+    return {
+      added: [],
+      error:
+        rejected.length > 0
+          ? `Not stored — this does not read as a part name: ${rejected.join(", ")}. Add it in Settings if it is a real component.`
+          : null,
+    };
+  }
 
   const supabase = await createClient();
   const { data: existing } = await supabase

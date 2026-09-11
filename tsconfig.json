@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    // Tests import with an explicit .ts extension so node --experimental-strip-types
+    // can run them directly, with no build step.
+    "allowImportingTsExtensions": true,
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
