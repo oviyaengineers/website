@@ -23,9 +23,54 @@ export type DcFormValues = {
   customer_dc_date: (string | null)[] | null;
   authorized_by: string | null;
   items: DcItemInput[];
+  /** Set once the operator has seen the duplicate warning and meant it. */
+  allow_duplicate: boolean;
 };
 
-export type DcFormState = { error: string | null };
+export type DcFormState = {
+  error: string | null;
+  /**
+   * A duplicate the operator has to confirm rather than an outright refusal.
+   *
+   * The same customer reference genuinely does appear on two of our challans
+   * sometimes, when one inward lot is returned in two despatches, so this
+   * cannot simply be blocked. It must not pass silently either: entering the
+   * same challan twice is the easiest mistake to make here.
+   */
+  duplicateWarning?: string | null;
+};
+
+/**
+ * Challans already on file citing any of these customer references.
+ *
+ * Only the same customer is considered: two customers numbering their own
+ * challans "001" is ordinary and means nothing.
+ */
+async function findExistingRefs(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  customerId: string,
+  refs: string[] | null,
+  excludeDcId?: string
+): Promise<{ ref: string; dcNumber: string }[]> {
+  const wanted = (refs ?? []).map((ref) => ref.trim()).filter(Boolean);
+  if (wanted.length === 0) return [];
+
+  let query = supabase
+    .from("delivery_challans")
+    .select("dc_number, customer_dc_number")
+    .eq("customer_id", customerId)
+    .overlaps("customer_dc_number", wanted);
+  if (excludeDcId) query = query.neq("id", excludeDcId);
+
+  const { data } = await query;
+  const found: { ref: string; dcNumber: string }[] = [];
+  for (const dc of data ?? []) {
+    for (const ref of wanted) {
+      if ((dc.customer_dc_number ?? []).includes(ref)) found.push({ ref, dcNumber: dc.dc_number });
+    }
+  }
+  return found;
+}
 
 function parseDcForm(formData: FormData): DcFormValues {
   const customer_id = String(formData.get("customer_id") ?? "");
@@ -41,6 +86,7 @@ function parseDcForm(formData: FormData): DcFormValues {
     customerDcRefs.length > 0 ? customerDcRefs.map((r) => r.date || null) : null;
 
   const authorized_by = (formData.get("authorized_by") as string) || null;
+  const allow_duplicate = formData.get("allow_duplicate") === "yes";
 
   const components = formData.getAll("item_component") as string[];
   const materials = formData.getAll("item_material") as string[];
@@ -67,6 +113,7 @@ function parseDcForm(formData: FormData): DcFormValues {
     customer_dc_date,
     authorized_by,
     items,
+    allow_duplicate,
   };
 }
 
@@ -98,6 +145,18 @@ export async function createDcAction(
   }
 
   const supabase = await createClient();
+
+  if (!values.allow_duplicate) {
+    const clashes = await findExistingRefs(supabase, values.customer_id, values.customer_dc_number);
+    if (clashes.length > 0) {
+      const listed = clashes.map((c) => `${c.ref} (on ${c.dcNumber})`).join(", ");
+      return {
+        error: null,
+        duplicateWarning: `This customer reference is already recorded: ${listed}. Tick the box below and save again if that is correct.`,
+      };
+    }
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -172,6 +231,22 @@ export async function updateDcAction(
   }
 
   const supabase = await createClient();
+
+  if (!values.allow_duplicate) {
+    const clashes = await findExistingRefs(
+      supabase,
+      values.customer_id,
+      values.customer_dc_number,
+      id
+    );
+    if (clashes.length > 0) {
+      const listed = clashes.map((c) => `${c.ref} (on ${c.dcNumber})`).join(", ");
+      return {
+        error: null,
+        duplicateWarning: `This customer reference is already recorded: ${listed}. Tick the box below and save again if that is correct.`,
+      };
+    }
+  }
 
   const { error: dcError } = await supabase
     .from("delivery_challans")

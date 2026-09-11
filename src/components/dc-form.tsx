@@ -63,6 +63,8 @@ export function DcForm({
     makeCustomerDcRefs(dc?.customer_dc_number, dc?.customer_dc_date)
   );
   const [itemRows, setItemRows] = useState(() => makeDcItemRows(items));
+  /** Ticked to save past a customer reference that is already on file. */
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
   /** Scans this form instance has already folded in, so none is applied twice. */
   const appliedScanIds = useRef<Set<string>>(new Set());
   /** The queue while a save is in flight, put back if the save fails. */
@@ -76,7 +78,7 @@ export function DcForm({
    * except the customer, and scanned items are appended rather than replacing
    * work in progress.
    */
-  function applyScan(scan: DcScanResult) {
+  function applyScan(scan: DcScanResult, scanId: string) {
     const applied: string[] = [];
 
     if (scan.customerId) {
@@ -87,24 +89,33 @@ export function DcForm({
       const value = {
         number: scan.customerDcNumber ?? "",
         date: scan.customerDcDate ?? "",
+        sourceScanId: scanId,
       };
       setDcRefs((rows) => {
-        const blank = rows.findIndex((row) => !row.number && !row.date);
-        return blank >= 0
-          ? rows.map((row, i) => (i === blank ? { ...row, ...value } : row))
-          : [...rows, { ...emptyCustomerDcRef(), ...value }];
+        // Whatever this same scan put here before is replaced, not added to.
+        const others = rows.filter((row) => row.sourceScanId !== scanId);
+        const blank = others.findIndex((row) => !row.number && !row.date);
+        const next =
+          blank >= 0
+            ? others.map((row, i) => (i === blank ? { ...row, ...value } : row))
+            : [...others, { ...emptyCustomerDcRef(), ...value }];
+        return next.length > 0 ? next : [emptyCustomerDcRef()];
       });
       applied.push("customer DC ref");
     }
 
     if (scan.items.length > 0) {
       setItemRows((rows) => {
-        const kept = rows.filter((row) => !isBlankDcItemRow(row));
+        // Rows this scan produced on an earlier visit go first, so replaying
+        // the queue re-fills the form instead of doubling it. Rows typed by
+        // hand, and rows from other scans, are left alone.
+        const kept = rows.filter((row) => !isBlankDcItemRow(row) && row.sourceScanId !== scanId);
         const scanned = scan.items.map((item) => ({
           ...emptyDcItemRow(),
           component: item.component,
           material: item.material,
           received_qty: item.received_qty,
+          sourceScanId: scanId,
         }));
         return [...kept, ...scanned];
       });
@@ -196,7 +207,7 @@ export function DcForm({
       for (const pending of peekPendingScans()) {
         if (applied.has(pending.id)) continue;
         applied.add(pending.id);
-        applyScan(pending.scan);
+        applyScan(pending.scan, pending.id);
       }
     };
     const raf = requestAnimationFrame(consume);
@@ -215,9 +226,11 @@ export function DcForm({
     if (pending) return;
     const held = heldScans.current;
     if (!held) return;
-    if (state.error) restorePendingScans(held);
+    // A duplicate warning is a save that did not happen, so the queue has to
+    // come back exactly as it does after an error.
+    if (state.error || state.duplicateWarning) restorePendingScans(held);
     heldScans.current = null;
-  }, [pending, state.error]);
+  }, [pending, state.error, state.duplicateWarning]);
 
   return (
     <form
@@ -323,6 +336,26 @@ export function DcForm({
           </p>
         </div>
       )}
+
+      {state.duplicateWarning && (
+        <div className="space-y-3 rounded-lg border border-amber-500 bg-amber-50 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900">
+            <AlertTriangle className="h-4 w-4" />
+            This challan may already be entered
+          </h3>
+          <p className="text-sm text-amber-900">{state.duplicateWarning}</p>
+          <label className="flex items-start gap-2 text-sm font-medium text-amber-900">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={allowDuplicate}
+              onChange={(e) => setAllowDuplicate(e.target.checked)}
+            />
+            Save it anyway — this is a second despatch against the same customer challan.
+          </label>
+        </div>
+      )}
+      <input type="hidden" name="allow_duplicate" value={allowDuplicate ? "yes" : "no"} />
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button

@@ -21,7 +21,18 @@ function nextId() {
   return rowId;
 }
 
-export type DcItemRow = DcItemInput & { key: number };
+export type DcItemRow = DcItemInput & {
+  key: number;
+  /**
+   * The queued scan this row came from, when it came from one.
+   *
+   * The scan queue survives until a challan is saved, so opening the new-DC
+   * form a second time replays it. With no mark saying which rows a given scan
+   * already produced, the replay appended them again — DC-2026-0001 was saved
+   * with every scanned part on it twice.
+   */
+  sourceScanId?: string;
+};
 
 export function emptyDcItemRow(): DcItemRow {
   return {

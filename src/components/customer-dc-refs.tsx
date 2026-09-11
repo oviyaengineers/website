@@ -16,7 +16,13 @@ function nextId() {
   return refId;
 }
 
-export type CustomerDcRef = { number: string; date: string; key: number };
+export type CustomerDcRef = {
+  number: string;
+  date: string;
+  key: number;
+  /** The queued scan this reference came from; see DcItemRow.sourceScanId. */
+  sourceScanId?: string;
+};
 
 export function emptyCustomerDcRef(): CustomerDcRef {
   return { number: "", date: "", key: nextId() };
