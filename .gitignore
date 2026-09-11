@@ -49,3 +49,6 @@ supabase/.temp/
 
 # Local scratch for one-off scripts
 .tmp/
+
+# One-off data backups taken before a correction
+DC-*-backup.json
