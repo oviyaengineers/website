@@ -132,6 +132,60 @@
   }
 }
 
+/* --- Delivery challan form cells ----------------------------------------
+   The challan is a form, so every field sits in its own ruled box rather
+   than floating in a padded card. The container draws the top and left
+   edges and each cell its own right and bottom, so adjacent rules meet as
+   one line instead of doubling up.
+
+   Shared by screen and print for the same reason the rest of the sheet is:
+   the preview has to be the page. */
+.dc-print-block {
+  background: #fff;
+  border: 0.3mm solid #222;
+  padding: 2mm;
+}
+
+.dc-print-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 0.25mm solid #222;
+  border-left: 0.25mm solid #222;
+}
+
+.dc-print-cell {
+  border-right: 0.25mm solid #222;
+  border-bottom: 0.25mm solid #222;
+  padding: 1mm 1.5mm;
+  min-width: 0;
+}
+
+/* Room to sign by hand. Holds its height when empty, because a signature box
+   that collapses is no use on a form somebody has to sign. */
+.dc-print-cell-tall {
+  min-height: 13mm;
+}
+
+.dc-print-cell-label {
+  font-size: 5.6pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5b6472;
+  margin-bottom: 0.5mm;
+}
+
+.dc-print-cell-value {
+  font-size: 7.4pt;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* The foot is pinned to the bottom of each half by the sheet's own rules. */
+.dc-print-foot {
+  margin-bottom: 0 !important;
+}
+
 /* --- Delivery challan sheet, shared by screen and print ------------------
    These rules used to live inside @media print, so the screen showed the
    challan at its airy screen sizes while the printer got a far more compact
