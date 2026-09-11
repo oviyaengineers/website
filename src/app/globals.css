@@ -365,6 +365,44 @@
     overflow: hidden;
   }
 }
+/* --- Delivery challan list sheet, shared by screen and print -------------
+   Same reason as the single-challan sheet: these rules lived inside
+   @media print, so the screen showed an unruled table with its headings
+   running into each other while the printer got a properly ruled one. The
+   preview has to be the page. */
+.dc-list-print table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.dc-list-print th,
+.dc-list-print td {
+  border: 0.3mm solid #333;
+  padding: 1.2mm 1.6mm;
+  text-align: left;
+}
+
+.dc-list-print th {
+  background: #10233f !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* Long descriptions must wrap rather than push the table off the page. */
+.dc-list-print td {
+  word-break: break-word;
+}
+
+/* A challan split across a page break is unreadable as a record. */
+.dc-list-print tbody tr {
+  break-inside: avoid;
+}
+
+.dc-list-print thead {
+  display: table-header-group;
+}
+
 @media print {
   /* A filtered list prints landscape, because it carries every quantity
      column and those do not fit across a portrait page at a readable size.
@@ -377,39 +415,6 @@
 
   .dc-list-print {
     page: dc-list;
-  }
-
-  .dc-list-print table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 8.5pt;
-  }
-
-  .dc-list-print th,
-  .dc-list-print td {
-    border: 0.3mm solid #333;
-    padding: 1.2mm 1.6mm;
-    text-align: left;
-  }
-
-  .dc-list-print th {
-    background: #10233f !important;
-    color: #fff !important;
-    font-weight: 600;
-  }
-
-  /* Long descriptions must wrap rather than push the table off the page. */
-  .dc-list-print td {
-    word-break: break-word;
-  }
-
-  /* A challan split across a page break is unreadable as a record. */
-  .dc-list-print tbody tr {
-    break-inside: avoid;
-  }
-
-  .dc-list-print thead {
-    display: table-header-group;
   }
 }
 
