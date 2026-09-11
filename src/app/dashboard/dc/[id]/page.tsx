@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
+import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
 import { DeleteDcButton } from "@/components/delete-dc-button";
@@ -38,6 +39,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   ]);
 
   const overDelivered = findOverDelivered(items ?? []);
+  const lifecycle = dcLifecycle(dc.status, items ?? []);
 
   return (
     <div className="space-y-6">
@@ -50,14 +52,18 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <DcStatusBadge status={dc.status} />
-          <DcStatusActions id={dc.id} status={dc.status} />
+          <DcStatusBadge status={lifecycle} />
+          <DcStatusActions id={dc.id} lifecycle={lifecycle} />
           <Button render={<Link href={`/dashboard/dc/${dc.id}/print`} />} variant="outline">
             <Printer className="h-4 w-4" /> Print
           </Button>
-          <Button render={<Link href={`/dashboard/dc/${dc.id}/edit`} />} variant="outline">
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
+          {/* A completed challan is reconciled and often already invoiced, so
+              editing it is behind Reopen rather than one tap away. */}
+          {lifecycle !== "completed" && (
+            <Button render={<Link href={`/dashboard/dc/${dc.id}/edit`} />} variant="outline">
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+          )}
           {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dc_number} />}
         </div>
       </div>
@@ -120,8 +126,8 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
         <CardHeader>
           <CardTitle className="text-base">Material / Component Details</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="overflow-x-auto p-0">
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Description</TableHead>
@@ -155,11 +161,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                             : "text-muted-foreground"
                       }
                     >
-                      {balance < 0
-                        ? `${balance} extra`
-                        : balance > 0
-                          ? `${balance} pending`
-                          : "0"}
+                      {balance < 0 ? `${balance} extra` : balance > 0 ? `${balance} pending` : "0"}
                     </TableCell>
                   </TableRow>
                 );

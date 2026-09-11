@@ -157,6 +157,30 @@
     display: none !important;
   }
 
+  /* The dashboard shell is navigation, not part of any document. It was
+     printing alongside every challan: the sidebar down the left, the header
+     bar and the breadcrumb across the top of the first page. */
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-rail"],
+  .dashboard-chrome {
+    display: none !important;
+  }
+
+  /* With the sidebar gone the content pane must not keep its offset or its
+     screen padding, or everything shifts right and off the sheet. */
+  [data-slot="sidebar-inset"] {
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-slot="sidebar-inset"] > div {
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
   .dc-print-page {
     width: 194mm;
     height: 281mm;
@@ -278,5 +302,52 @@
   }
   .dc-print-cut span {
     font-size: 5.5pt !important;
+  }
+}
+@media print {
+  /* A filtered list prints landscape, because it carries every quantity
+     column and those do not fit across a portrait page at a readable size.
+     A named page is used rather than a second @page rule: only one unnamed
+     @page applies per document, and the single-challan sheet already owns it. */
+  @page dc-list {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .dc-list-print {
+    page: dc-list;
+  }
+
+  .dc-list-print table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+  }
+
+  .dc-list-print th,
+  .dc-list-print td {
+    border: 0.3mm solid #333;
+    padding: 1.2mm 1.6mm;
+    text-align: left;
+  }
+
+  .dc-list-print th {
+    background: #10233f !important;
+    color: #fff !important;
+    font-weight: 600;
+  }
+
+  /* Long descriptions must wrap rather than push the table off the page. */
+  .dc-list-print td {
+    word-break: break-word;
+  }
+
+  /* A challan split across a page break is unreadable as a record. */
+  .dc-list-print tbody tr {
+    break-inside: avoid;
+  }
+
+  .dc-list-print thead {
+    display: table-header-group;
   }
 }

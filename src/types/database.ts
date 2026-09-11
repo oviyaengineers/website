@@ -9,7 +9,14 @@
 // results to `never`.
 
 export type UserRole = "admin" | "staff";
-export type DcStatus = "draft" | "dispatched" | "delivered";
+/**
+ * Stored challan status.
+ *
+ * "dispatched" and "delivered" are the pre-0017 spellings of "active" and
+ * "completed". They stay in the type because rows carrying them are still
+ * valid until that migration runs; nothing writes them any more.
+ */
+export type DcStatus = "draft" | "active" | "completed" | "dispatched" | "delivered";
 export type PaymentStatus = "unpaid" | "partial" | "paid";
 
 export type ProfileRow = {

@@ -1,9 +1,13 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { DcForm } from "@/components/dc-form";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { updateDcAction } from "@/lib/actions/dc";
+import { dcLifecycle } from "@/lib/dc-lifecycle";
 
 export const metadata: Metadata = { title: "Edit Delivery Challan | Oviya Engineers" };
 
@@ -20,6 +24,34 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
     ]);
 
   if (!dc) notFound();
+
+  // The Edit button is hidden on a completed challan, but the URL is still
+  // reachable — from a bookmark, or from the address bar. A challan whose
+  // quantities all reconcile is usually invoiced, so it has to be reopened
+  // deliberately before it can be changed.
+  if (dcLifecycle(dc.status, items ?? []) === "completed") {
+    return (
+      <div className="space-y-6">
+        <BreadcrumbRecordLabel value={dc.dc_number} />
+        <div>
+          <h1 className="text-2xl font-semibold">{dc.dc_number} is completed</h1>
+          <p className="text-sm text-muted-foreground">
+            Every piece received on this challan has been accounted for.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="space-y-4 p-6 text-sm">
+            <p>
+              Completed challans are not edited in place, because the figures on them have usually
+              been billed. Open the challan and choose Reopen to put it back into draft, make the
+              correction, then confirm it again.
+            </p>
+            <Button render={<Link href={`/dashboard/dc/${dc.id}`} />}>Open the challan</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const boundAction = updateDcAction.bind(null, id);
   const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);

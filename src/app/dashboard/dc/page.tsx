@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { format } from "date-fns";
+import { Plus, Printer, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -12,106 +14,150 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Printer } from "lucide-react";
 import { DcFilters } from "@/components/dc-filters";
 import { DeleteDcButton } from "@/components/delete-dc-button";
 import { DcStatusBadge } from "@/components/status-badge";
-import type { DcStatus } from "@/types/database";
-import { format } from "date-fns";
+import { fetchDcSummaries, totalDcSummaries, type DcSummary } from "@/lib/dc-list";
 
-export const metadata: Metadata = { title: "Delivery Challans | Oviya Engineers" };
+export const metadata: Metadata = { title: "All DCs | Oviya Engineers" };
 
-export default async function DcListPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; from?: string; to?: string; status?: string }>;
-}) {
-  const { q, from, to, status } = await searchParams;
+type Search = {
+  q?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+  component?: string;
+};
+
+/** The balance column reads differently in each direction, so it says which. */
+function balanceText(balance: number): { text: string; className: string } {
+  if (balance < 0) return { text: `${-balance} extra`, className: "font-medium text-destructive" };
+  if (balance > 0) return { text: `${balance} pending`, className: "text-amber-600" };
+  return { text: "0", className: "text-muted-foreground" };
+}
+
+function refsOf(dc: DcSummary): string {
+  return dc.customerDcNumbers.length > 0 ? dc.customerDcNumbers.join(", ") : "-";
+}
+
+export default async function DcListPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const filters = await searchParams;
   const supabase = await createClient();
-  const { profile } = await getCurrentUserAndProfile();
-  const isAdmin = profile?.role === "admin";
 
-  let query = supabase
-    .from("delivery_challans")
-    .select("*")
-    .order("dc_date", { ascending: false });
-
-  if (from) query = query.gte("dc_date", from);
-  if (to) query = query.lte("dc_date", to);
-  if (status) query = query.eq("status", status as DcStatus);
-
-  const [{ data }, { data: customersData }] = await Promise.all([
-    query,
-    supabase.from("customers").select("id, name"),
+  const [summaries, { profile }, { data: picklist }] = await Promise.all([
+    fetchDcSummaries(filters),
+    getCurrentUserAndProfile(),
+    supabase.from("dc_picklist_items").select("name, kind").eq("kind", "component").order("name"),
   ]);
-  const customerMap = new Map((customersData ?? []).map((c) => [c.id, c.name]));
-  let dcs = (data ?? []).map((dc) => ({ ...dc, customerName: customerMap.get(dc.customer_id) ?? null }));
-
-  if (q) {
-    const needle = q.toLowerCase();
-    dcs = dcs.filter(
-      (dc) =>
-        dc.dc_number.toLowerCase().includes(needle) ||
-        (dc.customerName ?? "").toLowerCase().includes(needle)
-    );
-  }
+  const isAdmin = profile?.role === "admin";
+  const totals = totalDcSummaries(summaries);
+  const printHref = `/dashboard/dc/print-list?${new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => Boolean(value)) as [string, string][]
+  ).toString()}`;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Delivery Challans</h1>
-          <p className="text-sm text-muted-foreground">{dcs.length} record(s)</p>
+          <h1 className="text-2xl font-semibold">All DCs</h1>
+          <p className="text-sm text-muted-foreground">
+            {summaries.length} challan{summaries.length === 1 ? "" : "s"}
+          </p>
         </div>
-        <Button render={<Link href="/dashboard/dc/new" />}>
-          <Plus /> New DC
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button render={<Link href={printHref} />} variant="outline">
+            <Printer className="h-4 w-4" /> Print list
+          </Button>
+          <Button render={<Link href="/dashboard/dc/scan" />} variant="outline">
+            <ScanLine className="h-4 w-4" /> Scan DC
+          </Button>
+          <Button render={<Link href="/dashboard/dc/new" />}>
+            <Plus /> New DC
+          </Button>
+        </div>
       </div>
 
-      <DcFilters defaults={{ q, from, to, status }} />
+      <DcFilters defaults={filters} components={(picklist ?? []).map((item) => item.name)} />
 
-      {/* Desktop table */}
+      {/* Desktop: every quantity column stays visible, and the table scrolls
+          inside its own card rather than dropping columns or widening the
+          page. Which columns matter is not ours to decide — the operator
+          reconciles against all of them. */}
       <Card className="hidden md:block">
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="overflow-x-auto p-0">
+          <Table className="min-w-[1040px]">
             <TableHeader>
               <TableRow>
                 <TableHead>DC #</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Their DC #</TableHead>
+                <TableHead className="text-right">Received</TableHead>
+                <TableHead className="text-right">Sent</TableHead>
+                <TableHead className="text-right">Mat. Problem</TableHead>
+                <TableHead className="text-right">Rejection</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dcs.map((dc) => (
-                <TableRow key={dc.id}>
-                  <TableCell className="font-medium">{dc.dc_number}</TableCell>
-                  <TableCell>{format(new Date(dc.dc_date), "dd MMM yyyy")}</TableCell>
-                  <TableCell>{dc.customerName ?? "-"}</TableCell>
-                  <TableCell>
-                    <DcStatusBadge status={dc.status} />
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button render={<Link href={`/dashboard/dc/${dc.id}`} />} variant="outline" size="sm">
-                      View
-                    </Button>
-                    <Button
-                      render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                    {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dc_number} />}
+              {summaries.map((dc) => {
+                const balance = balanceText(dc.balance);
+                return (
+                  <TableRow key={dc.id}>
+                    <TableCell className="font-medium">{dc.dcNumber}</TableCell>
+                    <TableCell>{format(new Date(dc.dcDate), "dd MMM yyyy")}</TableCell>
+                    <TableCell>{dc.customerName}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={refsOf(dc)}>
+                      {refsOf(dc)}
+                    </TableCell>
+                    <TableCell className="text-right">{dc.received}</TableCell>
+                    <TableCell className="text-right">{dc.sent}</TableCell>
+                    <TableCell className="text-right">{dc.materialProblem}</TableCell>
+                    <TableCell className="text-right">{dc.rejection}</TableCell>
+                    <TableCell className={`text-right ${balance.className}`}>
+                      {balance.text}
+                    </TableCell>
+                    <TableCell>
+                      <DcStatusBadge status={dc.lifecycle} />
+                    </TableCell>
+                    <TableCell className="space-x-2 text-right whitespace-nowrap">
+                      <Button
+                        render={<Link href={`/dashboard/dc/${dc.id}`} />}
+                        variant="outline"
+                        size="sm"
+                      >
+                        View
+                      </Button>
+                      <Button
+                        render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {summaries.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={11} className="py-8 text-center text-muted-foreground">
+                    No delivery challans match these filters.
                   </TableCell>
                 </TableRow>
-              ))}
-              {dcs.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No delivery challans found.
-                  </TableCell>
+              )}
+              {summaries.length > 0 && (
+                <TableRow className="border-t-2 font-medium">
+                  <TableCell colSpan={4}>Total</TableCell>
+                  <TableCell className="text-right">{totals.received}</TableCell>
+                  <TableCell className="text-right">{totals.sent}</TableCell>
+                  <TableCell className="text-right">{totals.materialProblem}</TableCell>
+                  <TableCell className="text-right">{totals.rejection}</TableCell>
+                  <TableCell className="text-right">{totals.balance}</TableCell>
+                  <TableCell colSpan={2} />
                 </TableRow>
               )}
             </TableBody>
@@ -119,40 +165,66 @@ export default async function DcListPage({
         </CardContent>
       </Card>
 
-      {/* Mobile cards */}
+      {/* Phone: the same figures as a labelled stack. Nothing is hidden here
+          either — a column dropped on a phone is a column the shop floor
+          cannot check. */}
       <div className="grid gap-3 md:hidden">
-        {dcs.map((dc) => (
-          <Card key={dc.id}>
-            <CardContent className="p-4 space-y-1">
-              <div className="flex items-start justify-between">
-                <span className="font-medium">{dc.dc_number}</span>
-                <DcStatusBadge status={dc.status} />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(dc.dc_date), "dd MMM yyyy")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {dc.customerName ?? "-"}
-              </p>
-              <div className="flex gap-2 pt-2">
-                <Button
-                  render={<Link href={`/dashboard/dc/${dc.id}`} />}
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                >
-                  View
-                </Button>
-                <Button render={<Link href={`/dashboard/dc/${dc.id}/print`} />} variant="outline" size="sm">
-                  <Printer className="h-4 w-4" />
-                </Button>
-                {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dc_number} />}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {dcs.length === 0 && (
-          <p className="text-center text-muted-foreground py-8">No delivery challans found.</p>
+        {summaries.map((dc) => {
+          const balance = balanceText(dc.balance);
+          return (
+            <Card key={dc.id}>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{dc.dcNumber}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                    </p>
+                  </div>
+                  <DcStatusBadge status={dc.lifecycle} />
+                </div>
+                <div className="text-sm">
+                  <p>{dc.customerName}</p>
+                  <p className="text-muted-foreground">Their DC #: {refsOf(dc)}</p>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <dt className="text-muted-foreground">Received</dt>
+                  <dd className="text-right">{dc.received}</dd>
+                  <dt className="text-muted-foreground">Sent</dt>
+                  <dd className="text-right">{dc.sent}</dd>
+                  <dt className="text-muted-foreground">Material problem</dt>
+                  <dd className="text-right">{dc.materialProblem}</dd>
+                  <dt className="text-muted-foreground">Rejection</dt>
+                  <dd className="text-right">{dc.rejection}</dd>
+                  <dt className="text-muted-foreground">Balance</dt>
+                  <dd className={`text-right ${balance.className}`}>{balance.text}</dd>
+                </dl>
+                <div className="flex gap-2">
+                  <Button
+                    render={<Link href={`/dashboard/dc/${dc.id}`} />}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    View
+                  </Button>
+                  <Button
+                    render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                  {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {summaries.length === 0 && (
+          <p className="py-8 text-center text-muted-foreground">
+            No delivery challans match these filters.
+          </p>
         )}
       </div>
     </div>
