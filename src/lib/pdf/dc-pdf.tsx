@@ -199,10 +199,13 @@ function DcCopy({ label, dc }: { label: string; dc: DcPdfData }) {
     <View style={styles.copy}>
       <View style={styles.header}>
         <Text style={styles.copyLabel}>{label}</Text>
+        {/* A 220px copy of the logo rather than the 1280px original. It is
+            drawn at 34 points and embedded twice, once per copy, and the full
+            size put 394KB of it into every challan. */}
         {/* react-pdf's Image, not an HTML img: it takes no alt, and a PDF has
             nowhere to put one. The rule cannot tell the two apart. */}
         {/* eslint-disable-next-line jsx-a11y/alt-text */}
-        <Image src="/logo.png" style={{ width: 34, height: 22, marginBottom: 2 }} />
+        <Image src="/logo-pdf.png" style={{ width: 34, height: 22, marginBottom: 2 }} />
         <Text style={styles.companyName}>OVIYA ENGINEERS</Text>
         <Text style={styles.headerLine}>
           40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111

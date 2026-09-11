@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardScanButton } from "@/components/dashboard-scan-button";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
+import { HistoryNav } from "@/components/history-nav";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
@@ -31,6 +32,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <SidebarInset>
         <header className="dashboard-chrome flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1 size-11 md:size-8" />
+          <Separator orientation="vertical" className="mx-1 h-4" />
+          <HistoryNav />
           <Separator orientation="vertical" className="mr-2 h-4" />
           {/* The label yields space before the scan button does: min-w-0 plus
               truncate lets it shrink on a narrow phone, and shrink-0 keeps the
