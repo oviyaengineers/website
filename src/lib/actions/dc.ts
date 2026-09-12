@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
+import { getScannedDc, markScansConverted } from "@/lib/actions/dc-scan-queue";
 import { storedStatusFor } from "@/lib/dc-lifecycle";
 
 export type DcItemInput = {
@@ -204,6 +205,21 @@ export async function createDcAction(
 
   const supabase = await createClient();
 
+  // A scan converts exactly once. Two clicks on Create delivery challan, a
+  // resubmitted form, or the back button would otherwise each raise a
+  // challan for the same customer DC, and only the arithmetic would say so.
+  const scanIds = (formData.getAll("used_scan_id") as string[]).filter(Boolean);
+  for (const scanId of scanIds) {
+    const scan = await getScannedDc(scanId);
+    if (scan?.status === "converted") {
+      return {
+        error:
+          `A delivery challan has already been created from this scanned customer DC` +
+          `${scan.dcNumber ? " (" + scan.dcNumber + ")" : ""}. Open it from Scanned DCs rather than creating another.`,
+      };
+    }
+  }
+
   if (!values.allow_duplicate) {
     const clashes = await findExistingRefs(supabase, values.customer_id, values.customer_dc_number);
     if (clashes.length > 0) {
@@ -252,9 +268,11 @@ export async function createDcAction(
   // Only the scans that actually filled this form: the rest are still waiting
   // on Scanned DCs for somebody to enter them, and clearing the whole queue
   // would silently throw those away.
-  const usedScanIds = (formData.getAll("used_scan_id") as string[]).filter(Boolean);
-  if (usedScanIds.length > 0) {
-    await supabase.from("pending_dc_scans").delete().in("id", usedScanIds);
+  // The scanned customer DC is the input this challan came from, so it is
+  // kept and linked rather than deleted. Losing it would lose the trail from
+  // the customer's paper to our challan.
+  if (scanIds.length > 0) {
+    await markScansConverted(scanIds, dc.id);
   }
 
   revalidatePath("/dashboard/dc");

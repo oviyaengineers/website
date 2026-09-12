@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import {
 } from "@/components/customer-dc-refs";
 import type { DcScanResult } from "@/components/dc-scan-dialog";
 import { PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
-import { listPendingScans } from "@/lib/actions/dc-scan-queue";
+import { getScannedDc, listPendingScans } from "@/lib/actions/dc-scan-queue";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
@@ -67,8 +68,19 @@ export function DcForm({
   // scan waits there until somebody picks it, so the form fills from that one
   // rather than sweeping up everything that happens to be queued.
   const wantedScanId = useSearchParams().get("scan");
-  /** Scans folded in, so the save can discard exactly those and no others. */
+  /** Scans folded in, so the save can mark exactly those converted. */
   const [usedScanIds, setUsedScanIds] = useState<string[]>([]);
+  /**
+   * Set when the scan in the URL has already produced a challan.
+   *
+   * Reachable by the back button or a stale link. The queue only hands back
+   * pending scans, so without this the form would simply come up empty and
+   * say nothing about why.
+   */
+  const [alreadyConverted, setAlreadyConverted] = useState<{
+    dcId: string | null;
+    dcNumber: string | null;
+  } | null>(null);
   const overDelivered = findOverDelivered(itemRows);
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
@@ -206,14 +218,20 @@ export function DcForm({
     const consume = () => {
       if (!wantedScanId) return;
       void listPendingScans()
-        .then((waiting) => {
-          for (const pending of waiting) {
-            if (pending.id !== wantedScanId) continue;
-            if (applied.has(pending.id)) continue;
-            applied.add(pending.id);
-            applyScan(pending, pending.id);
-            setUsedScanIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]));
+        .then(async (waiting) => {
+          const match = waiting.find((pending) => pending.id === wantedScanId);
+          if (!match) {
+            // Not waiting any more. Say why, rather than showing a blank form.
+            const scan = await getScannedDc(wantedScanId);
+            if (scan?.status === "converted") {
+              setAlreadyConverted({ dcId: scan.dcId, dcNumber: scan.dcNumber });
+            }
+            return;
           }
+          if (applied.has(match.id)) return;
+          applied.add(match.id);
+          applyScan(match, match.id);
+          setUsedScanIds((ids) => (ids.includes(match.id) ? ids : [...ids, match.id]));
         })
         .catch(() => {});
     };
@@ -322,6 +340,29 @@ export function DcForm({
           <p className="text-xs text-destructive/80">
             Correct these before saving — you cannot return more pieces than came in.
           </p>
+        </div>
+      )}
+
+      {alreadyConverted && (
+        <div className="space-y-2 rounded-lg border border-amber-500 bg-amber-50 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900">
+            <AlertTriangle className="h-4 w-4" />
+            This scanned customer DC has already been entered
+          </h3>
+          <p className="text-sm text-amber-900">
+            A delivery challan was already created from it
+            {alreadyConverted.dcNumber ? ` (${alreadyConverted.dcNumber})` : ""}. Creating another
+            would record the same inward lot twice.
+          </p>
+          {alreadyConverted.dcId && (
+            <Button
+              render={<Link href={`/dashboard/dc/${alreadyConverted.dcId}`} />}
+              variant="outline"
+              size="sm"
+            >
+              Open {alreadyConverted.dcNumber ?? "the delivery challan"}
+            </Button>
+          )}
         </div>
       )}
 

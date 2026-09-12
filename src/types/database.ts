@@ -353,6 +353,11 @@ export type PendingDcScanRow = {
   customer_dc_number: string | null;
   customer_dc_date: string | null;
   items: unknown;
+  /** pending, converted or discarded (migration 0019). */
+  status: string;
+  /** Our challan, once one has been raised from this scan. */
+  dc_id: string | null;
+  converted_at: string | null;
   created_at: string;
   created_by: string | null;
 };
@@ -362,6 +367,9 @@ export type PendingDcScanInsert = {
   customer_dc_number?: string | null;
   customer_dc_date?: string | null;
   items?: unknown;
+  status?: string;
+  dc_id?: string | null;
+  converted_at?: string | null;
   created_at?: string;
   created_by?: string | null;
 };
@@ -371,6 +379,9 @@ export type PendingDcScanUpdate = {
   customer_dc_number?: string | null;
   customer_dc_date?: string | null;
   items?: unknown;
+  status?: string;
+  dc_id?: string | null;
+  converted_at?: string | null;
   created_at?: string;
   created_by?: string | null;
 };
