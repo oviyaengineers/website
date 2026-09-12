@@ -11,10 +11,11 @@ export type DcFilterValues = {
   to?: string;
   status?: string;
   component?: string;
+  customer?: string;
 };
 
 /** The filter keys this bar owns. The search term is not one of them. */
-const KEYS = ["from", "to", "status", "component"] as const;
+const KEYS = ["from", "to", "status", "component", "customer"] as const;
 
 /**
  * Date, status and component filters for a list of challans.
@@ -29,10 +30,16 @@ const KEYS = ["from", "to", "status", "component"] as const;
 export function DcFilters({
   defaults,
   components = [],
+  customers = [],
+  showStatus = true,
 }: {
   defaults: DcFilterValues;
   /** The component master list, offered as a filter. */
   components?: string[];
+  /** Offered as a filter where a page has more than one customer in view. */
+  customers?: string[];
+  /** Hidden where the page's tabs already are the status. */
+  showStatus?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,7 +62,12 @@ export function DcFilters({
   }
 
   const anySet = Boolean(
-    defaults.from || defaults.to || defaults.status || defaults.component || defaults.q
+    defaults.from ||
+    defaults.to ||
+    defaults.status ||
+    defaults.component ||
+    defaults.customer ||
+    defaults.q
   );
 
   return (
@@ -78,19 +90,38 @@ export function DcFilters({
           onChange={(e) => update("to", e.target.value)}
         />
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Status</label>
-        <select
-          className="h-9 w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-          value={defaults.status ?? ""}
-          onChange={(e) => update("status", e.target.value)}
-        >
-          <option value="">All</option>
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-        </select>
-      </div>
+      {showStatus && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Status</label>
+          <select
+            className="h-9 w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            value={defaults.status ?? ""}
+            onChange={(e) => update("status", e.target.value)}
+          >
+            <option value="">All</option>
+            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      )}
+      {customers.length > 1 && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Customer</label>
+          <select
+            className="h-9 w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
+            value={defaults.customer ?? ""}
+            onChange={(e) => update("customer", e.target.value)}
+          >
+            <option value="">All</option>
+            {customers.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {components.length > 0 && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Component</label>

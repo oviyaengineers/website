@@ -14,6 +14,7 @@ import {
   LogOut,
   Receipt,
   ScanLine,
+  Send,
   Settings,
   Users,
   Wallet,
@@ -87,6 +88,12 @@ const NAV: NavGroup[] = [
       // Sits at /dashboard/dc, a prefix of the two entries above it, so the
       // active marker has to prefer the longest match rather than the first.
       { href: "/dashboard/dc", label: "All DCs", icon: ListChecks, color: "text-sky-400" },
+      {
+        href: "/dashboard/dc/dispatched",
+        label: "Dispatched DCs",
+        icon: Send,
+        color: "text-indigo-300",
+      },
       {
         href: "/dashboard/stock",
         label: "Stock / Balance",
