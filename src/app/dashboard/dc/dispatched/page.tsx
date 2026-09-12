@@ -282,7 +282,9 @@ export default async function DispatchedDcsPage({
       </Card>
 
       {/* Phone: the same figures stacked. Nothing is dropped, because a column
-          hidden on a phone is a column the shop floor cannot check. */}
+          hidden on a phone is a column the shop floor cannot check. The actions
+          are raised to a full thumb's width: this is read standing at a machine,
+          often with gloves on, and the desktop button height is not tappable. */}
       <div className="grid gap-3 md:hidden">
         {rows.map((dc) => (
           <Card key={dc.id}>
@@ -334,7 +336,7 @@ export default async function DispatchedDcsPage({
                       render={<Link href={`/dashboard/dc/new?from=${line.key}`} />}
                       variant="outline"
                       size="sm"
-                      className="mt-2 w-full"
+                      className="mt-2 h-11 w-full"
                     >
                       <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
                     </Button>
@@ -347,7 +349,7 @@ export default async function DispatchedDcsPage({
                   render={<Link href={`/dashboard/dc/${dc.id}`} />}
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="h-11 flex-1"
                 >
                   View
                 </Button>
@@ -355,6 +357,7 @@ export default async function DispatchedDcsPage({
                   render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
                   variant="outline"
                   size="sm"
+                  className="h-11 w-11"
                 >
                   <Printer className="h-4 w-4" />
                 </Button>
