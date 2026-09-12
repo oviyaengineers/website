@@ -39,12 +39,11 @@ test("a challan with no items is active, not silently complete", () => {
   assert.equal(dcLifecycle("active", []), "active");
 });
 
-test("the stored spelling is one every version of the type accepts", () => {
-  // 'active' exists only after migration 0016, which has repeatedly reported
-  // success without the type gaining it. Writing it would fail the save.
+test("what is written reads back as the lifecycle that was asked for", () => {
+  // Since migration 0016 the type holds these names, so they are stored as
+  // themselves rather than translated.
   assert.equal(storedStatusFor("draft"), "draft");
-  assert.equal(storedStatusFor("active"), "dispatched");
-  // And what is written must read back as the lifecycle that was asked for.
+  assert.equal(storedStatusFor("active"), "active");
   assert.equal(normalizeDcStatus(storedStatusFor("active")), "active");
   assert.equal(normalizeDcStatus(storedStatusFor("draft")), "draft");
 });
