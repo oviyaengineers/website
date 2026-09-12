@@ -71,7 +71,9 @@ export function DcFilters({
   );
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    // Every control here is a full thumb's height on a phone. The date fields
+    // in particular open the system picker, and a missed tap opens nothing.
+    <div className="flex flex-wrap items-end gap-3 [&_input]:h-11 [&_select]:h-11 sm:[&_input]:h-8 sm:[&_select]:h-9">
       <div className="flex flex-col gap-1">
         <label className="text-xs text-muted-foreground">From</label>
         <Input
@@ -94,7 +96,7 @@ export function DcFilters({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Status</label>
           <select
-            className="h-9 w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            className="w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
             value={defaults.status ?? ""}
             onChange={(e) => update("status", e.target.value)}
           >
@@ -109,7 +111,7 @@ export function DcFilters({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Customer</label>
           <select
-            className="h-9 w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
+            className="w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
             value={defaults.customer ?? ""}
             onChange={(e) => update("customer", e.target.value)}
           >
@@ -126,7 +128,7 @@ export function DcFilters({
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Component</label>
           <select
-            className="h-9 w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
+            className="w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
             value={defaults.component ?? ""}
             onChange={(e) => update("component", e.target.value)}
           >
@@ -140,7 +142,7 @@ export function DcFilters({
         </div>
       )}
       {anySet && (
-        <Button variant="ghost" size="sm" onClick={clearAll}>
+        <Button variant="ghost" size="sm" className="h-11 sm:h-7" onClick={clearAll}>
           <X className="h-4 w-4" /> Clear
         </Button>
       )}

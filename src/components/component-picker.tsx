@@ -41,7 +41,7 @@ export function ComponentPicker({
           if (id) router.push(`/dashboard/dc/component/${id}`);
         }}
       >
-        <SelectTrigger className="w-full sm:w-[28rem]">
+        <SelectTrigger className="w-full data-[size=default]:h-11 sm:w-[28rem] sm:data-[size=default]:h-8">
           <SelectValue placeholder="Choose a component..." />
         </SelectTrigger>
         <SelectContent>

@@ -57,12 +57,12 @@ export function SearchBox({
 
   return (
     <div className={`relative ${className}`}>
-      <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <Search className="pointer-events-none absolute top-3.5 left-2.5 h-4 w-4 text-muted-foreground sm:top-2.5" />
       <Input
         value={value}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="pl-8 pr-9"
+        className="h-11 pl-8 pr-9 sm:h-8"
         onChange={(e) => {
           typing.current = true;
           setValue(e.target.value);
@@ -74,7 +74,7 @@ export function SearchBox({
           variant="ghost"
           size="icon"
           aria-label="Clear search"
-          className="absolute right-0.5 top-0.5 h-8 w-8 text-muted-foreground"
+          className="absolute top-0.5 right-0.5 size-10 text-muted-foreground sm:size-7"
           onClick={() => {
             typing.current = true;
             setValue("");

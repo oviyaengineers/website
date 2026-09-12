@@ -19,6 +19,7 @@ import { DcFilters } from "@/components/dc-filters";
 import { SearchBox } from "@/components/search-box";
 import { DeleteDcButton } from "@/components/delete-dc-button";
 import { DcStatusBadge } from "@/components/status-badge";
+import { isContinuationLine } from "@/lib/dc-chain";
 import { fetchDcSummaries, totalDcSummaries, type DcSummary } from "@/lib/dc-list";
 
 export const metadata: Metadata = { title: "All DCs | Oviya Engineers" };
@@ -40,6 +41,16 @@ function balanceText(balance: number): { text: string; className: string } {
 
 function refsOf(dc: DcSummary): string {
   return dc.customerDcNumbers.length > 0 ? dc.customerDcNumbers.join(", ") : "-";
+}
+
+/**
+ * A challan that only despatches against lots received on earlier ones.
+ *
+ * Worth saying on the row: it received nothing itself, so a Received of zero
+ * beside a Sent of fifty is correct rather than a mistake.
+ */
+function continuesEarlier(dc: DcSummary): boolean {
+  return dc.items.length > 0 && dc.items.every(isContinuationLine);
 }
 
 export default async function DcListPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -70,7 +81,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
             {summaries.length} challan{summaries.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 [&>*]:h-11 sm:[&>*]:h-8">
           <Button render={<Link href={printHref} />} variant="outline">
             <Printer className="h-4 w-4" /> Print list
           </Button>
@@ -119,7 +130,14 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 const balance = balanceText(dc.balance);
                 return (
                   <TableRow key={dc.id}>
-                    <TableCell className="font-medium">{dc.dcNumber}</TableCell>
+                    <TableCell className="font-medium">
+                      {dc.dcNumber}
+                      {continuesEarlier(dc) && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          continues an earlier challan
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>{format(new Date(dc.dcDate), "dd MMM yyyy")}</TableCell>
                     <TableCell>{dc.customerName}</TableCell>
                     <TableCell className="max-w-[180px] truncate" title={refsOf(dc)}>
@@ -199,6 +217,9 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 <div className="text-sm">
                   <p>{dc.customerName}</p>
                   <p className="text-muted-foreground">Their DC #: {refsOf(dc)}</p>
+                  {continuesEarlier(dc) && (
+                    <p className="text-muted-foreground">Continues an earlier challan</p>
+                  )}
                 </div>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                   <dt className="text-muted-foreground">Received</dt>
@@ -212,7 +233,9 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                   <dt className="text-muted-foreground">Balance</dt>
                   <dd className={`text-right ${balance.className}`}>{balance.text}</dd>
                 </dl>
-                <div className="flex gap-2">
+                {/* A full thumb's height, delete included: it sits beside
+                    print, and a missed tap there is the expensive one. */}
+                <div className="flex gap-2 [&>*]:h-11 sm:[&>*]:h-8">
                   <Button
                     render={<Link href={`/dashboard/dc/${dc.id}`} />}
                     variant="outline"
