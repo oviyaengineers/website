@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { remainingOnLine } from "@/lib/dc-chain";
+import type { DeliveryChallanItemRow } from "@/types/database";
 
 /** A pending line, with everything needed to raise the next challan for it. */
 export type PendingLine = {
@@ -71,7 +72,7 @@ export async function getPendingLine(itemId: string): Promise<PendingLine | null
   };
 }
 
-/** Challans raised to complete a given line, oldest first. */
+/** Every follow-up challan raised against a given one, oldest first. */
 export type RelatedDc = {
   dcId: string;
   dcNumber: string;
@@ -81,6 +82,33 @@ export type RelatedDc = {
   materialProblem: number;
   rejection: number;
 };
+
+/**
+ * Every line descending from the given ones, however many steps down.
+ *
+ * Reads a generation at a time and stops when a generation adds nothing new,
+ * so a cycle in the data ends the walk rather than hanging it.
+ */
+async function descendantsOf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rootIds: string[]
+): Promise<DeliveryChallanItemRow[]> {
+  const found = new Map<string, DeliveryChallanItemRow>();
+  let frontier = rootIds;
+
+  while (frontier.length > 0) {
+    const { data } = await supabase
+      .from("delivery_challan_items")
+      .select("*")
+      .in("parent_item_id", frontier);
+
+    const fresh = (data ?? []).filter((row) => !found.has(row.id));
+    for (const row of fresh) found.set(row.id, row);
+    frontier = fresh.map((row) => row.id);
+  }
+
+  return [...found.values()];
+}
 
 export async function listRelatedDcs(dcId: string): Promise<RelatedDc[]> {
   const supabase = await createClient();
@@ -92,11 +120,11 @@ export async function listRelatedDcs(dcId: string): Promise<RelatedDc[]> {
   const ids = (ownItems ?? []).map((row) => row.id);
   if (ids.length === 0) return [];
 
-  const { data: children } = await supabase
-    .from("delivery_challan_items")
-    .select("*")
-    .in("parent_item_id", ids);
-  if (!children || children.length === 0) return [];
+  // The whole chain, not just the first step. A follow-up can itself be
+  // followed up, and every one of those despatches work that belongs to this
+  // challan, so all of them are part of its history.
+  const children = await descendantsOf(supabase, ids);
+  if (children.length === 0) return [];
 
   const { data: challans } = await supabase
     .from("delivery_challans")

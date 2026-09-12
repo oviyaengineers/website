@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
-import { Plus, Printer, ScanLine } from "lucide-react";
+import { FilePlus2, Plus, Printer, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,21 @@ function refsOf(dc: DcSummary): string {
  */
 function continuesEarlier(dc: DcSummary): boolean {
   return dc.items.length > 0 && dc.items.every(isContinuationLine);
+}
+
+/**
+ * Where the follow-up button on a list row should lead.
+ *
+ * With one line outstanding there is no choice to make, so it opens the form
+ * already filled in. With several, the challan's own page is the only place
+ * the line can be chosen, and every line there carries the same button.
+ */
+function followUpHref(dc: DcSummary): string | null {
+  if (dc.outstandingLines.length === 0) return null;
+  if (dc.outstandingLines.length === 1) {
+    return `/dashboard/dc/new?from=${dc.outstandingLines[0].id}`;
+  }
+  return `/dashboard/dc/${dc.id}`;
 }
 
 export default async function DcListPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -154,6 +169,15 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                       <DcStatusBadge status={dc.lifecycle} />
                     </TableCell>
                     <TableCell className="space-x-2 text-right whitespace-nowrap">
+                      {followUpHref(dc) && (
+                        <Button
+                          render={<Link href={followUpHref(dc) as string} />}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <FilePlus2 className="h-4 w-4" /> Follow-up
+                        </Button>
+                      )}
                       <Button
                         render={<Link href={`/dashboard/dc/${dc.id}`} />}
                         variant="outline"
@@ -235,6 +259,16 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 </dl>
                 {/* A full thumb's height, delete included: it sits beside
                     print, and a missed tap there is the expensive one. */}
+                {followUpHref(dc) && (
+                  <Button
+                    render={<Link href={followUpHref(dc) as string} />}
+                    variant="outline"
+                    size="sm"
+                    className="h-11 w-full sm:h-8"
+                  >
+                    <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                  </Button>
+                )}
                 <div className="flex gap-2 [&>*]:h-11 sm:[&>*]:h-8">
                   <Button
                     render={<Link href={`/dashboard/dc/${dc.id}`} />}

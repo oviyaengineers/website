@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { outwardTotal } from "@/lib/dc-balance";
-import { isOriginalLine, outstandingForChallan } from "@/lib/dc-chain";
+import { isOriginalLine, outstandingForChallan, remainingByLine } from "@/lib/dc-chain";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { DeliveryChallanItemRow } from "@/types/database";
@@ -30,6 +30,12 @@ export type DcSummary = {
   rejection: number;
   /** Received less everything accounted back: what is still on our floor. */
   balance: number;
+  /**
+   * This challan's own lines that still owe work, counting despatches already
+   * made on later challans. These are the lines a follow-up can be raised
+   * against, and the list screens offer the button from them.
+   */
+  outstandingLines: { id: string; component: string; balance: number }[];
 };
 
 function sum(items: DeliveryChallanItemRow[], pick: (i: DeliveryChallanItemRow) => number): number {
@@ -184,6 +190,8 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     else itemsByDc.set(item.dc_id, [item]);
   }
 
+  const lineBalances = remainingByLine(allLines);
+
   let summaries: DcSummary[] = challans.map((dc) => {
     const rows = itemsByDc.get(dc.id) ?? [];
     return {
@@ -201,6 +209,14 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
       materialProblem: sum(rows, (i) => i.material_problem_qty),
       rejection: sum(rows, (i) => i.rejection_qty),
       balance: outstandingForChallan(rows, allLines),
+      outstandingLines: rows
+        .filter(isOriginalLine)
+        .map((item) => ({
+          id: item.id,
+          component: item.component,
+          balance: lineBalances.get(item.id) ?? 0,
+        }))
+        .filter((line) => line.balance > 0),
     };
   });
 

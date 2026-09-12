@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
+import { FilePlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
-import { remainingByLine } from "@/lib/dc-chain";
+import { isOriginalLine, remainingByLine } from "@/lib/dc-chain";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
 import { DcStatusBadge } from "@/components/status-badge";
@@ -158,6 +159,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 <TableHead>Rejection</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Balance</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -183,6 +185,22 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                     >
                       {balance < 0 ? `${balance} extra` : balance > 0 ? `${balance} pending` : "0"}
                     </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      {/* Only an original line can be followed up. A line that
+                          is itself a follow-up owes nothing of its own: what it
+                          despatches is already counted against the line that
+                          received the lot. */}
+                      {balance > 0 && isOriginalLine(item) && (
+                        <Button
+                          render={<Link href={`/dashboard/dc/new?from=${item.id}`} />}
+                          variant="outline"
+                          size="sm"
+                          className="h-11 sm:h-7"
+                        >
+                          <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -194,10 +212,12 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
       {related.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">
-              Completed by {new Set(related.map((row) => row.dcNumber)).size} later challan
-              {new Set(related.map((row) => row.dcNumber)).size === 1 ? "" : "s"}
-            </CardTitle>
+            <CardTitle className="text-base text-[#10233f]">Follow-up DC History</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {new Set(related.map((row) => row.dcNumber)).size} follow-up challan
+              {new Set(related.map((row) => row.dcNumber)).size === 1 ? "" : "s"} raised against
+              this one. Each opens on its own.
+            </p>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
             <Table className="min-w-[640px]">
