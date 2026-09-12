@@ -78,9 +78,12 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             <CardTitle className="text-base">Customer</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
+            {/* A line is printed only when there is something on it. A dash
+                standing in for a missing phone number read as part of the
+                address and left a gap above it. */}
             <p className="font-medium">{customer?.name ?? "-"}</p>
-            <p className="text-muted-foreground">{customer?.phone ?? "-"}</p>
-            <p className="text-muted-foreground">{customer?.address ?? "-"}</p>
+            {customer?.phone && <p className="text-muted-foreground">{customer.phone}</p>}
+            {customer?.address && <p className="text-muted-foreground">{customer.address}</p>}
             {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
               dc.customer_dc_number.map((num, i) => (
                 <p key={i}>
