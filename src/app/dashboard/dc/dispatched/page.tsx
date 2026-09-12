@@ -194,7 +194,7 @@ export default async function DispatchedDcsPage({
                           size="xs"
                           className="ml-2 align-middle"
                         >
-                          <FilePlus2 className="h-3 w-3" /> Put DC
+                          <FilePlus2 className="h-3 w-3" /> Create Follow-up DC
                         </Button>
                       )}
                     </td>
@@ -336,7 +336,7 @@ export default async function DispatchedDcsPage({
                       size="sm"
                       className="mt-2 w-full"
                     >
-                      <FilePlus2 className="h-4 w-4" /> Put DC
+                      <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
                     </Button>
                   )}
                 </div>

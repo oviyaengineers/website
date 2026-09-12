@@ -21,7 +21,7 @@ export type PendingLine = {
 };
 
 /**
- * The line a "Put DC" button is continuing.
+ * The line a "Create Follow-up DC" button is continuing.
  *
  * Read fresh every time the form opens, because the remaining balance moves
  * whenever anybody despatches against the same lot, and the figure shown has
