@@ -210,3 +210,30 @@ test("collapsing digits never merges two different castings", () => {
     ]
   );
 });
+
+test("nothing that cannot be a part name is offered on the review screen", () => {
+  // These all appeared as "new descriptions" on real scans. The shape test
+  // used to run only when storing, so they were refused at the last moment
+  // yet still shown to the operator as candidates.
+  const result = parse([
+    "MOREIND AUTOMATION PRIVATE LIMITED",
+    "D.C. No.",
+    "Date",
+    "ODC26-27/1018",
+    "05/09/2026",
+    "Sl No. Product Description Quantity",
+    "1 3P DN40FB/50RB CF8M Body Casting REV 2",
+    "200.000 EA",
+    "1) APPROX VALUE - 22,843",
+    "Terms And Conditions 8",
+    "As per LT V norms 10% of Inspection Report need to be submitted",
+    "5% of debit will be charged in non submission of inspection report",
+  ]);
+  assert.equal(result.customerDcNumber, "ODC26-27/1018");
+  assert.equal(result.customerDcDate, "2026-09-05");
+  assert.deepEqual(
+    result.items.map((item) => [item.component, item.received_qty]),
+    [["3P DN40FB/50RB CF8M Body Casting REV 2", 200]]
+  );
+  assert.deepEqual(result.newComponents, []);
+});

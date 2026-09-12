@@ -731,6 +731,14 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
       });
       return;
     }
+    // Everything printed on a challan that is not a part reaches here too:
+    // "APPROX VALUE - 22", "Terms And Conditions", the inspection clauses. The
+    // shape test was only applied further downstream, so those were refused at
+    // the moment of storing but still offered on the review screen, which is
+    // the screen the operator is trying to trust. Nothing that cannot be a
+    // part name is offered as one.
+    if (!looksLikePartDescription(description)) return;
+
     // Offer it as a component the list does not have yet, so a part new to
     // this workshop need not be typed into Settings first.
     if (!seenNewNames.has(foldOcrConfusables(description))) {
