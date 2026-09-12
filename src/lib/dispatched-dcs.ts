@@ -1,4 +1,5 @@
-import { balanceQty } from "@/lib/dc-balance";
+import { remainingByLine } from "@/lib/dc-chain";
+import { createClient } from "@/lib/supabase/server";
 import { fetchDcSummaries, type DcListFilters, type DcSummary } from "@/lib/dc-list";
 import type { DeliveryChallanItemRow } from "@/types/database";
 
@@ -35,6 +36,8 @@ export type DispatchedLine = {
   rejection: number;
   /** This line's own balance, which is what the shop floor reconciles. */
   balance: number;
+  /** True where the line despatches against a lot received on an earlier challan. */
+  continues: boolean;
 };
 
 export type DispatchedDc = {
@@ -53,7 +56,11 @@ export type DispatchedDc = {
   lines: DispatchedLine[];
 };
 
-function lineFrom(dc: DcSummary, item: DeliveryChallanItemRow): DispatchedLine {
+function lineFrom(
+  dc: DcSummary,
+  item: DeliveryChallanItemRow,
+  remaining: Map<string, number>
+): DispatchedLine {
   return {
     key: item.id,
     dcId: dc.id,
@@ -68,7 +75,13 @@ function lineFrom(dc: DcSummary, item: DeliveryChallanItemRow): DispatchedLine {
     sent: Number(item.sent_qty) || 0,
     materialProblem: Number(item.material_problem_qty) || 0,
     rejection: Number(item.rejection_qty) || 0,
-    balance: balanceQty(item),
+    // The line's remaining balance across the whole chain, so a line finished
+    // by a later challan reads as zero here rather than still owing. A
+    // continuation is absent from the map and owes nothing of its own: the
+    // pieces it despatches are already subtracted from the line that
+    // received them, and counting them twice would invent a second debt.
+    balance: remaining.get(item.id) ?? 0,
+    continues: Boolean(item.parent_item_id),
   };
 }
 
@@ -90,6 +103,8 @@ export async function fetchDispatched(
     component: filters.component,
   });
 
+  const remaining = await remainingAcrossChallans();
+
   const dispatched = summaries
     // A draft has not been issued to anybody yet.
     .filter((dc) => dc.lifecycle !== "draft")
@@ -106,13 +121,26 @@ export async function fetchDispatched(
       sent: dc.sent,
       materialProblem: dc.materialProblem,
       rejection: dc.rejection,
-      lines: dc.items.map((item) => lineFrom(dc, item)),
+      lines: dc.items.map((item) => lineFrom(dc, item, remaining)),
     }));
 
   return {
     pending: dispatched.filter((dc) => dc.balance > 0),
     completed: dispatched.filter((dc) => dc.balance <= 0),
   };
+}
+
+/**
+ * Remaining balance for every original line on file.
+ *
+ * Read in one query rather than per challan: a despatch made on a later
+ * challan has to be subtracted from the line it completes, and that line may
+ * belong to a challan outside the filtered set.
+ */
+async function remainingAcrossChallans(): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("delivery_challan_items").select("*");
+  return remainingByLine(data ?? []);
 }
 
 /** Column totals for whichever tab is showing. */

@@ -41,12 +41,19 @@ export function normalizeDcStatus(status: DcStatus | string | null | undefined):
  */
 export function dcLifecycle(
   status: DcStatus | string | null | undefined,
-  items: DcQuantities[]
+  items: DcQuantities[],
+  /**
+   * What the challan still owes once despatches made on later challans are
+   * counted. Pass it wherever the chain is known; without it the rows are
+   * read on their own, which is right for a challan that stands alone.
+   */
+  outstanding?: number
 ): DcLifecycle {
   const stored = normalizeDcStatus(status);
   if (stored === "draft") return "draft";
   if (items.length === 0) return "active";
-  const settled = items.every((item) => balanceQty(item) <= 0);
+  const settled =
+    outstanding === undefined ? items.every((item) => balanceQty(item) <= 0) : outstanding <= 0;
   return settled ? "completed" : "active";
 }
 

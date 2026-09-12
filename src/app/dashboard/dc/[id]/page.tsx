@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/table";
 import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
+import { remainingByLine } from "@/lib/dc-chain";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
+import { listRelatedDcs } from "@/lib/actions/dc-continuation";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
 import { DeleteDcButton } from "@/components/delete-dc-button";
@@ -42,8 +44,19 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   // The master list owns the spelling wherever a row carries a component id.
   const componentNames = componentNameIndex(picklist ?? []);
 
-  const overDelivered = findOverDelivered(items ?? []);
-  const lifecycle = dcLifecycle(dc.status, items ?? []);
+  // Despatches made on later challans have to be counted, or a line that has
+  // been completed elsewhere still reads as outstanding here.
+  const ownIds = (items ?? []).map((item) => item.id);
+  const { data: continuations } =
+    ownIds.length > 0
+      ? await supabase.from("delivery_challan_items").select("*").in("parent_item_id", ownIds)
+      : { data: [] };
+  const remaining = remainingByLine([...(items ?? []), ...(continuations ?? [])]);
+
+  const related = await listRelatedDcs(id);
+  const overDelivered = findOverDelivered((items ?? []).filter((item) => !item.parent_item_id));
+  const outstanding = [...remaining.values()].reduce((total, value) => total + value, 0);
+  const lifecycle = dcLifecycle(dc.status, items ?? [], outstanding);
 
   return (
     <div className="space-y-6">
@@ -149,7 +162,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             </TableHeader>
             <TableBody>
               {(items ?? []).map((item) => {
-                const balance = balanceQty(item);
+                const balance = remaining.get(item.id) ?? balanceQty(item);
                 return (
                   <TableRow key={item.id}>
                     <TableCell>{componentNameOf(item, componentNames)}</TableCell>
@@ -177,6 +190,61 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           </Table>
         </CardContent>
       </Card>
+
+      {related.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base text-[#10233f]">
+              Completed by {new Set(related.map((row) => row.dcNumber)).size} later challan
+              {new Set(related.map((row) => row.dcNumber)).size === 1 ? "" : "s"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <Table className="min-w-[640px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>DC</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Sent</TableHead>
+                  <TableHead className="text-right">Mat. Problem</TableHead>
+                  <TableHead className="text-right">Rejection</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {related.map((row, index) => (
+                  <TableRow key={`${row.dcId}-${index}`}>
+                    <TableCell className="font-medium">
+                      <Link href={`/dashboard/dc/${row.dcId}`} className="hover:underline">
+                        {row.dcNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {row.dcDate ? format(new Date(row.dcDate), "dd MMM yyyy") : "-"}
+                    </TableCell>
+                    <TableCell>{row.component}</TableCell>
+                    <TableCell className="text-right">{row.sent}</TableCell>
+                    <TableCell className="text-right">{row.materialProblem}</TableCell>
+                    <TableCell className="text-right">{row.rejection}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t-2 font-medium">
+                  <TableCell colSpan={3}>Total completed against this challan</TableCell>
+                  <TableCell className="text-right">
+                    {related.reduce((total, row) => total + row.sent, 0)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {related.reduce((total, row) => total + row.materialProblem, 0)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {related.reduce((total, row) => total + row.rejection, 0)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="text-sm font-medium">Sent after machining</CardContent>

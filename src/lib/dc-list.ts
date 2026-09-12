@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import { outwardTotal } from "@/lib/dc-balance";
+import { isOriginalLine, outstandingForChallan } from "@/lib/dc-chain";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { DeliveryChallanItemRow } from "@/types/database";
@@ -86,7 +87,32 @@ async function challanIdsMatching(
     }
   }
 
+  await addContinuations(supabase, ids);
+
   return [...ids];
+}
+
+/**
+ * Pull in the later challans that complete anything already matched.
+ *
+ * Searching an original challan's number has to reach the despatches made
+ * against it, or the second half of a job disappears from the answer. Walks
+ * down the parent links until nothing new is found, so a continuation of a
+ * continuation is reached too.
+ */
+async function addContinuations(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: Set<string>
+): Promise<void> {
+  let frontier = [...ids];
+  while (frontier.length > 0) {
+    const { data } = await supabase
+      .from("delivery_challans")
+      .select("id")
+      .in("parent_dc_id", frontier);
+    frontier = (data ?? []).map((row) => row.id).filter((id) => !ids.has(id));
+    for (const id of frontier) ids.add(id);
+  }
 }
 
 /**
@@ -139,6 +165,11 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     )
     .order("sort_order");
 
+  // Balance now depends on despatches made on other challans, so every line
+  // is needed, not only the ones belonging to the challans listed here.
+  const { data: everyItem } = await supabase.from("delivery_challan_items").select("*");
+  const allLines = everyItem ?? items ?? [];
+
   const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
 
   // Each row is given the master list's current spelling of its part, so the
@@ -163,13 +194,13 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
       customerDcNumbers: (dc.customer_dc_number ?? []).filter(Boolean) as string[],
       customerDcDates: dc.customer_dc_date ?? [],
       authorizedBy: dc.authorized_by,
-      lifecycle: dcLifecycle(dc.status, rows),
+      lifecycle: dcLifecycle(dc.status, rows, outstandingForChallan(rows, allLines)),
       items: rows,
-      received: sum(rows, (i) => i.received_qty),
+      received: sum(rows.filter(isOriginalLine), (i) => i.received_qty),
       sent: sum(rows, (i) => i.sent_qty),
       materialProblem: sum(rows, (i) => i.material_problem_qty),
       rejection: sum(rows, (i) => i.rejection_qty),
-      balance: rows.reduce((total, item) => total + balanceQty(item), 0),
+      balance: outstandingForChallan(rows, allLines),
     };
   });
 

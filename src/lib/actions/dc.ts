@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { findOverDelivered } from "@/lib/dc-balance";
+import { findOverDelivered, outwardTotal } from "@/lib/dc-balance";
+import { remainingOnLine } from "@/lib/dc-chain";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import { getScannedDc, markScansConverted } from "@/lib/actions/dc-scan-queue";
 import { storedStatusFor } from "@/lib/dc-lifecycle";
@@ -15,6 +16,12 @@ export type DcItemInput = {
   sent_qty: number;
   material_problem_qty: number;
   rejection_qty: number;
+  /**
+   * The pending line this row despatches against, when the challan is
+   * continuing earlier work. The pieces were received on that line, so this
+   * row carries no received quantity of its own.
+   */
+  parent_item_id?: string | null;
 };
 
 export type DcFormValues = {
@@ -73,6 +80,69 @@ async function findExistingRefs(
   return found;
 }
 
+/**
+ * Continuation rows despatching more than their line still owes.
+ *
+ * The remaining balance is read from the database every time. A figure the
+ * form carried could be stale by the time the challan is saved, and two
+ * people entering despatches against the same lot is exactly when that
+ * matters.
+ */
+async function findOverContinued(items: DcItemInput[]): Promise<string[]> {
+  const continuations = items.filter((item) => item.parent_item_id);
+  if (continuations.length === 0) return [];
+
+  const supabase = await createClient();
+  const parentIds = [...new Set(continuations.map((item) => item.parent_item_id as string))];
+
+  const { data: parents } = await supabase
+    .from("delivery_challan_items")
+    .select("id, component, received_qty, sent_qty, material_problem_qty, rejection_qty")
+    .in("id", parentIds);
+
+  const { data: siblings } = await supabase
+    .from("delivery_challan_items")
+    .select("id, parent_item_id, received_qty, sent_qty, material_problem_qty, rejection_qty")
+    .in("parent_item_id", parentIds);
+
+  const problems: string[] = [];
+  for (const parentId of parentIds) {
+    const parent = (parents ?? []).find((row) => row.id === parentId);
+    if (!parent) {
+      problems.push("one line no longer exists");
+      continue;
+    }
+    const remaining = remainingOnLine(parentId, [
+      { ...parent, parent_item_id: null },
+      ...(siblings ?? []),
+    ]);
+    const asked = continuations
+      .filter((item) => item.parent_item_id === parentId)
+      .reduce((total, item) => total + outwardTotal(item), 0);
+    if (asked > remaining) {
+      problems.push(`${parent.component} has ${remaining} outstanding but ${asked} is entered`);
+    }
+  }
+  return problems;
+}
+
+/** The challan the continued lines belong to, when they all share one. */
+async function parentChallanFor(items: DcItemInput[]): Promise<string | null> {
+  const parentIds = [...new Set(items.map((item) => item.parent_item_id).filter(Boolean))];
+  if (parentIds.length === 0) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("delivery_challan_items")
+    .select("dc_id")
+    .in("id", parentIds as string[]);
+
+  const challanIds = [...new Set((data ?? []).map((row) => row.dc_id))];
+  // Continuing two different challans at once has no single parent, and the
+  // per-line links still record the truth, so this is left null.
+  return challanIds.length === 1 ? challanIds[0] : null;
+}
+
 function parseDcForm(formData: FormData): DcFormValues {
   const customer_id = String(formData.get("customer_id") ?? "");
   const dc_date = String(formData.get("dc_date") ?? "");
@@ -95,6 +165,7 @@ function parseDcForm(formData: FormData): DcFormValues {
   const sentQtys = formData.getAll("item_sent_qty") as string[];
   const materialProblemQtys = formData.getAll("item_material_problem_qty") as string[];
   const rejectionQtys = formData.getAll("item_rejection_qty") as string[];
+  const parentItemIds = formData.getAll("item_parent_item_id") as string[];
 
   const items: DcItemInput[] = components
     .map((component, i) => ({
@@ -104,6 +175,7 @@ function parseDcForm(formData: FormData): DcFormValues {
       sent_qty: Number(sentQtys[i] ?? 0) || 0,
       material_problem_qty: Number(materialProblemQtys[i] ?? 0) || 0,
       rejection_qty: Number(rejectionQtys[i] ?? 0) || 0,
+      parent_item_id: parentItemIds[i]?.trim() || null,
     }))
     .filter((item) => item.component.length > 0);
 
@@ -154,6 +226,7 @@ async function insertDcItems(
   const idByName = await componentIdsByName(supabase);
   const rows = items.map((item, index) => ({
     dc_id: dcId,
+    parent_item_id: item.parent_item_id ?? null,
     component: item.component,
     material: item.material,
     received_qty: item.received_qty,
@@ -194,12 +267,25 @@ export async function createDcAction(
     };
   }
 
-  const overDelivered = findOverDelivered(values.items);
+  // Only original lines are judged this way. A continuation has no received
+  // quantity, so this rule would refuse every one of them.
+  const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
   if (overDelivered.length > 0) {
     return {
       error: `More pieces go out than came in on: ${overDelivered
         .map((row) => `${row.component} (${row.extra} extra)`)
         .join("; ")}.`,
+    };
+  }
+
+  // A continuation row legitimately sends more than it received, because it
+  // received nothing: the pieces came in on the line it continues. So it is
+  // checked against that line's remaining balance instead, read from the
+  // database rather than from anything the browser sent.
+  const tooMuch = await findOverContinued(values.items);
+  if (tooMuch.length > 0) {
+    return {
+      error: `More is being despatched than remains outstanding: ${tooMuch.join("; ")}.`,
     };
   }
 
@@ -220,7 +306,14 @@ export async function createDcAction(
     }
   }
 
-  if (!values.allow_duplicate) {
+  // A continuation cites the same customer reference as the challan it
+  // continues, because it is the same inward lot. Warning about that would
+  // fire on every one of them and teach the operator to tick past it, which
+  // would then hide a real duplicate. What protects this path instead is the
+  // remaining-balance check above.
+  const isContinuation = values.items.some((item) => item.parent_item_id);
+
+  if (!values.allow_duplicate && !isContinuation) {
     const clashes = await findExistingRefs(supabase, values.customer_id, values.customer_dc_number);
     if (clashes.length > 0) {
       const listed = clashes.map((c) => `${c.ref} (on ${c.dcNumber})`).join(", ");
@@ -235,9 +328,14 @@ export async function createDcAction(
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Where every row continues the same challan, the new one records it, so the
+  // chain is walkable from either end.
+  const parentDcId = await parentChallanFor(values.items);
+
   const { data: dc, error: dcError } = await supabase
     .from("delivery_challans")
     .insert({
+      parent_dc_id: parentDcId,
       customer_id: values.customer_id,
       dc_date: values.dc_date || undefined,
       customer_dc_number: values.customer_dc_number,

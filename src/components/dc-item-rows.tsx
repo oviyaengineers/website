@@ -71,6 +71,7 @@ export function DcItemRows({
   components,
   materials,
   excludeDcId,
+  outstandingByParent,
 }: {
   rows: DcItemRow[];
   onRowsChange: (updater: (rows: DcItemRow[]) => DcItemRow[]) => void;
@@ -78,6 +79,14 @@ export function DcItemRows({
   materials: string[];
   /** The challan being edited, so it is not listed as pending against itself. */
   excludeDcId?: string | null;
+  /**
+   * What each line being continued still owes, keyed by that line's id.
+   *
+   * A continuation row received nothing itself, so read on its own it would
+   * show every piece it despatches as delivered over. The balance the
+   * operator needs is the one left on the original line.
+   */
+  outstandingByParent?: Record<string, number>;
 }) {
   function addRow() {
     onRowsChange((r) => [...r, emptyDcItemRow()]);
@@ -111,7 +120,8 @@ export function DcItemRows({
           </div>
           {rows.map((row) => {
             const total = outwardTotal(row);
-            const balance = balanceQty(row);
+            const owed = row.parent_item_id ? outstandingByParent?.[row.parent_item_id] : undefined;
+            const balance = owed === undefined ? balanceQty(row) : owed - total;
             const overDelivered = balance < 0;
             return (
               <div
@@ -121,6 +131,13 @@ export function DcItemRows({
                 <div className="space-y-1">
                   <Label className="sm:hidden">Description</Label>
                   <input type="hidden" name="item_component" value={row.component} />
+                  {/* Emitted for every row, empty where the row is an original,
+                      so the parsed arrays stay aligned with the other fields. */}
+                  <input
+                    type="hidden"
+                    name="item_parent_item_id"
+                    value={row.parent_item_id ?? ""}
+                  />
                   <Select
                     value={row.component || null}
                     onValueChange={(v) => updateRow(row.key, { component: v ?? "" })}

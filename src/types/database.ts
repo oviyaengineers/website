@@ -75,6 +75,8 @@ export type CustomerUpdate = {
 export type DeliveryChallanRow = {
   id: string;
   dc_number: string;
+  /** The challan this one continues, when it completes earlier work (0021). */
+  parent_dc_id: string | null;
   customer_id: string;
   dc_date: string;
   customer_dc_number: string[] | null;
@@ -91,6 +93,7 @@ export type DeliveryChallanRow = {
 export type DeliveryChallanInsert = {
   id?: string;
   dc_number?: string | null;
+  parent_dc_id?: string | null;
   customer_id: string;
   dc_date?: string;
   customer_dc_number?: string[] | null;
@@ -107,6 +110,7 @@ export type DeliveryChallanInsert = {
 export type DeliveryChallanUpdate = {
   id?: string;
   dc_number?: string | null;
+  parent_dc_id?: string | null;
   customer_id?: string;
   dc_date?: string;
   customer_dc_number?: string[] | null;
@@ -124,6 +128,14 @@ export type DeliveryChallanUpdate = {
 export type DeliveryChallanItemRow = {
   id: string;
   dc_id: string;
+  /**
+   * The pending line this movement completes (migration 0021).
+   *
+   * Null on an original line, which is where the pieces were received. Set on
+   * a continuation, which records a later despatch and carries no received
+   * quantity of its own.
+   */
+  parent_item_id: string | null;
   /**
    * The part, by id, from the component master list (migration 0018).
    *
@@ -151,6 +163,7 @@ export type DeliveryChallanItemRow = {
 export type DeliveryChallanItemInsert = {
   id?: string;
   dc_id: string;
+  parent_item_id?: string | null;
   component_id?: string | null;
   component: string;
   material?: string | null;
@@ -163,6 +176,7 @@ export type DeliveryChallanItemInsert = {
 export type DeliveryChallanItemUpdate = {
   id?: string;
   dc_id?: string;
+  parent_item_id?: string | null;
   component_id?: string | null;
   component?: string;
   material?: string | null;

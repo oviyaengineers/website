@@ -29,6 +29,7 @@ import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import type { DcFormState, DcItemInput } from "@/lib/actions/dc";
+import type { PendingLine } from "@/lib/actions/dc-continuation";
 import type { DeliveryChallanRow } from "@/types/database";
 
 export function DcForm({
@@ -39,6 +40,7 @@ export function DcForm({
   action,
   components,
   materials,
+  continues,
 }: {
   customers: ComboboxCustomer[];
   dc?: DeliveryChallanRow;
@@ -47,19 +49,40 @@ export function DcForm({
   action: (state: DcFormState, formData: FormData) => Promise<DcFormState>;
   components: string[];
   materials: string[];
+  /** Set when this challan continues a pending line on an earlier one. */
+  continues?: PendingLine | null;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
   // A new challan opens on the only customer on file, so the field does not
   // have to be set every time. An existing challan keeps its own customer, and
   // once there is more than one the field starts empty rather than guessing.
   const [customerId, setCustomerId] = useState(
-    dc?.customer_id ?? (customers.length === 1 ? customers[0].id : "")
+    continues?.customerId ?? dc?.customer_id ?? (customers.length === 1 ? customers[0].id : "")
   );
   const [date, setDate] = useState(dc?.dc_date ?? new Date().toISOString().slice(0, 10));
   const [dcRefs, setDcRefs] = useState(() =>
-    makeCustomerDcRefs(dc?.customer_dc_number, dc?.customer_dc_date)
+    continues
+      ? // The customer's own reference carries across: this despatch is
+        // against the same inward challan as the original.
+        makeCustomerDcRefs([continues.customerDcNumber], [continues.customerDcDate])
+      : makeCustomerDcRefs(dc?.customer_dc_number, dc?.customer_dc_date)
   );
-  const [itemRows, setItemRows] = useState(() => makeDcItemRows(items));
+  const [itemRows, setItemRows] = useState(() =>
+    continues
+      ? // One row, for the part being continued. Received stays at zero: the
+        // pieces came in on the original line, and counting them again would
+        // inflate stock.
+        [
+          {
+            ...emptyDcItemRow(),
+            component: continues.component,
+            material: continues.material,
+            received_qty: 0,
+            parent_item_id: continues.itemId,
+          },
+        ]
+      : makeDcItemRows(items)
+  );
   /** Ticked to save past a customer reference that is already on file. */
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   /** Scans this form instance has already folded in, so none is applied twice. */
@@ -81,7 +104,23 @@ export function DcForm({
     dcId: string | null;
     dcNumber: string | null;
   } | null>(null);
-  const overDelivered = findOverDelivered(itemRows);
+  // A continuation row has no received quantity of its own, so the
+  // came-in-versus-went-out rule cannot judge it. It is checked against what
+  // its line still owes instead, and again on the server before saving.
+  const overDelivered = findOverDelivered(itemRows.filter((row) => !row.parent_item_id));
+  const continuedOutward = continues
+    ? itemRows
+        .filter((row) => row.parent_item_id === continues.itemId)
+        .reduce(
+          (total, row) =>
+            total +
+            (Number(row.sent_qty) || 0) +
+            (Number(row.material_problem_qty) || 0) +
+            (Number(row.rejection_qty) || 0),
+          0
+        )
+    : 0;
+  const overContinued = Boolean(continues) && continuedOutward > (continues?.remaining ?? 0);
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
   /**
@@ -249,6 +288,26 @@ export function DcForm({
 
   return (
     <form action={formAction} className="space-y-6 max-w-4xl">
+      {continues && (
+        <Card className="border-t-4 border-t-amber-500 bg-amber-50/60">
+          <CardContent className="space-y-1 py-4 text-sm">
+            <p className="font-medium text-amber-900">Completing work from {continues.dcNumber}</p>
+            <p className="text-amber-900">
+              {continues.component}
+              {continues.material ? ` · ${continues.material}` : ""}
+            </p>
+            <p className="text-amber-900">
+              Received {continues.received} on the original challan. Outstanding now{" "}
+              <span className="font-semibold">{continues.remaining}</span>.
+            </p>
+            <p className="text-xs text-amber-900/80">
+              Enter what is going out on this challan. The received quantity stays on the original,
+              so the same pieces are never counted twice.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="border-t-4 border-t-[#10233f]">
         <CardHeader>
           <CardTitle className="text-base text-[#10233f]">Delivery Challan</CardTitle>
@@ -292,6 +351,9 @@ export function DcForm({
             components={components}
             materials={materials}
             excludeDcId={dc?.id}
+            outstandingByParent={
+              continues ? { [continues.itemId]: continues.remaining } : undefined
+            }
           />
         </CardContent>
       </Card>
@@ -392,10 +454,23 @@ export function DcForm({
         <input key={id} type="hidden" name="used_scan_id" value={id} />
       ))}
 
+      {overContinued && continues && (
+        <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            More than remains outstanding
+          </h3>
+          <p className="text-sm text-destructive">
+            {continues.component} has {continues.remaining} left to complete, but {continuedOutward}{" "}
+            is entered here. Reduce it before saving.
+          </p>
+        </div>
+      )}
+
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button
         type="submit"
-        disabled={pending || overDelivered.length > 0 || duplicateRefs.length > 0}
+        disabled={pending || overDelivered.length > 0 || duplicateRefs.length > 0 || overContinued}
         className="bg-[#10233f] hover:bg-[#10233f]/90"
       >
         {pending ? "Saving..." : dc ? "Save changes" : "Create delivery challan"}

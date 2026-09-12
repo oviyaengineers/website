@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { FilePlus2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -177,7 +177,27 @@ export default async function DispatchedDcsPage({
                         </td>
                       </>
                     ) : null}
-                    <td className="p-3">{line.component}</td>
+                    <td className="p-3">
+                      {line.component}
+                      {/* A continuation despatches a lot received on an earlier
+                          challan, so it shows no Received of its own. Saying so
+                          stops the zero reading as a mistake. */}
+                      {line.continues && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          continues an earlier challan
+                        </span>
+                      )}
+                      {line.balance > 0 && (
+                        <Button
+                          render={<Link href={`/dashboard/dc/new?from=${line.key}`} />}
+                          variant="outline"
+                          size="xs"
+                          className="ml-2 align-middle"
+                        >
+                          <FilePlus2 className="h-3 w-3" /> Put DC
+                        </Button>
+                      )}
+                    </td>
                     <td className="p-3 text-muted-foreground">{line.material ?? "-"}</td>
                     <td className="p-3 text-right tabular-nums">{line.received}</td>
                     <td className="p-3 text-right tabular-nums">{line.sent}</td>
@@ -289,6 +309,7 @@ export default async function DispatchedDcsPage({
                   <p className="font-medium">{line.component}</p>
                   <p className="text-muted-foreground">
                     {line.material ?? "-"} · their DC {line.customerDcNumber}
+                    {line.continues ? " · continues an earlier challan" : ""}
                   </p>
                   <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
                     <dt className="text-muted-foreground">Received</dt>
@@ -308,6 +329,16 @@ export default async function DispatchedDcsPage({
                       {line.balance}
                     </dd>
                   </dl>
+                  {line.balance > 0 && (
+                    <Button
+                      render={<Link href={`/dashboard/dc/new?from=${line.key}`} />}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full"
+                    >
+                      <FilePlus2 className="h-4 w-4" /> Put DC
+                    </Button>
+                  )}
                 </div>
               ))}
 

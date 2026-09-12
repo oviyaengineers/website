@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { balanceQty } from "@/lib/dc-balance";
+import { isOriginalLine, outstandingForChallan, remainingByLine } from "@/lib/dc-chain";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { ScannedItemSelection } from "@/components/dc-scan-dialog";
 
@@ -33,7 +33,11 @@ export type LedgerRow = {
   sent: number;
   materialProblem: number;
   rejection: number;
-  /** Received less everything accounted back. Null while only scanned. */
+  /**
+   * Received less everything accounted back, counting despatches made on
+   * later challans. Null where the line has no balance of its own: a scan
+   * not yet entered, or a line that continues an earlier challan.
+   */
   balance: number | null;
   status: LedgerStatus;
 };
@@ -129,6 +133,12 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
     else rowsByDc.set(row.dc_id, [row]);
   }
 
+  // Balance is a property of a chain, so it is read from every line on file:
+  // the despatch that settles this component may sit on a challan that holds
+  // nothing else of it.
+  const { data: allItems } = await supabase.from("delivery_challan_items").select("*");
+  const remaining = remainingByLine(allItems ?? []);
+
   const rows: LedgerRow[] = [];
 
   for (const item of items ?? []) {
@@ -148,8 +158,12 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
       sent: Number(item.sent_qty) || 0,
       materialProblem: Number(item.material_problem_qty) || 0,
       rejection: Number(item.rejection_qty) || 0,
-      balance: balanceQty(item),
-      status: dcLifecycle(dc.status, rowsByDc.get(dc.id) ?? []),
+      balance: isOriginalLine(item) ? (remaining.get(item.id) ?? 0) : null,
+      status: dcLifecycle(
+        dc.status,
+        rowsByDc.get(dc.id) ?? [],
+        outstandingForChallan(rowsByDc.get(dc.id) ?? [], allItems ?? [])
+      ),
     });
   }
 

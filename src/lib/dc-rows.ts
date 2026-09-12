@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { balanceQty, outwardTotal } from "@/lib/dc-balance";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
+import { isOriginalLine, outwardByOriginal, outwardPartsByOriginal } from "@/lib/dc-chain";
 
 /**
  * One item line, flattened with the challan and customer it belongs to.
@@ -48,6 +48,11 @@ export async function fetchDcRows(): Promise<DcRow[]> {
 
   const dcById = new Map((dcs ?? []).map((dc) => [dc.id, dc]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+  // Later despatches are folded onto the lot they came from. The continuation
+  // lines themselves are not listed: they record movement, not stock, and
+  // showing them would subtract the same pieces a second time.
+  const outwardTotals = outwardByOriginal(items ?? []);
+  const outwardParts = outwardPartsByOriginal(items ?? []);
   // Names come from the master list wherever the row carries an id, so a
   // rename in Settings shows up here without rewriting a single challan.
   const componentNames = componentNameIndex(picklist ?? []);
@@ -55,6 +60,11 @@ export async function fetchDcRows(): Promise<DcRow[]> {
   const rows = (items ?? []).flatMap((item) => {
     const dc = dcById.get(item.dc_id);
     if (!dc) return [];
+    if (!isOriginalLine(item)) return [];
+    const outward = outwardTotals.get(item.id) ?? 0;
+    // The three columns come from the chain as well, so a line finished on a
+    // later challan reads as everything received having gone back out.
+    const parts = outwardParts.get(item.id) ?? { sent: 0, materialProblem: 0, rejection: 0 };
     return [
       {
         id: item.id,
@@ -67,11 +77,11 @@ export async function fetchDcRows(): Promise<DcRow[]> {
         component: componentNameOf(item, componentNames),
         material: item.material,
         received: Number(item.received_qty) || 0,
-        sent: Number(item.sent_qty) || 0,
-        materialProblem: Number(item.material_problem_qty) || 0,
-        rejection: Number(item.rejection_qty) || 0,
-        outward: outwardTotal(item),
-        pending: balanceQty(item),
+        sent: parts.sent,
+        materialProblem: parts.materialProblem,
+        rejection: parts.rejection,
+        outward,
+        pending: (Number(item.received_qty) || 0) - outward,
       },
     ];
   });
