@@ -237,12 +237,21 @@
 /* Compact the whole sheet: the screen layout is far too airy for half a
    page, and shrinking spacing costs less legibility than shrinking type. */
 .dc-print-sheet header {
-  margin-bottom: 1.8mm !important;
-  padding: 1.8mm 2.5mm !important;
+  margin-bottom: 1.3mm !important;
+  padding: 1.4mm 2.2mm !important;
 }
 .dc-print-sheet section {
-  margin-bottom: 1.8mm !important;
-  padding: 1.8mm 2.5mm !important;
+  margin-bottom: 1.3mm !important;
+  padding: 1.4mm 2.2mm !important;
+}
+
+/* The widened page margin took room away from the halves, and it came out of
+   the item table first: at the old spacing a fifth line no longer fitted. The
+   spacing between blocks pays for it rather than the type, because a challan
+   is read across a workshop and the figures have to stay legible. */
+.dc-print-sheet th,
+.dc-print-sheet td {
+  padding: 0.9mm 1.2mm !important;
 }
 .dc-print-sheet section:last-child {
   margin-bottom: 0 !important;
@@ -306,13 +315,20 @@
 }
 
 @media print {
-  /* One A4 portrait page carrying ORIGINAL above DUPLICATE. 8mm margins leave
-     194 x 281mm printable, split into two equal halves with a cut line
+  /* One A4 portrait page carrying ORIGINAL above DUPLICATE. 12mm margins
+     leave 186 x 273mm printable, split into two equal halves with a cut line
      between them. Dropping the Material and Received columns freed enough
-     room to print this at a comfortable size. */
+     room to print this at a comfortable size.
+
+     The margin is 12mm rather than the 8mm this used to use because few
+     office printers can lay ink that close to the paper edge. At 8mm the
+     driver either clipped the border or quietly scaled the whole page to fit
+     its own hardware margin, which shrank the type and moved the cut line off
+     the middle of the sheet. 12mm clears the unprintable edge of every
+     printer we are likely to meet, so the page prints at its true size. */
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 12mm;
   }
 
   html,
@@ -355,8 +371,8 @@
   }
 
   .dc-print-page {
-    width: 194mm;
-    height: 281mm;
+    width: 186mm;
+    height: 273mm;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -419,8 +435,8 @@
 }
 
 /* --- Delivery challan sheet, on screen -----------------------------------
-   The printed challan is a fixed box: one A4 portrait page, 194 x 281mm
-   inside 8mm margins, carrying ORIGINAL above DUPLICATE. On screen it used
+   The printed challan is a fixed box: one A4 portrait page, 186 x 273mm
+   inside 12mm margins, carrying ORIGINAL above DUPLICATE. On screen it used
    to be a free-flowing column at whatever height its contents wanted, so
    nothing on this page told you whether the challan actually fitted, and a
    long one was silently cropped by the printer instead.
@@ -437,8 +453,8 @@
 }
 
 .dc-print-page {
-  width: 194mm;
-  height: 281mm;
+  width: 186mm;
+  height: 273mm;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
