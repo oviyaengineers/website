@@ -35,6 +35,60 @@ function sum(items: DeliveryChallanItemRow[], pick: (i: DeliveryChallanItemRow) 
   return items.reduce((total, item) => total + (Number(pick(item)) || 0), 0);
 }
 
+/** A uuid nothing can have, for "narrowed to nothing" without a special case. */
+const NO_SUCH_ID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Challans whose number, customer, customer reference or parts match a term.
+ *
+ * Four queries rather than one because they cross three tables, and each is
+ * an indexed partial match rather than a scan. Only ids come back, so the
+ * rows themselves are fetched once, by the caller, already narrowed.
+ */
+async function challanIdsMatching(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  needle: string
+): Promise<string[]> {
+  const like = `%${needle.replace(/[%_]/g, (ch) => "\\" + ch)}%`;
+
+  const [byNumber, byItem, byCustomer] = await Promise.all([
+    supabase.from("delivery_challans").select("id").ilike("dc_number", like),
+    supabase
+      .from("delivery_challan_items")
+      .select("dc_id")
+      .or(`component.ilike.${like},material.ilike.${like}`),
+    supabase.from("customers").select("id").ilike("name", like),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of byNumber.data ?? []) ids.add(row.id);
+  for (const row of byItem.data ?? []) ids.add(row.dc_id);
+
+  const customerIds = (byCustomer.data ?? []).map((c) => c.id);
+  if (customerIds.length > 0) {
+    const { data } = await supabase
+      .from("delivery_challans")
+      .select("id")
+      .in("customer_id", customerIds);
+    for (const row of data ?? []) ids.add(row.id);
+  }
+
+  // The customer's own references are a text array, which ilike cannot reach.
+  // Only the references are read, so this stays small whatever the row count.
+  const { data: refs } = await supabase
+    .from("delivery_challans")
+    .select("id, customer_dc_number")
+    .not("customer_dc_number", "is", null);
+  const lower = needle.toLowerCase();
+  for (const row of refs ?? []) {
+    if ((row.customer_dc_number ?? []).some((ref) => (ref ?? "").toLowerCase().includes(lower))) {
+      ids.add(row.id);
+    }
+  }
+
+  return [...ids];
+}
+
 /**
  * Challans matching the filters, newest first, each with its item rows.
  *
@@ -56,6 +110,16 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
 
   if (filters.from) query = query.gte("dc_date", filters.from);
   if (filters.to) query = query.lte("dc_date", filters.to);
+
+  // The text search narrows in Postgres wherever it can, against the trigram
+  // indexes added in migration 0020. Challans reachable only through an item
+  // or a customer name are collected separately below and merged, because
+  // PostgREST cannot express that as one filter.
+  const needle = filters.q?.trim() ?? "";
+  if (needle) {
+    const ids = await challanIdsMatching(supabase, needle);
+    query = ids.length > 0 ? query.in("id", ids) : query.eq("id", NO_SUCH_ID);
+  }
 
   const [{ data: dcs }, { data: customers }, { data: picklist }] = await Promise.all([
     query,
@@ -120,23 +184,9 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     );
   }
 
-  if (filters.q) {
-    // Searches our number, the customer, their own reference and the parts on
-    // the challan — the four things anybody has to hand when looking one up.
-    const needle = filters.q.trim().toLowerCase();
-    summaries = summaries.filter((dc) =>
-      [
-        dc.dcNumber,
-        dc.customerName,
-        ...dc.customerDcNumbers,
-        ...dc.items.map((item) => item.component),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle)
-    );
-  }
-
+  // The term has already narrowed the query above. What is left is the
+  // material, which lives on a row that may not be the one that matched, and
+  // that is cheap to check on the rows now in hand.
   return summaries;
 }
 

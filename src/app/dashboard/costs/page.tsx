@@ -24,8 +24,14 @@ export default async function CostsPage() {
 
   const [{ data: costs }, { data: dcs }, { data: invoices }] = await Promise.all([
     supabase.from("job_costs").select("*").order("created_at", { ascending: false }),
-    supabase.from("delivery_challans").select("id, dc_number").order("dc_date", { ascending: false }),
-    supabase.from("invoices").select("id, invoice_number").order("invoice_date", { ascending: false }),
+    supabase
+      .from("delivery_challans")
+      .select("id, dc_number")
+      .order("dc_date", { ascending: false }),
+    supabase
+      .from("invoices")
+      .select("id, invoice_number")
+      .order("invoice_date", { ascending: false }),
   ]);
 
   const dcMap = new Map((dcs ?? []).map((d) => [d.id, d.dc_number]));
@@ -98,7 +104,10 @@ export default async function CostsPage() {
                   ))}
                   {(!costs || costs.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={isAdmin ? 5 : 4} className="text-center text-muted-foreground py-8">
+                      <TableCell
+                        colSpan={isAdmin ? 5 : 4}
+                        className="text-center text-muted-foreground py-8"
+                      >
                         No cost entries yet.
                       </TableCell>
                     </TableRow>

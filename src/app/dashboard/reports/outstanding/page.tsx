@@ -42,9 +42,7 @@ export default async function OutstandingReportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Outstanding Payments</h1>
-        <p className="text-sm text-muted-foreground">
-          {rows.length} unpaid/partial invoice(s)
-        </p>
+        <p className="text-sm text-muted-foreground">{rows.length} unpaid/partial invoice(s)</p>
       </div>
 
       <Card>
@@ -84,12 +82,18 @@ export default async function OutstandingReportPage() {
                   </TableCell>
                   <TableCell>₹{Number(r.grand_total).toLocaleString("en-IN")}</TableCell>
                   <TableCell>₹{Number(r.amount_paid).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="font-medium">₹{r.balance.toLocaleString("en-IN")}</TableCell>
+                  <TableCell className="font-medium">
+                    ₹{r.balance.toLocaleString("en-IN")}
+                  </TableCell>
                   <TableCell>
                     <PaymentStatusBadge status={r.payment_status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button render={<Link href={`/dashboard/invoices/${r.id}`} />} variant="outline" size="sm">
+                    <Button
+                      render={<Link href={`/dashboard/invoices/${r.id}`} />}
+                      variant="outline"
+                      size="sm"
+                    >
                       View
                     </Button>
                   </TableCell>

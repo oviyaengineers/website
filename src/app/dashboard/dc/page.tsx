@@ -14,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ComponentPicker } from "@/components/component-picker";
 import { DcFilters } from "@/components/dc-filters";
+import { SearchBox } from "@/components/search-box";
 import { DeleteDcButton } from "@/components/delete-dc-button";
 import { DcStatusBadge } from "@/components/status-badge";
 import { fetchDcSummaries, totalDcSummaries, type DcSummary } from "@/lib/dc-list";
@@ -47,7 +49,11 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
   const [summaries, { profile }, { data: picklist }] = await Promise.all([
     fetchDcSummaries(filters),
     getCurrentUserAndProfile(),
-    supabase.from("dc_picklist_items").select("name, kind").eq("kind", "component").order("name"),
+    supabase
+      .from("dc_picklist_items")
+      .select("id, name, kind")
+      .eq("kind", "component")
+      .order("name"),
   ]);
   const isAdmin = profile?.role === "admin";
   const totals = totalDcSummaries(summaries);
@@ -77,7 +83,14 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
 
-      <DcFilters defaults={filters} components={(picklist ?? []).map((item) => item.name)} />
+      <div className="space-y-3">
+        <SearchBox placeholder="DC number, customer, their DC number, component or material..." />
+        <DcFilters defaults={filters} components={(picklist ?? []).map((item) => item.name)} />
+        {/* Straight to one part's full history, across scans, active challans
+            and completed ones. The filters above narrow this list; this leaves
+            it for the component's own ledger. */}
+        <ComponentPicker components={picklist ?? []} />
+      </div>
 
       {/* Desktop: every quantity column stays visible, and the table scrolls
           inside its own card rather than dropping columns or widening the

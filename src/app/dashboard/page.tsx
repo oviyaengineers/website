@@ -3,8 +3,20 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RevenueCostChart } from "@/components/revenue-cost-chart";
 import { Truck, Receipt, Users, AlertCircle } from "lucide-react";
+import { SearchBox } from "@/components/search-box";
+import { GlobalSearchResults } from "@/components/global-search-results";
+import { globalSearch } from "@/lib/global-search";
 
-export default async function DashboardHomePage() {
+export default async function DashboardHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const term = q ?? "";
+  // Searching replaces the dashboard's figures with results, because when
+  // somebody is looking for a record the month's totals are not the answer.
+  const hits = term.trim().length >= 2 ? await globalSearch(term) : [];
   const { profile } = await getCurrentUserAndProfile();
   const isAdmin = profile?.role === "admin";
   const supabase = await createClient();
@@ -34,12 +46,8 @@ export default async function DashboardHomePage() {
 
   let revenueVsCost: { month: string; revenue: number; cost: number }[] = [];
   if (isAdmin) {
-    const { data: invoices } = await supabase
-      .from("invoices")
-      .select("grand_total, invoice_date");
-    const { data: jobCosts } = await supabase
-      .from("job_costs")
-      .select("total_cost, created_at");
+    const { data: invoices } = await supabase.from("invoices").select("grand_total, invoice_date");
+    const { data: jobCosts } = await supabase.from("job_costs").select("total_cost, created_at");
     const monthMap = new Map<string, { revenue: number; cost: number }>();
     for (const inv of invoices ?? []) {
       const key = String(inv.invoice_date).slice(0, 7);
@@ -68,52 +76,63 @@ export default async function DashboardHomePage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">DCs this month</CardTitle>
-            <Truck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dcThisMonth ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{customerCount ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Invoices</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₹{outstandingTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {(outstandingInvoices ?? []).length} unpaid/partial invoice(s)
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <SearchBox
+        placeholder="Search anything: DC number, customer, component, material..."
+        className="w-full sm:w-[32rem]"
+      />
 
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Receipt className="h-4 w-4" /> Revenue vs Cost (last 6 months)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RevenueCostChart data={revenueVsCost} />
-          </CardContent>
-        </Card>
+      {term.trim() ? (
+        <GlobalSearchResults term={term} hits={hits} />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">DCs this month</CardTitle>
+                <Truck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{dcThisMonth ?? 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{customerCount ?? 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Outstanding Invoices</CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ₹{outstandingTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {(outstandingInvoices ?? []).length} unpaid/partial invoice(s)
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Receipt className="h-4 w-4" /> Revenue vs Cost (last 6 months)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RevenueCostChart data={revenueVsCost} />
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

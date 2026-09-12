@@ -23,34 +23,18 @@ type PrintItem = {
   total_qty: number;
 };
 
-export default async function DcPrintPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function DcPrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: dc } = await supabase
-    .from("delivery_challans")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
 
-  const [{ data: items }, { data: customer }, { data: picklist }] =
-    await Promise.all([
-      supabase
-        .from("delivery_challan_items")
-        .select("*")
-        .eq("dc_id", id)
-        .order("sort_order"),
-      supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
-      supabase
-        .from("dc_picklist_items")
-        .select("id, name, kind")
-        .eq("kind", "component"),
-    ]);
+  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
+    supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
+    supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
+    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+  ]);
   // The printed challan is the document the customer signs, so it must carry
   // the part's current name rather than the spelling stored at entry.
   const componentNames = componentNameIndex(picklist ?? []);
@@ -76,10 +60,7 @@ export default async function DcPrintPage({
       {/* The overlay covers the whole app, so without this there is no way
           back to the challan short of the browser's own back button. */}
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
-        <Button
-          render={<Link href={`/dashboard/dc/${dc.id}`} />}
-          variant="outline"
-        >
+        <Button render={<Link href={`/dashboard/dc/${dc.id}`} />} variant="outline">
           <X className="h-4 w-4" /> Close
         </Button>
         <div className="flex gap-2">
@@ -93,23 +74,11 @@ export default async function DcPrintPage({
           showing it. */}
       <div className="dc-print-stage">
         <div className="dc-print-page">
-          <DcCopy
-            label="ORIGINAL"
-            dc={dc}
-            customer={customer}
-            items={printItems}
-          />
+          <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={printItems} />
           <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
-            <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">
-              ✂ cut here
-            </span>
+            <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
           </div>
-          <DcCopy
-            label="DUPLICATE"
-            dc={dc}
-            customer={customer}
-            items={printItems}
-          />
+          <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
         </div>
       </div>
     </div>
@@ -168,15 +137,11 @@ function DcCopy({
           <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center rounded-lg bg-white/95 p-1">
             <LogoMark className="h-full w-full" />
           </div>
-          <div className="dc-print-company text-xl font-bold tracking-wide">
-            OVIYA ENGINEERS
-          </div>
+          <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
           <div className="mt-1 text-xs opacity-80">
             40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
           </div>
-          <div className="mt-0.5 text-xs opacity-80">
-            Ph: 9965902970, 9965702970
-          </div>
+          <div className="mt-0.5 text-xs opacity-80">Ph: 9965902970, 9965702970</div>
         </div>
       </header>
 
@@ -208,14 +173,10 @@ function DcCopy({
           </Field>
           <Field label="Customer Name" span={2}>
             <span className="font-medium">{customer?.name ?? "-"}</span>
-            {customer?.address ? (
-              <span className="block">{customer.address}</span>
-            ) : null}
+            {customer?.address ? <span className="block">{customer.address}</span> : null}
           </Field>
           <Field label="Contact / GST" span={2}>
-            {customer?.phone ? (
-              <span className="block">{customer.phone}</span>
-            ) : null}
+            {customer?.phone ? <span className="block">{customer.phone}</span> : null}
             {customer?.gst_number ? (
               <span className="block">GST: {customer.gst_number}</span>
             ) : null}
@@ -253,48 +214,34 @@ function DcCopy({
                 </th>
               </tr>
               <tr>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  S.No.
-                </th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
                   Description
                 </th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  Qty
-                </th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Qty</th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
                   Mat. Problem
                 </th>
                 <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
                   Rejection
                 </th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  Total
-                </th>
+                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id}>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {idx + 1}
-                  </td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {item.component}
-                  </td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{idx + 1}</td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.component}</td>
                   {/* The "Qty" column on the printed challan is the sent quantity. */}
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {item.sent_qty}
-                  </td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.sent_qty}</td>
                   <td className="border border-[#d9dee7] p-1.5 text-center">
                     {item.material_problem_qty}
                   </td>
                   <td className="border border-[#d9dee7] p-1.5 text-center">
                     {item.rejection_qty}
                   </td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {item.total_qty}
-                  </td>
+                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.total_qty}</td>
                 </tr>
               ))}
               {/* Pad short challans out to a consistent form height, but never
@@ -327,11 +274,7 @@ function DcCopy({
           <Field label="Receiver's Signature" span={2} tall>
             {""}
           </Field>
-          <Field
-            label={dc.authorized_by ? "Authorized By" : "Authorized Signatory"}
-            span={2}
-            tall
-          >
+          <Field label={dc.authorized_by ? "Authorized By" : "Authorized Signatory"} span={2} tall>
             {dc.authorized_by || ""}
           </Field>
         </div>

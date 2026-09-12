@@ -6,15 +6,27 @@ import { PicklistItemChip } from "@/components/picklist-item-chip";
 import { ImportUnlistedNames } from "@/components/import-unlisted-names";
 import { DuplicatePicklistGroups } from "@/components/duplicate-picklist-groups";
 import { findDuplicatePicklistNames, findUnlistedDcNames } from "@/lib/actions/dc-picklists";
+import { SearchBox } from "@/components/search-box";
 
 export const metadata: Metadata = { title: "Component & Material Settings | Oviya Engineers" };
 
-export default async function DcPicklistSettingsPage() {
+export default async function DcPicklistSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const supabase = await createClient();
   const { data: items } = await supabase.from("dc_picklist_items").select("*").order("name");
 
-  const components = (items ?? []).filter((i) => i.kind === "component");
-  const materials = (items ?? []).filter((i) => i.kind === "material");
+  // Filtering only decides what is listed. Nothing is renamed, added or
+  // removed by looking for it.
+  const needle = q?.trim().toLowerCase() ?? "";
+  const visible = needle
+    ? (items ?? []).filter((i) => i.name.toLowerCase().includes(needle))
+    : (items ?? []);
+  const components = visible.filter((i) => i.kind === "component");
+  const materials = visible.filter((i) => i.kind === "material");
   const [unlisted, duplicateComponents, duplicateMaterials] = await Promise.all([
     findUnlistedDcNames(),
     findDuplicatePicklistNames("component"),
@@ -30,6 +42,8 @@ export default async function DcPicklistSettingsPage() {
         </p>
       </div>
 
+      <SearchBox placeholder="Search component or material names..." />
+
       <ImportUnlistedNames components={unlisted.components} materials={unlisted.materials} />
 
       <DuplicatePicklistGroups kind="component" groups={duplicateComponents} />
@@ -44,7 +58,9 @@ export default async function DcPicklistSettingsPage() {
             <PicklistAddForm kind="component" label="Component" />
             <div className="flex flex-wrap gap-2">
               {components.length === 0 && (
-                <p className="text-sm text-muted-foreground">No components added yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  {needle ? `No component matches "${q}".` : "No components added yet."}
+                </p>
               )}
               {components.map((c) => (
                 <PicklistItemChip key={c.id} id={c.id} name={c.name} kind="component" />
@@ -61,7 +77,9 @@ export default async function DcPicklistSettingsPage() {
             <PicklistAddForm kind="material" label="Material" />
             <div className="flex flex-wrap gap-2">
               {materials.length === 0 && (
-                <p className="text-sm text-muted-foreground">No materials added yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  {needle ? `No material matches "${q}".` : "No materials added yet."}
+                </p>
               )}
               {materials.map((m) => (
                 <PicklistItemChip key={m.id} id={m.id} name={m.name} kind="material" />

@@ -4,7 +4,9 @@ import { Boxes, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DcRowTable } from "@/components/dc-row-table";
+import { SearchBox } from "@/components/search-box";
 import { fetchDcRows } from "@/lib/dc-rows";
+import { dcRowMatches } from "@/lib/dc-search";
 
 export const metadata: Metadata = { title: "Stock / Balance | Oviya Engineers" };
 
@@ -15,9 +17,17 @@ export const metadata: Metadata = { title: "Stock / Balance | Oviya Engineers" }
  * here per part rather than per challan — the same casting can be outstanding
  * on several challans at once, and the total is what matters when counting.
  */
-export default async function StockPage() {
+export default async function StockPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const rows = await fetchDcRows();
-  const pending = rows.filter((row) => row.pending > 0);
+  const outstanding = rows.filter((row) => row.pending > 0);
+  // Read-only: the balance still comes from the challan rows, and searching
+  // only decides which of them are shown.
+  const pending = q ? outstanding.filter((row) => dcRowMatches(row, q)) : outstanding;
 
   const totalPending = pending.reduce((sum, row) => sum + row.pending, 0);
   const challans = new Set(pending.map((row) => row.dcId)).size;
@@ -47,11 +57,14 @@ export default async function StockPage() {
         </Button>
       </div>
 
+      <SearchBox placeholder="Our DC number, customer DC number, customer, component or material..." />
+
       {pending.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nothing is outstanding. Every piece received has been sent back, returned with a
-            material problem, or scrapped.
+            {q
+              ? `Nothing outstanding matches "${q}".`
+              : "Nothing is outstanding. Every piece received has been sent back, returned with a material problem, or scrapped."}
           </CardContent>
         </Card>
       ) : (

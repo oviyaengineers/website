@@ -42,7 +42,10 @@ export function InvoiceItemRows({
   }, [subtotal, gst, grandTotal]);
 
   function addRow() {
-    setRows((r) => [...r, { description: "", quantity: 1, unit: "nos", unit_price: 0, key: nextId() }]);
+    setRows((r) => [
+      ...r,
+      { description: "", quantity: 1, unit: "nos", unit_price: 0, key: nextId() },
+    ]);
   }
 
   function removeRow(key: number) {
@@ -113,7 +116,11 @@ export function InvoiceItemRows({
           </div>
           <div className="space-y-1">
             <Label className="sm:hidden">Amount</Label>
-            <Input disabled value={(row.quantity * row.unit_price).toFixed(2)} className="bg-muted" />
+            <Input
+              disabled
+              value={(row.quantity * row.unit_price).toFixed(2)}
+              className="bg-muted"
+            />
           </div>
           <Button
             type="button"
