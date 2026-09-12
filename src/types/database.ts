@@ -346,6 +346,35 @@ export type DcNumberSeriesUpdate = {
   updated_by?: string | null;
 };
 
+/** A reviewed scan waiting on the server for a challan to be raised (0014). */
+export type PendingDcScanRow = {
+  id: string;
+  customer_id: string | null;
+  customer_dc_number: string | null;
+  customer_dc_date: string | null;
+  items: unknown;
+  created_at: string;
+  created_by: string | null;
+};
+export type PendingDcScanInsert = {
+  id?: string;
+  customer_id?: string | null;
+  customer_dc_number?: string | null;
+  customer_dc_date?: string | null;
+  items?: unknown;
+  created_at?: string;
+  created_by?: string | null;
+};
+export type PendingDcScanUpdate = {
+  id?: string;
+  customer_id?: string | null;
+  customer_dc_number?: string | null;
+  customer_dc_date?: string | null;
+  items?: unknown;
+  created_at?: string;
+  created_by?: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -401,6 +430,12 @@ export type Database = {
         Row: DcPicklistItemRow;
         Insert: DcPicklistItemInsert;
         Update: DcPicklistItemUpdate;
+        Relationships: [];
+      };
+      pending_dc_scans: {
+        Row: PendingDcScanRow;
+        Insert: PendingDcScanInsert;
+        Update: PendingDcScanUpdate;
         Relationships: [];
       };
     };

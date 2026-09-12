@@ -21,13 +21,8 @@ import {
   makeCustomerDcRefs,
 } from "@/components/customer-dc-refs";
 import type { DcScanResult } from "@/components/dc-scan-dialog";
-import {
-  PENDING_SCAN_EVENT,
-  peekPendingScans,
-  restorePendingScans,
-  takePendingScans,
-  type PendingScan,
-} from "@/lib/dc-scan-handoff";
+import { PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
+import { listPendingScans } from "@/lib/actions/dc-scan-queue";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { findOverDelivered } from "@/lib/dc-balance";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
@@ -67,8 +62,6 @@ export function DcForm({
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   /** Scans this form instance has already folded in, so none is applied twice. */
   const appliedScanIds = useRef<Set<string>>(new Set());
-  /** The queue while a save is in flight, put back if the save fails. */
-  const heldScans = useRef<PendingScan[] | null>(null);
   const overDelivered = findOverDelivered(itemRows);
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
@@ -204,45 +197,30 @@ export function DcForm({
   useEffect(() => {
     const applied = appliedScanIds.current;
     const consume = () => {
-      for (const pending of peekPendingScans()) {
-        if (applied.has(pending.id)) continue;
-        applied.add(pending.id);
-        applyScan(pending.scan, pending.id);
-      }
+      void listPendingScans()
+        .then((waiting) => {
+          for (const pending of waiting) {
+            if (applied.has(pending.id)) continue;
+            applied.add(pending.id);
+            applyScan(pending, pending.id);
+          }
+        })
+        .catch(() => {});
     };
     const raf = requestAnimationFrame(consume);
     window.addEventListener(PENDING_SCAN_EVENT, consume);
+    // Coming back to this tab is when a scan taken on another device is most
+    // likely to be waiting.
+    window.addEventListener("focus", consume);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener(PENDING_SCAN_EVENT, consume);
+      window.removeEventListener("focus", consume);
     };
   }, []);
 
-  // The save redirects on success, so nothing after it runs here. The queue is
-  // therefore lifted out of storage as the form is submitted and held only in
-  // memory: a challan that saves leaves nothing behind, and a save that comes
-  // back with an error still has this component mounted to put it back.
-  useEffect(() => {
-    if (pending) return;
-    const held = heldScans.current;
-    if (!held) return;
-    // A duplicate warning is a save that did not happen, so the queue has to
-    // come back exactly as it does after an error.
-    if (state.error || state.duplicateWarning) restorePendingScans(held);
-    heldScans.current = null;
-  }, [pending, state.error, state.duplicateWarning]);
-
   return (
-    <form
-      action={formAction}
-      onSubmit={() => {
-        // Runs before the action. Only a save that succeeds should consume the
-        // queue, so it is held here rather than dropped.
-        const held = takePendingScans();
-        if (held.length > 0) heldScans.current = held;
-      }}
-      className="space-y-6 max-w-4xl"
-    >
+    <form action={formAction} className="space-y-6 max-w-4xl">
       <Card className="border-t-4 border-t-[#10233f]">
         <CardHeader>
           <CardTitle className="text-base text-[#10233f]">Delivery Challan</CardTitle>
