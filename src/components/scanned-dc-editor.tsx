@@ -70,7 +70,7 @@ export function ScannedDcEditor({
         <CardHeader>
           <CardTitle className="text-base text-[#10233f]">Customer DC</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 [&_button]:h-11 [&_input]:h-11 sm:grid-cols-2 sm:[&_button]:h-8 sm:[&_input]:h-8">
           <div className="space-y-2">
             <Label htmlFor="customer_dc_number">Customer DC number</Label>
             <Input
@@ -105,9 +105,11 @@ export function ScannedDcEditor({
             <p className="text-sm text-muted-foreground">No items were read from this scan.</p>
           )}
           {items.map((item, index) => (
+            // A thumb's height on a phone: this is where a misread name or
+            // quantity is put right, standing at the bench with the paper.
             <div
               key={index}
-              className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_180px_120px] sm:items-end sm:border-0 sm:p-0"
+              className="grid gap-2 rounded-lg border p-3 [&_input]:h-11 [&_[data-slot=select-trigger]]:h-11 sm:[&_[data-slot=select-trigger]]:h-8 sm:grid-cols-[1fr_180px_120px] sm:items-end sm:border-0 sm:p-0 sm:[&_input]:h-8"
             >
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Description</Label>
@@ -167,7 +169,7 @@ export function ScannedDcEditor({
       </Card>
 
       {editable ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 [&>*]:h-11 [&>*]:flex-1 sm:[&>*]:h-8 sm:[&>*]:flex-none">
           <Button onClick={save} disabled={saving} variant="outline">
             <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save corrections"}
           </Button>

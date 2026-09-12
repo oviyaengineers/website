@@ -716,7 +716,7 @@ export function DcScanDialog({
                   <div key={item.key} className="flex items-center gap-3 rounded-md border p-2">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-[#10233f]"
+                      className="h-6 w-6 shrink-0 accent-[#10233f] sm:h-4 sm:w-4"
                       checked={item.include}
                       onChange={(e) =>
                         setItems((rows) =>
@@ -727,7 +727,10 @@ export function DcScanDialog({
                       }
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
+                      {/* Wraps on a phone rather than truncating: this line is
+                          the one being checked against the paper, and a name
+                          cut off mid-way cannot be checked at all. */}
+                      <p className="text-sm font-medium sm:truncate">
                         {item.component}
                         {item.material && (
                           <span className="text-muted-foreground"> · {item.material}</span>
@@ -740,7 +743,7 @@ export function DcScanDialog({
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{item.rawLine}</p>
                     </div>
-                    <div className="w-20 shrink-0">
+                    <div className="w-20 shrink-0 [&_input]:h-11 sm:[&_input]:h-8">
                       <Label className="sr-only" htmlFor={`${inputId}-qty-${item.key}`}>
                         Received quantity for {item.component}
                       </Label>

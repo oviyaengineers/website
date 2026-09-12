@@ -25,7 +25,7 @@ export function HistoryNav() {
       <Button
         variant="ghost"
         size="icon"
-        className="size-9 md:size-8"
+        className="size-11 md:size-8"
         aria-label="Go back"
         title="Back"
         onClick={() => router.back()}
@@ -35,7 +35,7 @@ export function HistoryNav() {
       <Button
         variant="ghost"
         size="icon"
-        className="size-9 md:size-8"
+        className="size-11 md:size-8"
         aria-label="Go forward"
         title="Forward"
         onClick={() => router.forward()}

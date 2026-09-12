@@ -141,7 +141,10 @@ export function ScannedDcList({
 
                   <ScanItems scan={scan} />
 
-                  <div className="flex flex-wrap gap-2">
+                  {/* Full thumb height on a phone. Discard is destructive and
+                      sits beside the other two, so an undersized target here
+                      is worse than a cramped layout. */}
+                  <div className="flex flex-wrap gap-2 [&>*]:h-11 sm:[&>*]:h-8">
                     {/* The scan id travels in the URL, so the form fills from
                         this one rather than from everything waiting. */}
                     <Button render={<Link href={`/dashboard/dc/new?scan=${scan.id}`} />}>

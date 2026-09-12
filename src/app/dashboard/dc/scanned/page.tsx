@@ -39,7 +39,11 @@ export default async function ScannedDcsPage({
               : "Customer DCs received and waiting for work completion. Our delivery challan is created only when you ask for it."}
           </p>
         </div>
-        <Button render={<Link href="/dashboard/dc/scan" />} variant="outline">
+        <Button
+          render={<Link href="/dashboard/dc/scan" />}
+          variant="outline"
+          className="h-11 sm:h-8"
+        >
           <ScanLine className="h-4 w-4" /> Scan another
         </Button>
       </div>

@@ -126,7 +126,7 @@ export function DcItemRows({
             return (
               <div
                 key={row.key}
-                className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px] sm:items-center sm:border-0 sm:p-0"
+                className="grid gap-2 rounded-lg border p-3 [&_[data-slot=select-trigger]]:h-11 sm:[&_[data-slot=select-trigger]]:h-8 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px] sm:items-center sm:border-0 sm:p-0"
               >
                 <div className="space-y-1">
                   <Label className="sm:hidden">Description</Label>
