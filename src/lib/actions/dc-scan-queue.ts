@@ -9,27 +9,31 @@ import type { DcScanResult, ScannedItemSelection } from "@/components/dc-scan-di
 // the desk. In the browser it never crossed devices, and before that it did not
 // survive closing the tab.
 
-export type PendingScan = { id: string } & DcScanResult;
+export type PendingScan = { id: string; scannedAt: string } & DcScanResult;
 
 /** Adds a reviewed scan. Returns how many are now waiting, or an error. */
 export async function queuePendingScan(
   scan: DcScanResult
-): Promise<{ waiting: number; error: string | null }> {
+): Promise<{ id: string | null; waiting: number; error: string | null }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("pending_dc_scans").insert({
-    customer_id: scan.customerId,
-    customer_dc_number: scan.customerDcNumber,
-    customer_dc_date: scan.customerDcDate,
-    items: scan.items,
-    created_by: user?.id ?? null,
-  });
-  if (error) return { waiting: 0, error: error.message };
+  const { data, error } = await supabase
+    .from("pending_dc_scans")
+    .insert({
+      customer_id: scan.customerId,
+      customer_dc_number: scan.customerDcNumber,
+      customer_dc_date: scan.customerDcDate,
+      items: scan.items,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { id: null, waiting: 0, error: error.message };
 
-  return { waiting: await countPendingScans(), error: null };
+  return { id: data?.id ?? null, waiting: await countPendingScans(), error: null };
 }
 
 /** Everything waiting, oldest first, so several scans apply in the order taken. */
@@ -43,6 +47,7 @@ export async function listPendingScans(): Promise<PendingScan[]> {
 
   return data.map((row) => ({
     id: row.id,
+    scannedAt: row.created_at,
     customerId: row.customer_id,
     customerDcNumber: row.customer_dc_number,
     customerDcDate: row.customer_dc_date,

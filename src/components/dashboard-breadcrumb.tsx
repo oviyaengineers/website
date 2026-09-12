@@ -17,6 +17,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   dc: "DC",
   new: "New DC - Manual",
   scan: "Scan DC",
+  scanned: "Scanned DCs",
   stock: "Stock / Balance",
   completed: "Completed DCs",
   invoices: "Billing",

@@ -69,8 +69,8 @@ export function DashboardScanButton({
 
     toast.success(
       waiting > 1
-        ? `${waiting} challans captured. They will fill the next new delivery challan.`
-        : "Challan captured. It will fill the next new delivery challan."
+        ? `${waiting} challans are waiting under Scanned DCs.`
+        : "Challan captured. It is waiting under Scanned DCs."
     );
     return true;
   }

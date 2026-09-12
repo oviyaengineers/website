@@ -245,10 +245,17 @@ export async function createDcAction(
     return { error: itemsError };
   }
 
-  // The scans that fed this challan have done their job. Clearing them here
-  // rather than in the browser is the only reliable moment: saving redirects,
-  // so no client code runs afterwards, and the queue is shared across devices.
-  await supabase.from("pending_dc_scans").delete().not("id", "is", null);
+  // The scans that fed this challan have done their job. Cleared here rather
+  // than in the browser because saving redirects, so no client code runs
+  // afterwards, and the queue is shared across devices.
+  //
+  // Only the scans that actually filled this form: the rest are still waiting
+  // on Scanned DCs for somebody to enter them, and clearing the whole queue
+  // would silently throw those away.
+  const usedScanIds = (formData.getAll("used_scan_id") as string[]).filter(Boolean);
+  if (usedScanIds.length > 0) {
+    await supabase.from("pending_dc_scans").delete().in("id", usedScanIds);
+  }
 
   revalidatePath("/dashboard/dc");
   redirect(`/dashboard/dc/${dc.id}`);

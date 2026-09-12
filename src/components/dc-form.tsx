@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,12 @@ export function DcForm({
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   /** Scans this form instance has already folded in, so none is applied twice. */
   const appliedScanIds = useRef<Set<string>>(new Set());
+  // Which scan this challan is being raised from, chosen on Scanned DCs. A
+  // scan waits there until somebody picks it, so the form fills from that one
+  // rather than sweeping up everything that happens to be queued.
+  const wantedScanId = useSearchParams().get("scan");
+  /** Scans folded in, so the save can discard exactly those and no others. */
+  const [usedScanIds, setUsedScanIds] = useState<string[]>([]);
   const overDelivered = findOverDelivered(itemRows);
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
@@ -197,12 +204,15 @@ export function DcForm({
   useEffect(() => {
     const applied = appliedScanIds.current;
     const consume = () => {
+      if (!wantedScanId) return;
       void listPendingScans()
         .then((waiting) => {
           for (const pending of waiting) {
+            if (pending.id !== wantedScanId) continue;
             if (applied.has(pending.id)) continue;
             applied.add(pending.id);
             applyScan(pending, pending.id);
+            setUsedScanIds((ids) => (ids.includes(pending.id) ? ids : [...ids, pending.id]));
           }
         })
         .catch(() => {});
@@ -217,7 +227,7 @@ export function DcForm({
       window.removeEventListener(PENDING_SCAN_EVENT, consume);
       window.removeEventListener("focus", consume);
     };
-  }, []);
+  }, [wantedScanId]);
 
   return (
     <form action={formAction} className="space-y-6 max-w-4xl">
@@ -334,6 +344,12 @@ export function DcForm({
         </div>
       )}
       <input type="hidden" name="allow_duplicate" value={allowDuplicate ? "yes" : "no"} />
+      {/* Only the scans that actually filled this form are cleared when it
+          saves. Clearing the whole queue would throw away scans nobody has
+          entered yet, which is the entire point of the Scanned DCs screen. */}
+      {usedScanIds.map((id) => (
+        <input key={id} type="hidden" name="used_scan_id" value={id} />
+      ))}
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button

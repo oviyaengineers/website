@@ -34,11 +34,12 @@ export function ScanDcPanel({
       toast.error(`This challan could not be held: ${error}`);
       return false;
     }
-    // The form may already be open in this tab; the badge listens for the other.
     window.dispatchEvent(new Event(PENDING_SCAN_EVENT));
     window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
-    toast.success("Challan captured. Opening the new delivery challan.");
-    router.push("/dashboard/dc/new");
+    // Held, not entered. It waits on Scanned DCs until somebody checks it
+    // against the paper and raises the challan.
+    toast.success("Challan captured. It is waiting under Scanned DCs.");
+    router.push("/dashboard/dc/scanned");
     return true;
   }
 

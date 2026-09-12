@@ -9,6 +9,7 @@ import {
   FilePlus2,
   Hash,
   LayoutDashboard,
+  Inbox,
   ListChecks,
   LogOut,
   Receipt,
@@ -77,6 +78,12 @@ const NAV: NavGroup[] = [
         color: "text-emerald-400",
       },
       { href: "/dashboard/dc/scan", label: "Scan DC", icon: ScanLine, color: "text-teal-400" },
+      {
+        href: "/dashboard/dc/scanned",
+        label: "Scanned DCs",
+        icon: Inbox,
+        color: "text-amber-300",
+      },
       // Sits at /dashboard/dc, a prefix of the two entries above it, so the
       // active marker has to prefer the longest match rather than the first.
       { href: "/dashboard/dc", label: "All DCs", icon: ListChecks, color: "text-sky-400" },
