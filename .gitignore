@@ -52,3 +52,4 @@ supabase/.temp/
 
 # One-off data backups taken before a correction
 DC-*-backup.json
+oviya-backup-*.json
