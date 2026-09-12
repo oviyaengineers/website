@@ -88,6 +88,8 @@ export function DcItemRows({
    */
   outstandingByParent?: Record<string, number>;
 }) {
+  const everyRowContinues = rows.length > 0 && rows.every((row) => Boolean(row.parent_item_id));
+
   function addRow() {
     onRowsChange((r) => [...r, emptyDcItemRow()]);
   }
@@ -110,7 +112,10 @@ export function DcItemRows({
           <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px]">
             <span>Description</span>
             <span>Material</span>
-            <span>Received</span>
+            {/* Named for what the column actually holds. On a challan that only
+                continues earlier work no row receives anything, so the figure
+                under this heading is what is left to send. */}
+            <span>{everyRowContinues ? "Pending" : "Received"}</span>
             <span>Sent</span>
             <span>Material Problem</span>
             <span>Rejection</span>
@@ -188,19 +193,34 @@ export function DcItemRows({
                 </div>
                 <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
-                    <Label className="sm:hidden">Received Qty</Label>
-                    <Input
-                      name="item_received_qty"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={row.received_qty}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          received_qty: Number(e.target.value),
-                        })
-                      }
-                    />
+                    <Label className="sm:hidden">
+                      {owed === undefined ? "Received Qty" : "Pending"}
+                    </Label>
+                    {owed === undefined ? (
+                      <Input
+                        name="item_received_qty"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={row.received_qty}
+                        onChange={(e) =>
+                          updateRow(row.key, {
+                            received_qty: Number(e.target.value),
+                          })
+                        }
+                      />
+                    ) : (
+                      <>
+                        {/* A continuation receives nothing: the pieces came in
+                            on the original challan and are counted there. What
+                            matters here is what is left of them, so the cell
+                            shows that instead of asking for a quantity. The
+                            zero still travels, because the parsed arrays are
+                            positional and every row must fill every field. */}
+                        <input type="hidden" name="item_received_qty" value={row.received_qty} />
+                        <Input disabled value={owed} className="bg-muted" />
+                      </>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="sm:hidden">Sent Qty</Label>
