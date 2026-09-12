@@ -47,7 +47,11 @@ export default async function CompletedChallansPage({
             Lines where everything received has been accounted for back to the customer.
           </p>
         </div>
-        <Button render={<Link href="/dashboard/completed/print" />} variant="outline">
+        <Button
+          render={<Link href="/dashboard/completed/print" />}
+          variant="outline"
+          className="h-11 sm:h-8"
+        >
           <Printer className="h-4 w-4" /> Print list
         </Button>
       </div>

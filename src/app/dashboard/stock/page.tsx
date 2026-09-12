@@ -52,7 +52,11 @@ export default async function StockPage({
             Pieces received that have not yet gone back — what is still on the floor.
           </p>
         </div>
-        <Button render={<Link href="/dashboard/stock/print" />} variant="outline">
+        <Button
+          render={<Link href="/dashboard/stock/print" />}
+          variant="outline"
+          className="h-11 sm:h-8"
+        >
           <Printer className="h-4 w-4" /> Print list
         </Button>
       </div>
