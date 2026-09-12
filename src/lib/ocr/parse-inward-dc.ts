@@ -89,6 +89,24 @@ function digitRuns(value: string): string[] {
 }
 
 /**
+ * A digit run with consecutive repeats collapsed: "5500" becomes "50".
+ *
+ * OCR doubles a character far more readily than it invents a different one,
+ * and on these challans "DN50RB" comes back as "DN5500RB" often enough to
+ * matter. Collapsing lets that fold onto the listed part while leaving the
+ * distinction that actually matters intact: DN25FB and DN40FB collapse to 25
+ * and 40 and still disagree, so one casting can never be recorded as another.
+ */
+/** collapseRepeats applied to every digit run inside a word. */
+function collapseDigitRuns(word: string): string {
+  return word.replace(/\d+/g, (run) => collapseRepeats(run));
+}
+
+function collapseRepeats(run: string): string {
+  return run.replace(/(\d)\1+/g, "$1");
+}
+
+/**
  * True when every digit run of the candidate appears, in order, in the window.
  *
  * Part numbers differ precisely in their digits while sharing a lot of
@@ -104,9 +122,16 @@ function digitsAgree(candidate: string, window: string): boolean {
   const found = digitRuns(window);
   let at = 0;
   for (const run of wanted) {
-    at = found.indexOf(run, at);
-    if (at === -1) return false;
-    at += 1;
+    let hit = found.indexOf(run, at);
+    if (hit === -1) {
+      // Second pass on the collapsed forms, which is what rescues a doubled
+      // digit. Tried only after the exact match fails, so nothing that already
+      // matched can change meaning.
+      const target = collapseRepeats(run);
+      hit = found.findIndex((candidate, i) => i >= at && collapseRepeats(candidate) === target);
+    }
+    if (hit === -1) return false;
+    at = hit + 1;
   }
   return true;
 }
@@ -386,7 +411,13 @@ function partsAgree(a: string, b: string): boolean {
     let bestScore = 0;
     for (let i = 0; i < right.length; i += 1) {
       if (taken[i]) continue;
-      const score = similarity(word, right[i]);
+      // Compared with doubled digits collapsed as well: "DN5500RB" is only
+      // 0.75 similar to "DN50RB" by edit distance, which fails the threshold
+      // below, yet it is plainly the same token with one digit struck twice.
+      const score = Math.max(
+        similarity(word, right[i]),
+        similarity(collapseDigitRuns(word), collapseDigitRuns(right[i]))
+      );
       if (score > bestScore) {
         bestScore = score;
         bestAt = i;

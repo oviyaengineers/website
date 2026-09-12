@@ -174,3 +174,39 @@ test("a scan of a challan with printed terms yields only the parts", () => {
     []
   );
 });
+
+test("a doubled digit folds onto the listed part", () => {
+  // "DN50RB" comes back as "DN5500RB". It is the same casting.
+  const result = parse([
+    ...BOXED_HEADER,
+    "Sl No. Product Description Quantity",
+    "1 3P DN5500RB CF8M #150 Flg Connector Casting",
+    "400.000 EA",
+  ]);
+  assert.deepEqual(
+    result.items.map((item) => item.component),
+    ["3P DN50RB CF8M #150 Flg Connector Casting"]
+  );
+  assert.deepEqual(result.newComponents, []);
+});
+
+test("collapsing digits never merges two different castings", () => {
+  // The guard this could have weakened: these two differ only in their
+  // numbers, and recording one as the other would be far worse than
+  // failing to match at all.
+  const result = parse([
+    ...BOXED_HEADER,
+    "Sl No. Product Description Quantity",
+    "1 3P DN25FB/32RB CF8M Body Casting REV 2",
+    "2 3P DN40FB/50RB CF8M Body Casting REV 2",
+    "10.000 EA",
+    "20.000 EA",
+  ]);
+  assert.deepEqual(
+    result.items.map((item) => [item.component, item.received_qty]),
+    [
+      ["3P DN25FB/32RB CF8M Body Casting REV 2", 10],
+      ["3P DN40FB/50RB CF8M Body Casting REV 2", 20],
+    ]
+  );
+});
