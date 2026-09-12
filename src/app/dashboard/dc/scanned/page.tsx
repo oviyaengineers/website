@@ -46,7 +46,7 @@ export default async function ScannedDcsPage({
 
       <SearchBox placeholder="Customer DC number, customer, component, material or date..." />
 
-      <ScannedDcList pending={pending} converted={converted} />
+      <ScannedDcList pending={pending} converted={converted} searchTerm={q} />
     </div>
   );
 }

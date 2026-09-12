@@ -73,9 +73,12 @@ function ScanItems({ scan }: { scan: ScannedDc }) {
 export function ScannedDcList({
   pending,
   converted,
+  searchTerm,
 }: {
   pending: ScannedDc[];
   converted: ScannedDc[];
+  /** Set when a search is narrowing the list, so "empty" can say why. */
+  searchTerm?: string;
 }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
@@ -106,8 +109,9 @@ export function ScannedDcList({
         {pending.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              Nothing is waiting. A customer DC you scan and keep appears here until you create our
-              delivery challan from it.
+              {searchTerm
+                ? `No waiting customer DC matches "${searchTerm}".`
+                : "Nothing is waiting. A customer DC you scan and keep appears here until you create our delivery challan from it."}
             </CardContent>
           </Card>
         ) : (
