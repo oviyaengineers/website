@@ -186,7 +186,7 @@ export function DcItemRows({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:contents">
+                <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
                     <Label className="sm:hidden">Received Qty</Label>
                     <Input
@@ -214,7 +214,7 @@ export function DcItemRows({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:contents">
+                <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
                     <Label className="sm:hidden">Material Problem</Label>
                     <Input

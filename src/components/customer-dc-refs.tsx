@@ -81,8 +81,13 @@ export function CustomerDcRefs({
       <div className="space-y-2">
         {rows.map((row) => (
           <div key={row.key} className="space-y-2">
-            <div className="grid grid-cols-[1fr_1fr_auto_36px] gap-2">
+            {/* On a phone the reference takes a line of its own: squeezed into
+                a quarter of the width it showed about four characters, which is
+                not enough to check a number like 0DC26-27/1018 against the
+                paper in the other hand. */}
+            <div className="grid grid-cols-[1fr_auto_36px] gap-2 sm:grid-cols-[1fr_1fr_auto_36px]">
               <Input
+                className="col-span-3 sm:col-span-1"
                 name="customer_dc_number"
                 placeholder="Customer DC No."
                 value={row.number}

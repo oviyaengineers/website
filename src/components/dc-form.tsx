@@ -468,10 +468,12 @@ export function DcForm({
       )}
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {/* Full width and a full thumb's height on a phone: this is the one
+          control that commits the challan, and it was a 150px target. */}
       <Button
         type="submit"
         disabled={pending || overDelivered.length > 0 || duplicateRefs.length > 0 || overContinued}
-        className="bg-[#10233f] hover:bg-[#10233f]/90"
+        className="h-11 w-full bg-[#10233f] hover:bg-[#10233f]/90 sm:h-8 sm:w-auto"
       >
         {pending ? "Saving..." : dc ? "Save changes" : "Create delivery challan"}
       </Button>
