@@ -99,3 +99,78 @@ test("cleanComponentName strips borders and refuses what is not a part name", ()
   assert.equal(cleanComponentName("|||"), null);
   assert.equal(cleanComponentName("200.000 EA"), null);
 });
+
+test("a neighbouring column does not end up inside the part name", () => {
+  // The row arrives as one line, so whatever sat beside the Product
+  // Description cell — an HSN code, a quantity, a unit — comes with it.
+  assert.equal(
+    cleanComponentName("3P DN40FB/50RB CF8M Body Casting REV 2 84819090"),
+    "3P DN40FB/50RB CF8M Body Casting REV 2"
+  );
+  assert.equal(
+    cleanComponentName("3P DN40FB/50RB CF8M Body Casting REV 2 200.000 EA"),
+    "3P DN40FB/50RB CF8M Body Casting REV 2"
+  );
+  assert.equal(
+    cleanComponentName("| 1 3P DN40FB/50RB CF8M Body Casting REV 2 84819090 200.000 EA"),
+    "3P DN40FB/50RB CF8M Body Casting REV 2"
+  );
+});
+
+test("a revision number at the end of a name survives", () => {
+  // The reason the stripper refuses bare integers: every one of these parts
+  // ends in one, and cutting it would rename the casting.
+  assert.equal(
+    cleanComponentName("3P DN25FB/32RB CF8M Body Casting REV 2"),
+    "3P DN25FB/32RB CF8M Body Casting REV 2"
+  );
+  assert.equal(
+    cleanComponentName("3P DN50RB CF8M #150 Flg Connector Casting"),
+    "3P DN50RB CF8M #150 Flg Connector Casting"
+  );
+});
+
+test("a row with its columns run together still matches the listed part", () => {
+  const result = parse([
+    ...BOXED_HEADER,
+    "Sl No. Product Description HSN Quantity",
+    "1 3P DN40FB/50RB CF8M Body Casting REV 2 84819090 200.000 EA",
+  ]);
+  assert.deepEqual(
+    result.items.map((item) => [item.component, item.received_qty]),
+    [["3P DN40FB/50RB CF8M Body Casting REV 2", 200]]
+  );
+  assert.deepEqual(result.newComponents, []);
+});
+
+test("the terms printed under the table never become components", () => {
+  // Both of these were offered as new component names on a real scan.
+  assert.equal(
+    cleanComponentName("per LT V norms 10% of Inspection Report need to be submitted"),
+    null
+  );
+  assert.equal(
+    cleanComponentName("5% of debit will be charged in non submission of inspection report"),
+    null
+  );
+  assert.equal(cleanComponentName("Subject to Coimbatore jurisdiction"), null);
+});
+
+test("a scan of a challan with printed terms yields only the parts", () => {
+  const result = parse([
+    ...BOXED_HEADER,
+    "Sl No. Product Description Quantity",
+    "1 3P DN40FB/50RB CF8M Body Casting REV 2",
+    "200.000 EA",
+    "per LT V norms 10% of Inspection Report need to be submitted",
+    "5% of debit will be charged in non submission of inspection report",
+  ]);
+  assert.deepEqual(
+    result.items.map((item) => item.component),
+    ["3P DN40FB/50RB CF8M Body Casting REV 2"]
+  );
+  assert.deepEqual(
+    result.newComponents.map((c) => c.name),
+    []
+  );
+});

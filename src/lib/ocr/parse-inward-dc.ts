@@ -316,6 +316,9 @@ function isHeaderLine(line: string): boolean {
 }
 
 /** Quantity units seen on challans. "EA" (each) is common on printed ones. */
+/** Longest a printed part name runs. The terms under the table run longer. */
+const MAX_DESCRIPTION_WORDS = 12;
+
 const QUANTITY_UNITS = "nos?|pcs?|pieces?|ea|kgs?|mtrs?|units?|sets?";
 const NUMBER = String.raw`\d[\d,]*(?:\.\d+)?`;
 const UNITED_QUANTITY = new RegExp(`(${NUMBER})\\s*(?:${QUANTITY_UNITS})\\b`, "i");
@@ -464,7 +467,21 @@ export function matchStoredName(name: string, known: string[]): string | null {
 function looksLikePartDescription(text: string): boolean {
   const words = text.split(/\s+/).filter(Boolean);
   const spelled = words.filter((word) => /^[A-Za-z]{3,}$/.test(word)).length;
-  return spelled >= 2 && /\d/.test(text);
+  if (spelled < 2 || !/\d/.test(text)) return false;
+
+  // A part number always has at least one token mixing letters and digits:
+  // "3P", "DN40FB", "CF8M". The printed terms below the table never do, and
+  // without this test they passed every check above and were offered as new
+  // components — "per LT V norms 10% of Inspection Report need to be..." was
+  // one row away from joining the master list.
+  const coded = words.some(
+    (word) => /[A-Za-z]/.test(word) && /\d/.test(word) && /^[A-Za-z0-9/#.\-]+$/.test(word)
+  );
+  if (!coded) return false;
+
+  // Terms run on; part names do not. A cap catches anything the token test
+  // lets through, such as a clause that happens to quote a part number.
+  return words.length <= MAX_DESCRIPTION_WORDS;
 }
 
 /**
@@ -478,16 +495,53 @@ function looksLikePartDescription(text: string): boolean {
  * entry for a part that is already there.
  */
 export function cleanComponentName(value: string): string | null {
-  const name = (value ?? "")
-    .replace(LEADING_BORDER, "")
-    .replace(LEADING_SERIAL, "")
-    .replace(LEADING_BORDER, "")
-    .replace(/[\s.,;:|\-]+$/, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const name = stripTrailingColumns(
+    (value ?? "")
+      .replace(LEADING_BORDER, "")
+      .replace(LEADING_SERIAL, "")
+      .replace(LEADING_BORDER, "")
+      .replace(/[\s.,;:|\-]+$/, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
   if (name.length < 4 || name.length > 120) return null;
   // Same shape test the parser uses to tell a part row from a stray line.
   if (!looksLikePartDescription(name)) return null;
+  return name;
+}
+
+/**
+ * Remove the neighbouring columns that OCR runs onto the end of a description.
+ *
+ * A table row reaches us as one line, so the Product Description cell arrives
+ * with whatever sat beside it: an HSN code, a quantity, a unit. Those were
+ * ending up inside the stored part name, which then matched nothing and
+ * became a second entry for a casting already on the list.
+ *
+ * Deliberately conservative about bare integers. Real part names end in one —
+ * "Body Casting REV 2" — so only things a part name cannot end with are cut:
+ * a quantity carrying a unit, a number with decimals, or a six-to-eight digit
+ * code. Repeated until nothing more comes off, since a row often trails two of
+ * them at once.
+ */
+function stripTrailingColumns(text: string): string {
+  let name = text;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const before = name;
+    // Everything from a unit-qualified quantity onwards is another column.
+    const united = name.match(UNITED_QUANTITY);
+    if (united && united.index !== undefined && united.index > 0) {
+      name = name.slice(0, united.index);
+    }
+    name = name
+      // A trailing decimal: "200.000", "50.5". No part number ends this way.
+      .replace(/\s\d[\d,]*\.\d+\s*$/, "")
+      // A trailing HSN or tariff code. Too long to be a revision number.
+      .replace(/\s\d{6,8}\s*$/, "")
+      .replace(/[\s.,;:|\-]+$/, "")
+      .trim();
+    if (name === before) break;
+  }
   return name;
 }
 
@@ -495,12 +549,14 @@ export function cleanComponentName(value: string): string | null {
 function descriptionFrom(text: string): string | null {
   // Border first, then the row number: the two arrive together as "| 1 3P …"
   // and stripping only the number leaves the border glued to the name.
-  const name = text
-    .replace(LEADING_BORDER, "")
-    .replace(LEADING_SERIAL, "")
-    .replace(LEADING_BORDER, "")
-    .replace(/[\s.,;:|\-]+$/, "")
-    .trim();
+  const name = stripTrailingColumns(
+    text
+      .replace(LEADING_BORDER, "")
+      .replace(LEADING_SERIAL, "")
+      .replace(LEADING_BORDER, "")
+      .replace(/[\s.,;:|\-]+$/, "")
+      .trim()
+  );
   if (name.length < 4 || !/[A-Za-z]/.test(name)) return null;
   return name;
 }
