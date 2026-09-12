@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,11 @@ export function CustomerDcRefs({
   /** Called to copy every component recorded on a customer DC date. */
   onFillDateComponents?: (items: DateComponentPick[], sourceLabel: string) => void;
 }) {
+  // Position, not row key: the key comes from a counter that runs separately
+  // on the server and in the browser, so putting it in an id makes the two
+  // renders disagree.
+  const slotPrefix = useId();
+
   function addRow() {
     onRowsChange((r) => [...r, emptyCustomerDcRef()]);
   }
@@ -79,7 +85,7 @@ export function CustomerDcRefs({
     <div className="space-y-2 sm:col-span-2">
       <Label>Customer DC Number(s)</Label>
       <div className="space-y-2">
-        {rows.map((row) => (
+        {rows.map((row, index) => (
           <div key={row.key} className="space-y-2">
             {/* On a phone the reference takes a line of its own: squeezed into
                 a quarter of the width it showed about four characters, which is
@@ -117,6 +123,7 @@ export function CustomerDcRefs({
                   date={row.date}
                   excludeDcId={excludeDcId}
                   dateCoveredElsewhere={showsDateComponents}
+                  inlineSlotId={`${slotPrefix}-${index}`}
                 />
               </div>
               <Button
@@ -130,6 +137,12 @@ export function CustomerDcRefs({
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
+
+            {/* Where the stored-challan panel goes on a phone, so it sits
+                under the reference it describes instead of covering the
+                quantities below it. Empty on a wider screen, where the panel
+                floats beside the field. */}
+            <div id={`${slotPrefix}-${index}`} className="empty:hidden" />
 
             {/* Once a customer and a date are both known, everything recorded
                 on that date is listed here without a further click. */}

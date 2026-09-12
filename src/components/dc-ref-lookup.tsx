@@ -91,10 +91,18 @@ export function DcRefLookup({
   date,
   excludeDcId,
   dateCoveredElsewhere = false,
+  inlineSlotId,
 }: {
   number: string;
   date: string;
   excludeDcId?: string | null;
+  /**
+   * Where to put the panel on a narrow screen, given by the row it belongs
+   * to. A floating panel is fine beside a field on a desktop, but on a phone
+   * it covers the fields below the one being typed into, so there it is
+   * rendered in the flow instead and pushes the form down.
+   */
+  inlineSlotId?: string;
   /**
    * True when a panel on the row already lists everything stored for this
    * date, so this floating one would only repeat it — and, being fixed
@@ -114,6 +122,9 @@ export function DcRefLookup({
     maxHeight: number;
   }>({ top: 0, right: 0, maxHeight: 320 });
   const [mounted, setMounted] = useState(false);
+  /** Matches the md breakpoint the rest of this form lays out against. */
+  const [narrow, setNarrow] = useState(false);
+  const [inlineSlot, setInlineSlot] = useState<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const queryKey = `${number.trim()}|${date.trim()}`;
@@ -155,6 +166,20 @@ export function DcRefLookup({
   useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Resolved by id rather than handed down as a ref: an inline ref callback
+  // is re-attached on every render, and setting state from it loops.
+  useEffect(() => {
+    setInlineSlot(inlineSlotId ? document.getElementById(inlineSlotId) : null);
+  }, [inlineSlotId, mounted, narrow]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
   }, []);
 
   // Keep the panel pinned under its trigger as the page scrolls or resizes.
@@ -209,18 +234,29 @@ export function DcRefLookup({
   // Shown automatically; the toggle only matters after an explicit dismiss.
   const open = dismissed !== queryKey;
 
+  // Inline it wherever the row has offered a place and the screen is narrow.
+  const inline = narrow && Boolean(inlineSlot);
+
   const panel = (
     <div
       role="dialog"
       aria-label="Stored delivery challan details"
-      style={{
-        position: "fixed",
-        top: pos.top,
-        bottom: pos.bottom,
-        right: pos.right,
-        maxHeight: pos.maxHeight,
-      }}
-      className="z-50 w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+      style={
+        inline
+          ? undefined
+          : {
+              position: "fixed",
+              top: pos.top,
+              bottom: pos.bottom,
+              right: pos.right,
+              maxHeight: pos.maxHeight,
+            }
+      }
+      className={
+        inline
+          ? "w-full rounded-md border bg-popover text-popover-foreground"
+          : "z-50 w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+      }
     >
       <div className="flex items-start justify-between gap-2 border-b bg-muted/50 px-3 py-2">
         <div>
@@ -266,9 +302,13 @@ export function DcRefLookup({
       >
         <FileSearch className="h-4 w-4" />
       </Button>
-      {/* Portalled: the surrounding Card clips overflow, which would cut the
-          panel off. A portal also avoids the focus move a Popover performs. */}
-      {open && mounted ? createPortal(panel, document.body) : null}
+      {/* Portalled either way: to the row's own slot when it is being shown
+          in the flow, and otherwise to the body, because the surrounding Card
+          clips overflow and would cut a floating panel off. A portal also
+          avoids the focus move a Popover performs. */}
+      {open && mounted
+        ? createPortal(panel, inline && inlineSlot ? inlineSlot : document.body)
+        : null}
     </>
   );
 }
