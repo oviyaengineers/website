@@ -13,7 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import { outwardTotal } from "@/lib/dc-balance";
+import { figuresFor, indexChain, isOriginalLine } from "@/lib/dc-chain";
+import { withDraftFlags } from "@/lib/dc-chain-data";
 
 export const metadata: Metadata = { title: "Balance | Oviya Engineers" };
 
@@ -27,8 +29,8 @@ function monthLabel(key: string): string {
 export default async function BalancePage() {
   const supabase = await createClient();
 
-  const [{ data: dcs }, { data: items }, { data: customers }] = await Promise.all([
-    supabase.from("delivery_challans").select("id, dc_number, dc_date, customer_id"),
+  const [{ data: dcs }, { data: rawItems }, { data: customers }] = await Promise.all([
+    supabase.from("delivery_challans").select("id, dc_number, dc_date, customer_id, status"),
     supabase.from("delivery_challan_items").select("*"),
     supabase.from("customers").select("id, name"),
   ]);
@@ -36,9 +38,21 @@ export default async function BalancePage() {
   const dcMap = new Map((dcs ?? []).map((dc) => [dc.id, dc]));
   const customerMap = new Map((customers ?? []).map((c) => [c.id, c.name]));
 
-  const rows = (items ?? []).flatMap((item) => {
+  // Marked draft or not and run through the shared chain calculation, so this
+  // page reads the same balance as Dispatched, Stock and the challan itself.
+  const items = withDraftFlags(
+    rawItems ?? [],
+    new Map((dcs ?? []).map((dc) => [dc.id, dc.status]))
+  );
+  const chain = indexChain(items);
+
+  // One row per lot received. A follow-up line is not a lot of its own: read
+  // as one it looked like an over-delivery, and its despatch is already in the
+  // balance of the line it continues.
+  const rows = items.flatMap((item) => {
     const dc = dcMap.get(item.dc_id);
-    if (!dc) return [];
+    if (!dc || !isOriginalLine(item)) return [];
+    const line = figuresFor(item, chain);
     return [
       {
         id: item.id,
@@ -48,20 +62,25 @@ export default async function BalancePage() {
         customerName: customerMap.get(dc.customer_id) ?? "-",
         component: item.component,
         material: item.material,
-        received: Number(item.received_qty) || 0,
-        outward: outwardTotal(item),
-        balance: balanceQty(item),
+        received: line.received,
+        outward: line.total,
+        balance: line.balance ?? 0,
       },
     ];
   });
 
-  // Inward and outward totals per calendar month of the DC date.
+  // Inward is booked in the month a lot came in, and outward in the month each
+  // despatch went out, which for a follow-up is its own challan's date. A draft
+  // follow-up has not gone out, so it is not outward yet.
   const monthly = new Map<string, { inward: number; outward: number }>();
-  for (const row of rows) {
-    const key = row.dcDate.slice(0, 7);
+  for (const item of items) {
+    const dc = dcMap.get(item.dc_id);
+    if (!dc) continue;
+    if (!isOriginalLine(item) && item.draft) continue;
+    const key = dc.dc_date.slice(0, 7);
     const bucket = monthly.get(key) ?? { inward: 0, outward: 0 };
-    bucket.inward += row.received;
-    bucket.outward += row.outward;
+    bucket.inward += Number(item.received_qty) || 0;
+    bucket.outward += outwardTotal(item);
     monthly.set(key, bucket);
   }
   const months = [...monthly.entries()]

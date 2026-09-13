@@ -1,7 +1,9 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { remainingOnLine } from "@/lib/dc-chain";
+import { figuresFor, indexChain } from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
+import { normalizeDcStatus } from "@/lib/dc-lifecycle";
 import type { DeliveryChallanItemRow } from "@/types/database";
 
 /** A pending line, with everything needed to raise the next challan for it. */
@@ -17,8 +19,12 @@ export type PendingLine = {
   componentId: string | null;
   material: string | null;
   received: number;
-  /** What is still owed, counting despatches already made against this line. */
+  /** What is still owed, counting confirmed despatches already made against this line. */
   remaining: number;
+  /** Quantity already on draft follow-ups against this line, not yet counted. */
+  onDraft: number;
+  /** What this follow-up may carry: the balance less what drafts have booked. */
+  bookable: number;
 };
 
 /**
@@ -26,7 +32,8 @@ export type PendingLine = {
  *
  * Read fresh every time the form opens, because the remaining balance moves
  * whenever anybody despatches against the same lot, and the figure shown has
- * to be the one the save will be judged against.
+ * to be the one the save will be judged against. It comes from the same chain
+ * calculation as every screen, so the form and the lists agree.
  */
 export async function getPendingLine(itemId: string): Promise<PendingLine | null> {
   const supabase = await createClient();
@@ -38,16 +45,14 @@ export async function getPendingLine(itemId: string): Promise<PendingLine | null
     .maybeSingle();
   if (!item || item.parent_item_id) return null;
 
-  const { data: siblings } = await supabase
-    .from("delivery_challan_items")
-    .select("*")
-    .eq("parent_item_id", itemId);
-
-  const { data: dc } = await supabase
-    .from("delivery_challans")
-    .select("id, dc_number, customer_id, customer_dc_number, customer_dc_date")
-    .eq("id", item.dc_id)
-    .maybeSingle();
+  const [chainRows, { data: dc }] = await Promise.all([
+    fetchChainRows(supabase),
+    supabase
+      .from("delivery_challans")
+      .select("id, dc_number, customer_id, customer_dc_number, customer_dc_date")
+      .eq("id", item.dc_id)
+      .maybeSingle(),
+  ]);
   if (!dc) return null;
 
   const { data: customer } = await supabase
@@ -55,6 +60,8 @@ export async function getPendingLine(itemId: string): Promise<PendingLine | null
     .select("name")
     .eq("id", dc.customer_id)
     .maybeSingle();
+
+  const figures = figuresFor(item, indexChain(chainRows));
 
   return {
     itemId: item.id,
@@ -67,8 +74,10 @@ export async function getPendingLine(itemId: string): Promise<PendingLine | null
     component: item.component,
     componentId: item.component_id,
     material: item.material,
-    received: Number(item.received_qty) || 0,
-    remaining: remainingOnLine(itemId, [item, ...(siblings ?? [])]),
+    received: figures.received,
+    remaining: figures.balance ?? 0,
+    onDraft: figures.onDraft,
+    bookable: figures.bookable,
   };
 }
 
@@ -81,6 +90,8 @@ export type RelatedDc = {
   sent: number;
   materialProblem: number;
   rejection: number;
+  /** A draft follow-up is listed but does not reduce the balance until confirmed. */
+  draft: boolean;
 };
 
 /**
@@ -128,7 +139,7 @@ export async function listRelatedDcs(dcId: string): Promise<RelatedDc[]> {
 
   const { data: challans } = await supabase
     .from("delivery_challans")
-    .select("id, dc_number, dc_date")
+    .select("id, dc_number, dc_date, status")
     .in("id", [...new Set(children.map((row) => row.dc_id))]);
 
   const byId = new Map((challans ?? []).map((dc) => [dc.id, dc]));
@@ -144,6 +155,7 @@ export async function listRelatedDcs(dcId: string): Promise<RelatedDc[]> {
         sent: Number(row.sent_qty) || 0,
         materialProblem: Number(row.material_problem_qty) || 0,
         rejection: Number(row.rejection_qty) || 0,
+        draft: normalizeDcStatus(dc?.status) === "draft",
       };
     })
     .sort((a, b) => a.dcDate.localeCompare(b.dcDate) || a.dcNumber.localeCompare(b.dcNumber));

@@ -3,7 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { correctScannedDcRef } from "@/lib/dc-refs";
-import { balanceQty, outwardTotal } from "@/lib/dc-balance";
+import {
+  challanSettledIn,
+  figuresFor,
+  indexChain,
+  isOriginalLine,
+  type ChainIndex,
+} from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
+import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
+import type { DeliveryChallanItemRow } from "@/types/database";
 
 // Read-only lookup used by the DC form: given a customer DC number or date,
 // find the delivery challans already stored against it so the operator can see
@@ -17,6 +26,12 @@ export type StoredDcItem = {
   material_problem_qty: number;
   rejection_qty: number;
   total_qty: number;
+  /**
+   * Still owed on this line, from the shared chain calculation, so a panel
+   * here cannot disagree with the challan's own page. Null on a follow-up
+   * line, which owes nothing itself.
+   */
+  pending: number | null;
 };
 
 export type StoredDcMatch = {
@@ -24,11 +39,53 @@ export type StoredDcMatch = {
   dc_number: string;
   dc_date: string;
   status: string;
+  /** Draft, Active or Completed, judged across the whole chain. */
+  lifecycle: DcLifecycle;
   customer_name: string | null;
   customer_dc_number: string[] | null;
   customer_dc_date: (string | null)[] | null;
   items: StoredDcItem[];
 };
+
+/** A stored challan as the lookup panels show it, figures from the chain. */
+function storedMatchFrom(
+  dc: {
+    id: string;
+    dc_number: string;
+    dc_date: string;
+    status: string;
+    customer_dc_number: string[] | null;
+    customer_dc_date: (string | null)[] | null;
+  },
+  customerName: string | null,
+  rows: DeliveryChallanItemRow[],
+  chain: ChainIndex,
+  componentNames: ReturnType<typeof componentNameIndex>
+): StoredDcMatch {
+  return {
+    id: dc.id,
+    dc_number: dc.dc_number,
+    dc_date: dc.dc_date,
+    status: dc.status,
+    lifecycle: dcLifecycle(dc.status, rows, challanSettledIn(rows, chain)),
+    customer_name: customerName,
+    customer_dc_number: dc.customer_dc_number,
+    customer_dc_date: dc.customer_dc_date,
+    items: rows.map((row) => {
+      const line = figuresFor(row, chain);
+      return {
+        component: componentNameOf(row, componentNames),
+        material: row.material,
+        received_qty: line.received,
+        sent_qty: line.sent,
+        material_problem_qty: line.materialProblem,
+        rejection_qty: line.rejection,
+        total_qty: line.total,
+        pending: line.balance,
+      };
+    }),
+  };
+}
 
 /**
  * Reconcile a scanned customer DC number against the ones already on file.
@@ -67,13 +124,17 @@ export type PendingComponentDc = {
   pending_qty: number;
 };
 
+/** Columns the pending-component panel reads, including the chain link. */
+const PENDING_COLUMNS =
+  "id, dc_id, parent_item_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty";
+
 /**
  * Challans that still owe pieces of a component back to the customer.
  *
- * "Pending" is the balance, not the status: every challan sits at draft, so a
- * status filter would list all of them. A row counts as pending while received
- * exceeds what has gone out as sent, material problem and rejection combined —
- * the same reckoning the balance page uses. Read-only.
+ * "Pending" is the balance, not the status. A line counts as pending while
+ * received exceeds what has gone out as sent, material problem and rejection
+ * combined, counting confirmed follow-ups: the same calculation every other
+ * screen uses. Read-only.
  */
 export async function findPendingDcsForComponent({
   component,
@@ -97,11 +158,7 @@ export async function findPendingDcsForComponent({
     .ilike("name", wanted)
     .maybeSingle();
 
-  let query = supabase
-    .from("delivery_challan_items")
-    .select(
-      "dc_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty"
-    );
+  let query = supabase.from("delivery_challan_items").select(PENDING_COLUMNS);
   // The value is quoted because an or() filter treats a comma as its own
   // separator, and part names carry spaces, slashes and hashes.
   const quoted = `"${wanted.replace(/"/g, '\\"')}"`;
@@ -117,9 +174,7 @@ export async function findPendingDcsForComponent({
   if (error?.code === "42703" || error?.code === "PGRST204") {
     const byName = await supabase
       .from("delivery_challan_items")
-      .select(
-        "dc_id, component, material, received_qty, sent_qty, material_problem_qty, rejection_qty"
-      )
+      .select(PENDING_COLUMNS)
       .eq("component", wanted);
     items = byName.data;
     error = byName.error;
@@ -127,12 +182,15 @@ export async function findPendingDcsForComponent({
 
   if (error || !items || items.length === 0) return [];
 
+  // Only a lot that came in can be pending, so follow-up lines are left out;
+  // their despatch is already in the balance of the line they continue.
+  const chain = indexChain(await fetchChainRows(supabase));
   const outstanding = items
-    .map((item) => ({
-      ...item,
-      outward: outwardTotal(item),
-      pending: balanceQty(item),
-    }))
+    .filter((item) => isOriginalLine(item))
+    .map((item) => {
+      const line = figuresFor(item, chain);
+      return { ...item, received: line.received, outward: line.total, pending: line.balance ?? 0 };
+    })
     .filter((item) => item.pending > 0 && item.dc_id !== excludeDcId);
   if (outstanding.length === 0) return [];
 
@@ -161,7 +219,7 @@ export async function findPendingDcsForComponent({
         customer_name: nameById.get(dc.customer_id) ?? null,
         customer_dc_number: dc.customer_dc_number,
         material: item.material,
-        received_qty: item.received_qty,
+        received_qty: item.received,
         outward_qty: item.outward,
         pending_qty: item.pending,
       }))
@@ -206,7 +264,7 @@ export async function findCustomerDcRefs({
   const { data: dcs, error } = await query;
   if (error || !dcs || dcs.length === 0) return [];
 
-  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
+  const [{ data: items }, { data: customer }, { data: picklist }, chainRows] = await Promise.all([
     supabase
       .from("delivery_challan_items")
       .select("*")
@@ -217,36 +275,25 @@ export async function findCustomerDcRefs({
       .order("sort_order"),
     supabase.from("customers").select("id, name").eq("id", customerId).single(),
     supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+    fetchChainRows(supabase),
   ]);
 
   // Names handed to the new-DC form come from the master list, because the
   // form binds them to a dropdown built from that same list.
   const componentNames = componentNameIndex(picklist ?? []);
+  const chain = indexChain(chainRows);
   const wanted = date?.trim() || null;
   const options: CustomerDcRefOption[] = [];
   const seen = new Set<string>();
 
   for (const dc of dcs) {
-    const match: StoredDcMatch = {
-      id: dc.id,
-      dc_number: dc.dc_number,
-      dc_date: dc.dc_date,
-      status: dc.status,
-      customer_name: customer?.name ?? null,
-      customer_dc_number: dc.customer_dc_number,
-      customer_dc_date: dc.customer_dc_date,
-      items: (items ?? [])
-        .filter((i) => i.dc_id === dc.id)
-        .map((i) => ({
-          component: componentNameOf(i, componentNames),
-          material: i.material,
-          received_qty: i.received_qty,
-          sent_qty: i.sent_qty,
-          material_problem_qty: i.material_problem_qty,
-          rejection_qty: i.rejection_qty,
-          total_qty: i.total_qty,
-        })),
-    };
+    const match = storedMatchFrom(
+      dc,
+      customer?.name ?? null,
+      (items ?? []).filter((i) => i.dc_id === dc.id),
+      chain,
+      componentNames
+    );
 
     // The two columns are parallel arrays: entry i of one pairs with entry i
     // of the other.
@@ -306,10 +353,11 @@ export async function findDcsByCustomerRef({
   const dcIds = dcs.map((d) => d.id);
   const customerIds = [...new Set(dcs.map((d) => d.customer_id))];
 
-  const [{ data: items }, { data: customers }, { data: picklist }] = await Promise.all([
+  const [{ data: items }, { data: customers }, { data: picklist }, chainRows] = await Promise.all([
     supabase.from("delivery_challan_items").select("*").in("dc_id", dcIds).order("sort_order"),
     supabase.from("customers").select("id, name").in("id", customerIds),
     supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+    fetchChainRows(supabase),
   ]);
 
   const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
@@ -317,25 +365,15 @@ export async function findDcsByCustomerRef({
   // master list, so the name handed over has to be the list's current one or
   // the row arrives with nothing selected.
   const componentNames = componentNameIndex(picklist ?? []);
+  const chain = indexChain(chainRows);
 
-  return dcs.map((dc) => ({
-    id: dc.id,
-    dc_number: dc.dc_number,
-    dc_date: dc.dc_date,
-    status: dc.status,
-    customer_name: nameById.get(dc.customer_id) ?? null,
-    customer_dc_number: dc.customer_dc_number,
-    customer_dc_date: dc.customer_dc_date,
-    items: (items ?? [])
-      .filter((i) => i.dc_id === dc.id)
-      .map((i) => ({
-        component: componentNameOf(i, componentNames),
-        material: i.material,
-        received_qty: i.received_qty,
-        sent_qty: i.sent_qty,
-        material_problem_qty: i.material_problem_qty,
-        rejection_qty: i.rejection_qty,
-        total_qty: i.total_qty,
-      })),
-  }));
+  return dcs.map((dc) =>
+    storedMatchFrom(
+      dc,
+      nameById.get(dc.customer_id) ?? null,
+      (items ?? []).filter((i) => i.dc_id === dc.id),
+      chain,
+      componentNames
+    )
+  );
 }

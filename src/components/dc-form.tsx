@@ -41,6 +41,7 @@ export function DcForm({
   components,
   materials,
   continues,
+  followUpRoom,
 }: {
   customers: ComboboxCustomer[];
   dc?: DeliveryChallanRow;
@@ -51,6 +52,12 @@ export function DcForm({
   materials: string[];
   /** Set when this challan continues a pending line on an earlier one. */
   continues?: PendingLine | null;
+  /**
+   * When editing, how much each continued line can still take, keyed by that
+   * line's id, with this challan's own rows left out. A new follow-up gets the
+   * same figure from `continues`.
+   */
+  followUpRoom?: Record<string, number>;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
   // A new challan opens on the only customer on file, so the field does not
@@ -106,21 +113,31 @@ export function DcForm({
   } | null>(null);
   // A continuation row has no received quantity of its own, so the
   // came-in-versus-went-out rule cannot judge it. It is checked against what
-  // its line still owes instead, and again on the server before saving.
+  // its line can still take instead, and again on the server before saving.
   const overDelivered = findOverDelivered(itemRows.filter((row) => !row.parent_item_id));
-  const continuedOutward = continues
-    ? itemRows
-        .filter((row) => row.parent_item_id === continues.itemId)
-        .reduce(
-          (total, row) =>
-            total +
-            (Number(row.sent_qty) || 0) +
-            (Number(row.material_problem_qty) || 0) +
-            (Number(row.rejection_qty) || 0),
-          0
-        )
-    : 0;
-  const overContinued = Boolean(continues) && continuedOutward > (continues?.remaining ?? 0);
+  // Room left on each continued line: from the follow-up being raised, or
+  // from the edit page for a follow-up being changed. Judged against what may
+  // still be booked, not the bare balance, because quantity already on draft
+  // follow-ups is spoken for.
+  const roomByParent: Record<string, number> = {
+    ...(followUpRoom ?? {}),
+    ...(continues ? { [continues.itemId]: continues.bookable } : {}),
+  };
+  const overContinuedLines = Object.entries(roomByParent).flatMap(([parentId, room]) => {
+    const rows = itemRows.filter((row) => row.parent_item_id === parentId);
+    const entered = rows.reduce(
+      (total, row) =>
+        total +
+        (Number(row.sent_qty) || 0) +
+        (Number(row.material_problem_qty) || 0) +
+        (Number(row.rejection_qty) || 0),
+      0
+    );
+    return entered > room
+      ? [{ component: rows[0]?.component ?? "", room: Math.max(0, room), entered }]
+      : [];
+  });
+  const overContinued = overContinuedLines.length > 0;
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
 
   /**
@@ -300,6 +317,16 @@ export function DcForm({
               Received {continues.received} on the original challan. Outstanding now{" "}
               <span className="font-semibold">{continues.remaining}</span>.
             </p>
+            {/* A draft follow-up does not reduce the balance until it is
+                confirmed, but its quantity is spoken for, so this challan is
+                limited to what is left after it. */}
+            {continues.onDraft > 0 && (
+              <p className="text-amber-900">
+                {continues.onDraft} of that is already on a draft follow-up, so up to{" "}
+                <span className="font-semibold">{Math.max(0, continues.bookable)}</span> can go on
+                this one.
+              </p>
+            )}
             <p className="text-xs text-amber-900/80">
               Enter what is going out on this challan. The received quantity stays on the original,
               so the same pieces are never counted twice.
@@ -351,9 +378,7 @@ export function DcForm({
             components={components}
             materials={materials}
             excludeDcId={dc?.id}
-            outstandingByParent={
-              continues ? { [continues.itemId]: continues.remaining } : undefined
-            }
+            outstandingByParent={roomByParent}
           />
         </CardContent>
       </Card>
@@ -454,16 +479,18 @@ export function DcForm({
         <input key={id} type="hidden" name="used_scan_id" value={id} />
       ))}
 
-      {overContinued && continues && (
+      {overContinued && (
         <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
             <AlertTriangle className="h-4 w-4" />
             More than remains outstanding
           </h3>
-          <p className="text-sm text-destructive">
-            {continues.component} has {continues.remaining} left to complete, but {continuedOutward}{" "}
-            is entered here. Reduce it before saving.
-          </p>
+          {overContinuedLines.map((line) => (
+            <p key={line.component} className="text-sm text-destructive">
+              {line.component} has {line.room} left to despatch, but {line.entered} is entered here.
+              Reduce it before saving.
+            </p>
+          ))}
         </div>
       )}
 

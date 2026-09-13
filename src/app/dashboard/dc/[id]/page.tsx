@@ -15,9 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { balanceQty, findOverDelivered } from "@/lib/dc-balance";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
-import { isOriginalLine, remainingByLine } from "@/lib/dc-chain";
+import { challanSettledIn, figuresFor, indexChain, rootLineOf } from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
 import { DcStatusBadge } from "@/components/status-badge";
@@ -45,19 +45,73 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   // The master list owns the spelling wherever a row carries a component id.
   const componentNames = componentNameIndex(picklist ?? []);
 
-  // Despatches made on later challans have to be counted, or a line that has
-  // been completed elsewhere still reads as outstanding here.
-  const ownIds = (items ?? []).map((item) => item.id);
-  const { data: continuations } =
-    ownIds.length > 0
-      ? await supabase.from("delivery_challan_items").select("*").in("parent_item_id", ownIds)
-      : { data: [] };
-  const remaining = remainingByLine([...(items ?? []), ...(continuations ?? [])]);
+  // Every line on file, marked draft or not, through the same calculation as
+  // every other screen. Confirmed despatches on later challans are counted, or
+  // a line completed elsewhere would still read as outstanding here; draft
+  // ones are not, or a line would read as finished before anything went out.
+  const chainRows = await fetchChainRows(supabase);
+  const chain = indexChain(chainRows);
+  const figures = new Map((items ?? []).map((item) => [item.id, figuresFor(item, chain)]));
 
   const related = await listRelatedDcs(id);
-  const overDelivered = findOverDelivered((items ?? []).filter((item) => !item.parent_item_id));
-  const outstanding = [...remaining.values()].reduce((total, value) => total + value, 0);
-  const lifecycle = dcLifecycle(dc.status, items ?? [], outstanding);
+  // A balance error is any line with more out than in once confirmed
+  // follow-ups are counted, so it is judged from the figures, not the row.
+  const overDelivered = (items ?? []).flatMap((item, index) => {
+    const line = figures.get(item.id);
+    if (!line || line.balance === null || line.balance >= 0) return [];
+    return [
+      {
+        position: index + 1,
+        component: componentNameOf(item, componentNames),
+        received: line.received,
+        outward: line.total,
+        extra: -line.balance,
+      },
+    ];
+  });
+  const lifecycle = dcLifecycle(dc.status, items ?? [], challanSettledIn(items ?? [], chain));
+
+  // For a follow-up: the original line each row despatches against, what it
+  // owes now, and what it will owe once this challan counts. A follow-up row's
+  // own Balance is only a dash, because it owes nothing itself, so without this
+  // the page gave no figure at the moment somebody decides whether to confirm.
+  const continued = (items ?? []).flatMap((item) => {
+    if (!item.parent_item_id) return [];
+    const root = rootLineOf(item.id, chainRows);
+    return root && root.id !== item.id ? [{ item, root }] : [];
+  });
+  const rootDcIds = [...new Set(continued.map(({ root }) => root.dc_id))];
+  const { data: rootDcs } =
+    rootDcIds.length > 0
+      ? await supabase.from("delivery_challans").select("id, dc_number").in("id", rootDcIds)
+      : { data: [] as { id: string; dc_number: string }[] };
+  const rootDcNumbers = new Map((rootDcs ?? []).map((row) => [row.id, row.dc_number]));
+  const followUpOf = new Map<
+    string,
+    { dcId: string; dcNumber: string; component: string; now: number; here: number }
+  >();
+  for (const { item, root } of continued) {
+    const entry = followUpOf.get(root.id) ?? {
+      dcId: root.dc_id,
+      dcNumber: rootDcNumbers.get(root.dc_id) ?? "an earlier challan",
+      component: componentNameOf(root, componentNames),
+      now: figuresFor(root, chain).balance ?? 0,
+      here: 0,
+    };
+    entry.here +=
+      (Number(item.sent_qty) || 0) +
+      (Number(item.material_problem_qty) || 0) +
+      (Number(item.rejection_qty) || 0);
+    followUpOf.set(root.id, entry);
+  }
+  // A confirmed follow-up is already inside `now`; a draft is not, so its
+  // quantity still has to come off. Whether this challan counts is read from
+  // the same snapshot of lines as the balances, not from the challan row read
+  // a moment earlier: confirmed in between, the two disagreed and the page took
+  // the same quantity off twice.
+  const ownChainRows = chainRows.filter((row) => row.dc_id === id);
+  const isDraft =
+    ownChainRows.length > 0 ? ownChainRows.every((row) => row.draft) : lifecycle === "draft";
 
   return (
     <div className="space-y-6">
@@ -143,6 +197,48 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
+      {followUpOf.size > 0 && (
+        <Card className="border-t-4 border-t-amber-500 bg-amber-50/60">
+          <CardContent className="space-y-3 py-4 text-sm">
+            {[...followUpOf.values()].map((entry) => {
+              const after = isDraft ? entry.now - entry.here : entry.now;
+              return (
+                <div
+                  key={`${entry.dcId}-${entry.component}`}
+                  className="space-y-0.5 text-amber-900"
+                >
+                  <p className="font-medium">
+                    Follow-up of{" "}
+                    <Link href={`/dashboard/dc/${entry.dcId}`} className="underline">
+                      {entry.dcNumber}
+                    </Link>
+                  </p>
+                  <p>{entry.component}</p>
+                  {isDraft ? (
+                    <p>
+                      Balance there now <span className="font-semibold">{entry.now}</span>.
+                      Confirming this despatches {entry.here}, leaving{" "}
+                      <span className="font-semibold">{after}</span>.
+                    </p>
+                  ) : (
+                    <p>
+                      This challan despatched {entry.here}. Balance there now{" "}
+                      <span className="font-semibold">{entry.now}</span>.
+                    </p>
+                  )}
+                  {after < 0 && (
+                    <p className="font-medium text-destructive">
+                      That is {-after} more than remains, so confirming will be refused. Edit it
+                      first.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Material / Component Details</CardTitle>
@@ -153,7 +249,14 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
               <TableRow>
                 <TableHead>Description</TableHead>
                 <TableHead>Material</TableHead>
-                <TableHead>Received Qty</TableHead>
+                {/* Named for what the column holds, as on the follow-up form:
+                    a follow-up receives nothing, so its figure is what is
+                    pending on the line it continues. */}
+                <TableHead>
+                  {(items ?? []).length > 0 && (items ?? []).every((i) => i.parent_item_id)
+                    ? "Pending"
+                    : "Received Qty"}
+                </TableHead>
                 <TableHead>Sent Qty</TableHead>
                 <TableHead>Material Problem</TableHead>
                 <TableHead>Rejection</TableHead>
@@ -164,33 +267,82 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             </TableHeader>
             <TableBody>
               {(items ?? []).map((item) => {
-                const balance = remaining.get(item.id) ?? balanceQty(item);
+                const line = figures.get(item.id) ?? figuresFor(item, chain);
+                // A follow-up row reads from the original line it continues:
+                // pending there without this challan, and what is left once
+                // this challan counts. The same pending-minus-sent reckoning
+                // the follow-up form uses, so the two pages agree.
+                const root = line.continues ? rootLineOf(item.id, chainRows) : undefined;
+                const entry = root ? followUpOf.get(root.id) : undefined;
+                const pending = entry ? (isDraft ? entry.now : entry.now + entry.here) : null;
+                const balance = entry && pending !== null ? pending - entry.here : line.balance;
                 return (
                   <TableRow key={item.id}>
                     <TableCell>{componentNameOf(item, componentNames)}</TableCell>
                     <TableCell>{item.material ?? "-"}</TableCell>
-                    <TableCell>{item.received_qty}</TableCell>
-                    <TableCell>{item.sent_qty}</TableCell>
-                    <TableCell>{item.material_problem_qty}</TableCell>
-                    <TableCell>{item.rejection_qty}</TableCell>
-                    <TableCell>{item.total_qty}</TableCell>
+                    <TableCell>
+                      {entry && pending !== null ? (
+                        <>
+                          {pending}
+                          <span className="block text-xs text-muted-foreground">
+                            pending on {entry.dcNumber}
+                          </span>
+                        </>
+                      ) : line.continues ? (
+                        "—"
+                      ) : (
+                        line.received
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {line.sent}
+                      {/* An original line's Sent includes its confirmed
+                          follow-ups, so the row adds up to its balance. This
+                          challan's own figure is shown beneath when they differ. */}
+                      {!line.continues && line.sent !== line.ownSent && (
+                        <span className="block text-xs text-muted-foreground">
+                          {line.ownSent} on this DC
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{line.materialProblem}</TableCell>
+                    <TableCell>{line.rejection}</TableCell>
+                    <TableCell>{line.total}</TableCell>
                     <TableCell
                       className={
-                        balance < 0
-                          ? "font-medium text-destructive"
-                          : balance > 0
-                            ? "text-amber-600"
-                            : "text-muted-foreground"
+                        balance === null
+                          ? "text-muted-foreground"
+                          : balance < 0
+                            ? "font-medium text-destructive"
+                            : balance > 0
+                              ? "text-amber-600"
+                              : "text-muted-foreground"
                       }
                     >
-                      {balance < 0 ? `${balance} extra` : balance > 0 ? `${balance} pending` : "0"}
+                      {balance === null
+                        ? "—"
+                        : balance < 0
+                          ? `${-balance} extra`
+                          : balance > 0
+                            ? `${balance} pending`
+                            : "0"}
+                      {line.onDraft > 0 && (
+                        <span className="block text-xs text-muted-foreground">
+                          {line.onDraft} on draft, not yet counted
+                        </span>
+                      )}
+                      {entry && (
+                        <span className="block text-xs text-muted-foreground">
+                          left on {entry.dcNumber}
+                          {isDraft ? " once confirmed" : ""}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      {/* Only an original line can be followed up. A line that
-                          is itself a follow-up owes nothing of its own: what it
-                          despatches is already counted against the line that
-                          received the lot. */}
-                      {balance > 0 && isOriginalLine(item) && (
+                      {/* Offered while there is room left once drafts are
+                          allowed for. A follow-up line never offers one: it
+                          owes nothing of its own. */}
+                      {line.bookable > 0 && (
                         <Button
                           render={<Link href={`/dashboard/dc/new?from=${item.id}`} />}
                           variant="outline"
@@ -238,6 +390,11 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                       <Link href={`/dashboard/dc/${row.dcId}`} className="hover:underline">
                         {row.dcNumber}
                       </Link>
+                      {row.draft && (
+                        <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                          Draft
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {row.dcDate ? format(new Date(row.dcDate), "dd MMM yyyy") : "-"}
@@ -248,18 +405,47 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                     <TableCell className="text-right">{row.rejection}</TableCell>
                   </TableRow>
                 ))}
+                {/* Split, because only confirmed follow-ups reduce the balance
+                    above. A draft is listed so it is not forgotten, but it has
+                    not gone out yet. */}
                 <TableRow className="border-t-2 font-medium">
-                  <TableCell colSpan={3}>Total completed against this challan</TableCell>
+                  <TableCell colSpan={3}>Confirmed against this challan</TableCell>
                   <TableCell className="text-right">
-                    {related.reduce((total, row) => total + row.sent, 0)}
+                    {related
+                      .filter((row) => !row.draft)
+                      .reduce((total, row) => total + row.sent, 0)}
                   </TableCell>
                   <TableCell className="text-right">
-                    {related.reduce((total, row) => total + row.materialProblem, 0)}
+                    {related
+                      .filter((row) => !row.draft)
+                      .reduce((total, row) => total + row.materialProblem, 0)}
                   </TableCell>
                   <TableCell className="text-right">
-                    {related.reduce((total, row) => total + row.rejection, 0)}
+                    {related
+                      .filter((row) => !row.draft)
+                      .reduce((total, row) => total + row.rejection, 0)}
                   </TableCell>
                 </TableRow>
+                {related.some((row) => row.draft) && (
+                  <TableRow className="text-muted-foreground">
+                    <TableCell colSpan={3}>On drafts, not yet counted</TableCell>
+                    <TableCell className="text-right">
+                      {related
+                        .filter((row) => row.draft)
+                        .reduce((total, row) => total + row.sent, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {related
+                        .filter((row) => row.draft)
+                        .reduce((total, row) => total + row.materialProblem, 0)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {related
+                        .filter((row) => row.draft)
+                        .reduce((total, row) => total + row.rejection, 0)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

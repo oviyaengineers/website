@@ -187,7 +187,10 @@ export default async function DispatchedDcsPage({
                           continues an earlier challan
                         </span>
                       )}
-                      {line.balance > 0 && (
+                      {/* Offered only while there is room left once drafts are
+                          allowed for; a balance already booked on a draft has
+                          nothing a new follow-up could carry. */}
+                      {line.bookable > 0 && (
                         <Button
                           render={<Link href={`/dashboard/dc/new?from=${line.key}`} />}
                           variant="outline"
@@ -200,15 +203,40 @@ export default async function DispatchedDcsPage({
                     </td>
                     <td className="p-3 text-muted-foreground">{line.material ?? "-"}</td>
                     <td className="p-3 text-right tabular-nums">{line.received}</td>
-                    <td className="p-3 text-right tabular-nums">{line.sent}</td>
+                    <td className="p-3 text-right tabular-nums">
+                      {line.sent}
+                      {/* The original's Sent includes confirmed follow-ups, so
+                          the row adds up to its balance. Its own figure is
+                          shown beneath whenever the two differ. */}
+                      {!line.continues && line.sent !== line.ownSent && (
+                        <span className="block text-xs text-muted-foreground">
+                          {line.ownSent} on this DC
+                        </span>
+                      )}
+                    </td>
                     <td className="p-3 text-right tabular-nums">{line.materialProblem}</td>
                     <td className="p-3 text-right tabular-nums">{line.rejection}</td>
                     <td
                       className={`p-3 text-right tabular-nums ${
-                        line.balance > 0 ? "text-amber-600" : "text-muted-foreground"
+                        line.balance === null
+                          ? "text-muted-foreground"
+                          : line.balance < 0
+                            ? "font-medium text-destructive"
+                            : line.balance > 0
+                              ? "text-amber-600"
+                              : "text-muted-foreground"
                       }`}
                     >
-                      {line.balance}
+                      {line.balance === null
+                        ? "—"
+                        : line.balance < 0
+                          ? `${-line.balance} extra`
+                          : line.balance}
+                      {line.onDraft > 0 && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {line.onDraft} on draft
+                        </span>
+                      )}
                     </td>
                     {index === 0 ? (
                       <>
@@ -216,12 +244,12 @@ export default async function DispatchedDcsPage({
                           <Badge
                             variant="outline"
                             className={`border-transparent ${
-                              dc.balance > 0
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-green-100 text-green-700"
+                              dc.settled
+                                ? "bg-green-100 text-green-700"
+                                : "bg-blue-100 text-blue-700"
                             }`}
                           >
-                            {dc.balance > 0 ? "Pending" : "Completed"}
+                            {dc.settled ? "Completed" : "Pending"}
                           </Badge>
                         </td>
                         <td
@@ -299,10 +327,10 @@ export default async function DispatchedDcsPage({
                 <Badge
                   variant="outline"
                   className={`border-transparent ${
-                    dc.balance > 0 ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                    dc.settled ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                   }`}
                 >
-                  {dc.balance > 0 ? "Pending" : "Completed"}
+                  {dc.settled ? "Completed" : "Pending"}
                 </Badge>
               </div>
 
@@ -317,7 +345,14 @@ export default async function DispatchedDcsPage({
                     <dt className="text-muted-foreground">Received</dt>
                     <dd className="text-right tabular-nums">{line.received}</dd>
                     <dt className="text-muted-foreground">Sent</dt>
-                    <dd className="text-right tabular-nums">{line.sent}</dd>
+                    <dd className="text-right tabular-nums">
+                      {line.sent}
+                      {!line.continues && line.sent !== line.ownSent && (
+                        <span className="block text-xs text-muted-foreground">
+                          {line.ownSent} on this DC
+                        </span>
+                      )}
+                    </dd>
                     <dt className="text-muted-foreground">Material problem</dt>
                     <dd className="text-right tabular-nums">{line.materialProblem}</dd>
                     <dt className="text-muted-foreground">Rejection</dt>
@@ -325,13 +360,26 @@ export default async function DispatchedDcsPage({
                     <dt className="text-muted-foreground">Balance</dt>
                     <dd
                       className={`text-right tabular-nums ${
-                        line.balance > 0 ? "text-amber-600" : ""
+                        line.balance !== null && line.balance < 0
+                          ? "font-medium text-destructive"
+                          : line.balance !== null && line.balance > 0
+                            ? "text-amber-600"
+                            : ""
                       }`}
                     >
-                      {line.balance}
+                      {line.balance === null
+                        ? "—"
+                        : line.balance < 0
+                          ? `${-line.balance} extra`
+                          : line.balance}
+                      {line.onDraft > 0 && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {line.onDraft} on draft
+                        </span>
+                      )}
                     </dd>
                   </dl>
-                  {line.balance > 0 && (
+                  {line.bookable > 0 && (
                     <Button
                       render={<Link href={`/dashboard/dc/new?from=${line.key}`} />}
                       variant="outline"

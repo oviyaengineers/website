@@ -1,6 +1,10 @@
-import { remainingByLine } from "@/lib/dc-chain";
-import { createClient } from "@/lib/supabase/server";
-import { fetchDcSummaries, type DcListFilters, type DcSummary } from "@/lib/dc-list";
+import type { LineFigures } from "@/lib/dc-chain";
+import {
+  fetchDcSummaries,
+  type DcListFilters,
+  type DcSummary,
+  type ReconciledTotals,
+} from "@/lib/dc-list";
 import type { DeliveryChallanItemRow } from "@/types/database";
 
 /**
@@ -13,8 +17,9 @@ import type { DeliveryChallanItemRow } from "@/types/database";
  * appears here.
  *
  * Whether a dispatched challan is still pending or finished is read from its
- * quantities every time, never stored. The same master record moves between
- * the two tabs on its own as the sent quantity is filled in.
+ * quantities every time, never stored, through the same chain calculation as
+ * every other screen. The same master record moves between the two tabs on its
+ * own as despatches are confirmed.
  */
 
 export type DispatchedTab = "pending" | "completed";
@@ -31,11 +36,18 @@ export type DispatchedLine = {
   component: string;
   material: string | null;
   received: number;
+  /** For an original line, its own despatch plus every confirmed follow-up. */
   sent: number;
   materialProblem: number;
   rejection: number;
-  /** This line's own balance, which is what the shop floor reconciles. */
-  balance: number;
+  /** Received less counted outward. Null on a follow-up line, which owes nothing itself. */
+  balance: number | null;
+  /** Outward sitting on draft follow-ups: booked, not yet counted. */
+  onDraft: number;
+  /** What a new follow-up may carry. */
+  bookable: number;
+  /** This row's own sent quantity, shown when the chain figure differs from it. */
+  ownSent: number;
   /** True where the line despatches against a lot received on an earlier challan. */
   continues: boolean;
 };
@@ -47,20 +59,14 @@ export type DispatchedDc = {
   customerName: string;
   customerDcNumbers: string[];
   customerDcDates: (string | null)[];
-  /** The whole challan's outstanding quantity, which decides its tab. */
-  balance: number;
-  received: number;
-  sent: number;
-  materialProblem: number;
-  rejection: number;
+  /** True once every component stands at exactly zero, which decides its tab. */
+  settled: boolean;
+  /** This challan's share of the column totals, counted once. */
+  reconciled: ReconciledTotals;
   lines: DispatchedLine[];
 };
 
-function lineFrom(
-  dc: DcSummary,
-  item: DeliveryChallanItemRow,
-  remaining: Map<string, number>
-): DispatchedLine {
+function lineFrom(dc: DcSummary, item: DeliveryChallanItemRow, line: LineFigures): DispatchedLine {
   return {
     key: item.id,
     dcId: dc.id,
@@ -71,17 +77,15 @@ function lineFrom(
     customerDcDate: dc.customerDcDates.filter(Boolean)[0] ?? null,
     component: item.component,
     material: item.material,
-    received: Number(item.received_qty) || 0,
-    sent: Number(item.sent_qty) || 0,
-    materialProblem: Number(item.material_problem_qty) || 0,
-    rejection: Number(item.rejection_qty) || 0,
-    // The line's remaining balance across the whole chain, so a line finished
-    // by a later challan reads as zero here rather than still owing. A
-    // continuation is absent from the map and owes nothing of its own: the
-    // pieces it despatches are already subtracted from the line that
-    // received them, and counting them twice would invent a second debt.
-    balance: remaining.get(item.id) ?? 0,
-    continues: Boolean(item.parent_item_id),
+    received: line.received,
+    sent: line.sent,
+    materialProblem: line.materialProblem,
+    rejection: line.rejection,
+    balance: line.balance,
+    onDraft: line.onDraft,
+    bookable: line.bookable,
+    ownSent: line.ownSent,
+    continues: line.continues,
   };
 }
 
@@ -90,7 +94,9 @@ function lineFrom(
  * still outstanding.
  *
  * Both tabs come from one query of the same master records, so a challan can
- * never appear in both, nor be missing from both.
+ * never appear in both, nor be missing from both. Completed means every
+ * component at exactly zero. A line still owing, or one with more out than
+ * in, keeps the challan in Pending where it will be seen.
  */
 export async function fetchDispatched(
   filters: DcListFilters & { customer?: string }
@@ -103,9 +109,7 @@ export async function fetchDispatched(
     component: filters.component,
   });
 
-  const remaining = await remainingAcrossChallans();
-
-  const dispatched = summaries
+  const dispatched: DispatchedDc[] = summaries
     // A draft has not been issued to anybody yet.
     .filter((dc) => dc.lifecycle !== "draft")
     .filter((dc) => !filters.customer || dc.customerName === filters.customer)
@@ -116,40 +120,24 @@ export async function fetchDispatched(
       customerName: dc.customerName,
       customerDcNumbers: dc.customerDcNumbers,
       customerDcDates: dc.customerDcDates,
-      balance: dc.balance,
-      received: dc.received,
-      sent: dc.sent,
-      materialProblem: dc.materialProblem,
-      rejection: dc.rejection,
-      lines: dc.items.map((item) => lineFrom(dc, item, remaining)),
+      settled: dc.settled,
+      reconciled: dc.reconciled,
+      lines: dc.items.map((item, index) => lineFrom(dc, item, dc.lines[index])),
     }));
 
   return {
-    pending: dispatched.filter((dc) => dc.balance > 0),
-    completed: dispatched.filter((dc) => dc.balance <= 0),
+    pending: dispatched.filter((dc) => !dc.settled),
+    completed: dispatched.filter((dc) => dc.settled),
   };
 }
 
-/**
- * Remaining balance for every original line on file.
- *
- * Read in one query rather than per challan: a despatch made on a later
- * challan has to be subtracted from the line it completes, and that line may
- * belong to a challan outside the filtered set.
- */
-async function remainingAcrossChallans(): Promise<Map<string, number>> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("delivery_challan_items").select("*");
-  return remainingByLine(data ?? []);
-}
-
-/** Column totals for whichever tab is showing. */
-export function totalDispatched(rows: DispatchedDc[]) {
+/** Column totals for whichever tab is showing, each despatch counted once. */
+export function totalDispatched(rows: DispatchedDc[]): ReconciledTotals {
   return {
-    received: rows.reduce((total, dc) => total + dc.received, 0),
-    sent: rows.reduce((total, dc) => total + dc.sent, 0),
-    materialProblem: rows.reduce((total, dc) => total + dc.materialProblem, 0),
-    rejection: rows.reduce((total, dc) => total + dc.rejection, 0),
-    balance: rows.reduce((total, dc) => total + dc.balance, 0),
+    received: rows.reduce((total, dc) => total + dc.reconciled.received, 0),
+    sent: rows.reduce((total, dc) => total + dc.reconciled.sent, 0),
+    materialProblem: rows.reduce((total, dc) => total + dc.reconciled.materialProblem, 0),
+    rejection: rows.reduce((total, dc) => total + dc.reconciled.rejection, 0),
+    balance: rows.reduce((total, dc) => total + dc.reconciled.balance, 0),
   };
 }

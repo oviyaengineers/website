@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { balanceQty } from "@/lib/dc-balance";
+import { challanSettledIn, indexChain, outstandingIn } from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { matchesTerm } from "@/lib/dc-search";
 import type { ScannedItemSelection } from "@/components/dc-scan-dialog";
@@ -66,16 +67,19 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
       .select("id, customer_dc_number, customer_dc_date, items, customer_id")
       .eq("status", "pending")
       .limit(200),
-    supabase.from("delivery_challan_items").select("*").limit(2000),
+    // Every line, marked draft or not, so a challan's badge here is worked
+    // out exactly as it is on the challan's own page.
+    fetchChainRows(supabase),
   ]);
+  const chain = indexChain(items);
 
   const customerNames = new Map<string, string>();
   const { data: allCustomers } = await supabase.from("customers").select("id, name");
   for (const c of allCustomers ?? []) customerNames.set(c.id, c.name);
 
   const partsByDc = new Map<string, string[]>();
-  const rowsByDc = new Map<string, NonNullable<typeof items.data>>();
-  for (const item of items.data ?? []) {
+  const rowsByDc = new Map<string, typeof items>();
+  for (const item of items) {
     const words = partsByDc.get(item.dc_id) ?? [];
     words.push(item.component, item.material ?? "");
     partsByDc.set(item.dc_id, words);
@@ -108,8 +112,8 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
   );
   for (const dc of challanRows.slice(0, PER_GROUP)) {
     const rows = rowsByDc.get(dc.id) ?? [];
-    const lifecycle = dcLifecycle(dc.status, rows);
-    const outstanding = rows.reduce((total, row) => total + balanceQty(row), 0);
+    const lifecycle = dcLifecycle(dc.status, rows, challanSettledIn(rows, chain));
+    const outstanding = outstandingIn(rows, chain);
     hits.push({
       key: `challan-${dc.id}`,
       group: "challan",

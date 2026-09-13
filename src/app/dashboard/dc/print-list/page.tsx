@@ -1,6 +1,5 @@
 import { format } from "date-fns";
 import type { Metadata } from "next";
-import { balanceQty } from "@/lib/dc-balance";
 import { DC_LIFECYCLE_LABELS } from "@/lib/dc-lifecycle";
 import { fetchDcSummaries, totalDcSummaries } from "@/lib/dc-list";
 import { PrintNowButton } from "@/components/print-now-button";
@@ -106,11 +105,14 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
                   ) : null}
                   <td>{item?.component ?? "-"}</td>
                   <td>{item?.material ?? "-"}</td>
-                  <td className="text-right">{item?.received_qty ?? 0}</td>
-                  <td className="text-right">{item?.sent_qty ?? 0}</td>
-                  <td className="text-right">{item?.material_problem_qty ?? 0}</td>
-                  <td className="text-right">{item?.rejection_qty ?? 0}</td>
-                  <td className="text-right">{item ? balanceQty(item) : 0}</td>
+                  {/* The same chain figures as the screen, so the printed list
+                      agrees with it: an original line carries its confirmed
+                      follow-ups, and a follow-up line owes nothing itself. */}
+                  <td className="text-right">{item ? dc.lines[index].received : 0}</td>
+                  <td className="text-right">{item ? dc.lines[index].sent : 0}</td>
+                  <td className="text-right">{item ? dc.lines[index].materialProblem : 0}</td>
+                  <td className="text-right">{item ? dc.lines[index].rejection : 0}</td>
+                  <td className="text-right">{item ? (dc.lines[index].balance ?? "—") : 0}</td>
                   {index === 0 ? (
                     <td rowSpan={rows.length}>{DC_LIFECYCLE_LABELS[dc.lifecycle]}</td>
                   ) : null}

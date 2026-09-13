@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { findCustomerDcRefs, type StoredDcItem, type StoredDcMatch } from "@/lib/actions/dc-lookup";
-import { balanceQty } from "@/lib/dc-balance";
 import { formatDcDate } from "@/components/dc-ref-lookup";
 
 /** Wait this long after the date changes before querying. */
@@ -80,7 +79,9 @@ export function DcDateComponents({
             continue;
           }
           const rows = option.match.items
-            .map((item) => ({ item, pending: balanceQty(item) }))
+            // The server's chain figure, not the row's own arithmetic, which
+            // ignored follow-ups and listed finished lines as still owing.
+            .map((item) => ({ item, pending: item.pending ?? 0 }))
             .filter((row) => row.pending > 0);
           byDc.set(option.match.id, { match: option.match, refNumbers: [option.number], rows });
         }

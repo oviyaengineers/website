@@ -1,6 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { outwardTotal } from "@/lib/dc-balance";
-import { isOriginalLine, outstandingForChallan, remainingByLine } from "@/lib/dc-chain";
+import {
+  challanSettledIn,
+  figuresFor,
+  indexChain,
+  outstandingIn,
+  type LineFigures,
+} from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { DeliveryChallanItemRow } from "@/types/database";
@@ -11,6 +18,15 @@ export type DcListFilters = {
   to?: string;
   status?: string;
   component?: string;
+};
+
+/** Received, outward and balance for part of a list, counted once. */
+export type ReconciledTotals = {
+  received: number;
+  sent: number;
+  materialProblem: number;
+  rejection: number;
+  balance: number;
 };
 
 /** One challan with its items and the totals every screen wants from it. */
@@ -24,22 +40,39 @@ export type DcSummary = {
   authorizedBy: string | null;
   lifecycle: DcLifecycle;
   items: DeliveryChallanItemRow[];
+  /** Figures for each item, in the same order, from the shared chain calculation. */
+  lines: LineFigures[];
   received: number;
+  /** As shown on this challan's row: original lines carry their confirmed follow-ups. */
   sent: number;
   materialProblem: number;
   rejection: number;
   /** Received less everything accounted back: what is still on our floor. */
   balance: number;
+  /** True once every component on the challan stands at exactly zero. */
+  settled: boolean;
   /**
-   * This challan's own lines that still owe work, counting despatches already
-   * made on later challans. These are the lines a follow-up can be raised
-   * against, and the list screens offer the button from them.
+   * What this challan adds to a column total. Original lines only, with their
+   * confirmed follow-ups folded in, so a despatch is counted once however
+   * many of the challans involved are on the list.
    */
-  outstandingLines: { id: string; component: string; balance: number }[];
+  reconciled: ReconciledTotals;
+  /**
+   * This challan's own lines that still owe work, counting confirmed
+   * despatches on later challans. `bookable` is what a new follow-up may carry
+   * once drafts already raised against the line are allowed for.
+   */
+  outstandingLines: {
+    id: string;
+    component: string;
+    balance: number;
+    onDraft: number;
+    bookable: number;
+  }[];
 };
 
-function sum(items: DeliveryChallanItemRow[], pick: (i: DeliveryChallanItemRow) => number): number {
-  return items.reduce((total, item) => total + (Number(pick(item)) || 0), 0);
+function add(lines: LineFigures[], pick: (line: LineFigures) => number): number {
+  return lines.reduce((total, line) => total + pick(line), 0);
 }
 
 /** A uuid nothing can have, for "narrowed to nothing" without a special case. */
@@ -162,19 +195,20 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
   const challans = dcs ?? [];
   if (challans.length === 0) return [];
 
-  const { data: items } = await supabase
-    .from("delivery_challan_items")
-    .select("*")
-    .in(
-      "dc_id",
-      challans.map((dc) => dc.id)
-    )
-    .order("sort_order");
-
-  // Balance now depends on despatches made on other challans, so every line
-  // is needed, not only the ones belonging to the challans listed here.
-  const { data: everyItem } = await supabase.from("delivery_challan_items").select("*");
-  const allLines = everyItem ?? items ?? [];
+  const [{ data: items }, chainRows] = await Promise.all([
+    supabase
+      .from("delivery_challan_items")
+      .select("*")
+      .in(
+        "dc_id",
+        challans.map((dc) => dc.id)
+      )
+      .order("sort_order"),
+    // Balance depends on despatches made on other challans, and on whether
+    // those challans are confirmed, so every line on file is needed.
+    fetchChainRows(supabase),
+  ]);
+  const chain = indexChain(chainRows);
 
   const nameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
 
@@ -190,10 +224,20 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     else itemsByDc.set(item.dc_id, [item]);
   }
 
-  const lineBalances = remainingByLine(allLines);
-
   let summaries: DcSummary[] = challans.map((dc) => {
     const rows = itemsByDc.get(dc.id) ?? [];
+    const lines = rows.map((item) => figuresFor(item, chain));
+    const originals = lines.filter((line) => !line.continues);
+    const settled = challanSettledIn(rows, chain);
+
+    const reconciled: ReconciledTotals = {
+      received: add(originals, (line) => line.received),
+      sent: add(originals, (line) => line.sent),
+      materialProblem: add(originals, (line) => line.materialProblem),
+      rejection: add(originals, (line) => line.rejection),
+      balance: outstandingIn(rows, chain),
+    };
+
     return {
       id: dc.id,
       dcNumber: dc.dc_number,
@@ -202,21 +246,29 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
       customerDcNumbers: (dc.customer_dc_number ?? []).filter(Boolean) as string[],
       customerDcDates: dc.customer_dc_date ?? [],
       authorizedBy: dc.authorized_by,
-      lifecycle: dcLifecycle(dc.status, rows, outstandingForChallan(rows, allLines)),
+      lifecycle: dcLifecycle(dc.status, rows, settled),
       items: rows,
-      received: sum(rows.filter(isOriginalLine), (i) => i.received_qty),
-      sent: sum(rows, (i) => i.sent_qty),
-      materialProblem: sum(rows, (i) => i.material_problem_qty),
-      rejection: sum(rows, (i) => i.rejection_qty),
-      balance: outstandingForChallan(rows, allLines),
-      outstandingLines: rows
-        .filter(isOriginalLine)
-        .map((item) => ({
-          id: item.id,
-          component: item.component,
-          balance: lineBalances.get(item.id) ?? 0,
-        }))
-        .filter((line) => line.balance > 0),
+      lines,
+      received: reconciled.received,
+      sent: add(lines, (line) => line.sent),
+      materialProblem: add(lines, (line) => line.materialProblem),
+      rejection: add(lines, (line) => line.rejection),
+      balance: reconciled.balance,
+      settled,
+      reconciled,
+      outstandingLines: rows.flatMap((item, index) => {
+        const line = lines[index];
+        if (line.continues || (line.balance ?? 0) <= 0) return [];
+        return [
+          {
+            id: item.id,
+            component: item.component,
+            balance: line.balance ?? 0,
+            onDraft: line.onDraft,
+            bookable: line.bookable,
+          },
+        ];
+      }),
     };
   });
 
@@ -237,14 +289,20 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
   return summaries;
 }
 
-/** Column totals across a filtered list, for the foot of a table or a print. */
-export function totalDcSummaries(summaries: DcSummary[]) {
+/**
+ * Column totals across a filtered list, for the foot of a table or a print.
+ *
+ * Built from each challan's reconciled figures, so a follow-up and the
+ * original it completes can both be on the list without the despatch being
+ * added twice.
+ */
+export function totalDcSummaries(summaries: DcSummary[]): ReconciledTotals {
   return {
-    received: summaries.reduce((total, dc) => total + dc.received, 0),
-    sent: summaries.reduce((total, dc) => total + dc.sent, 0),
-    materialProblem: summaries.reduce((total, dc) => total + dc.materialProblem, 0),
-    rejection: summaries.reduce((total, dc) => total + dc.rejection, 0),
-    balance: summaries.reduce((total, dc) => total + dc.balance, 0),
+    received: summaries.reduce((total, dc) => total + dc.reconciled.received, 0),
+    sent: summaries.reduce((total, dc) => total + dc.reconciled.sent, 0),
+    materialProblem: summaries.reduce((total, dc) => total + dc.reconciled.materialProblem, 0),
+    rejection: summaries.reduce((total, dc) => total + dc.reconciled.rejection, 0),
+    balance: summaries.reduce((total, dc) => total + dc.reconciled.balance, 0),
   };
 }
 

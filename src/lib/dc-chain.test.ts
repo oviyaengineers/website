@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  bookableOnLine,
+  challanSettled,
+  figuresFor,
+  indexChain,
   isContinuationLine,
   outstandingForChallan,
   outwardPartsByOriginal,
   remainingByLine,
   remainingOnLine,
+  rootLineOf,
 } from "./dc-chain.ts";
 
 function line(
@@ -24,6 +29,11 @@ function line(
     material_problem_qty: materialProblem,
     rejection_qty: rejection,
   };
+}
+
+/** The same line, sitting on a challan still in draft. */
+function onDraft<T>(item: T, dc_id = "draft-dc") {
+  return { ...item, draft: true, dc_id };
 }
 
 test("an original line on its own balances as it always did", () => {
@@ -94,4 +104,143 @@ test("the three outward columns each carry the whole chain", () => {
   const parts = outwardPartsByOriginal(items).get("a");
   assert.deepEqual(parts, { sent: 250, materialProblem: 0, rejection: 50 });
   assert.equal(remainingByLine(items).get("a"), 0);
+});
+
+// --- The four cases the balance must get right -----------------------------
+
+test("received 250, sent 80: balance 170, pending", () => {
+  const items = [line("a", 250, 80)];
+  assert.equal(remainingOnLine("a", items), 170);
+  assert.equal(challanSettled(items, items), false);
+});
+
+test("received 250, sent 250: balance 0, completed", () => {
+  const items = [line("a", 250, 250)];
+  assert.equal(remainingOnLine("a", items), 0);
+  assert.equal(challanSettled(items, items), true);
+});
+
+test("received 250, sent 200, problem 20, rejection 10: balance 20, pending", () => {
+  const items = [line("a", 250, 200, null, 20, 10)];
+  assert.equal(remainingOnLine("a", items), 20);
+  assert.equal(challanSettled(items, items), false);
+});
+
+test("received 250, sent 200, problem 50: balance 0, completed", () => {
+  const items = [line("a", 250, 200, null, 50, 0)];
+  assert.equal(remainingOnLine("a", items), 0);
+  assert.equal(challanSettled(items, items), true);
+});
+
+// --- Follow-ups, confirmed and draft ----------------------------------------
+
+test("a confirmed follow-up reduces the original, and a second one closes it", () => {
+  // 250 in; 80 on the first follow-up, then the remaining 170 on another.
+  const first = [line("a", 250), line("b", 0, 80, "a")];
+  assert.equal(remainingOnLine("a", first), 170);
+  assert.equal(challanSettled([first[0]], first), false);
+
+  const both = [...first, line("c", 0, 170, "a")];
+  assert.equal(remainingOnLine("a", both), 0);
+  assert.equal(challanSettled([both[0]], both), true);
+});
+
+test("a draft follow-up does not reduce the balance", () => {
+  const items = [line("a", 250, 80), onDraft(line("b", 0, 170, "a"))];
+  assert.equal(remainingOnLine("a", items), 170);
+  assert.equal(challanSettled([items[0]], items), false);
+});
+
+test("confirming the draft is what closes the original", () => {
+  const draft = [line("a", 250, 80), onDraft(line("b", 0, 170, "a"))];
+  const confirmed = [draft[0], { ...draft[1], draft: false }];
+  assert.equal(remainingOnLine("a", draft), 170);
+  assert.equal(remainingOnLine("a", confirmed), 0);
+});
+
+test("the line that read 0: 80 sent, 160 on a draft, 10 confirmed", () => {
+  // 26-27-006 as it stood: only the 80 and the confirmed 10 count.
+  const items = [
+    line("a", 250, 80),
+    onDraft(line("b", 0, 160, "a"), "dc-014"),
+    line("c", 0, 10, "a"),
+  ];
+  const index = indexChain(items);
+  const figures = figuresFor(items[0], index);
+
+  assert.equal(figures.balance, 160);
+  assert.equal(figures.sent, 90, "the original shows its own 80 plus the confirmed 10");
+  assert.equal(figures.ownSent, 80);
+  assert.equal(figures.onDraft, 160);
+  assert.equal(figures.bookable, 0, "the draft has already booked everything left");
+});
+
+test("drafts book quantity, so two cannot promise more than is left", () => {
+  const items = [line("a", 250, 80), onDraft(line("b", 0, 100, "a"))];
+  assert.equal(remainingOnLine("a", items), 170);
+  assert.equal(bookableOnLine("a", items), 70);
+});
+
+test("a draft being edited does not book against itself", () => {
+  const items = [line("a", 250, 80), onDraft(line("b", 0, 100, "a"), "dc-edit")];
+  assert.equal(bookableOnLine("a", items, "dc-edit"), 170);
+});
+
+test("editing a follow-up measures its room without its own old figures", () => {
+  // 26-27-001's CF8M line: 200 received, 90 on the draft being edited. With
+  // the draft counted against itself the room would read 110; editing it has
+  // to offer the whole 200, or its own 90 could never be saved again.
+  const original = line("a", 200, 0);
+  const draft = onDraft(line("b", 0, 90, "a"), "dc-016");
+  const all = [original, draft];
+
+  assert.equal(bookableOnLine("a", all), 110, "a new follow-up has 110 left");
+  const others = all.filter((row) => !("dc_id" in row) || row.dc_id !== "dc-016");
+  assert.equal(bookableOnLine("a", others), 200, "the draft being edited sees all 200");
+});
+
+test("a follow-up finds the original line it ultimately belongs to", () => {
+  const items = [line("a", 200), line("b", 0, 50, "a"), line("c", 0, 40, "b")];
+  assert.equal(rootLineOf("b", items)?.id, "a");
+  assert.equal(rootLineOf("c", items)?.id, "a", "a follow-up of a follow-up still lands on a");
+  assert.equal(rootLineOf("a", items)?.id, "a");
+  assert.equal(rootLineOf("missing", items), undefined);
+});
+
+test("a follow-up line has no balance of its own in its figures", () => {
+  const items = [line("a", 250, 80), line("b", 0, 10, "a")];
+  const figures = figuresFor(items[1], indexChain(items));
+  assert.equal(figures.balance, null);
+  assert.equal(figures.sent, 10);
+  assert.equal(figures.received, 0);
+});
+
+// --- Several components on one challan --------------------------------------
+
+test("each component keeps its own balance", () => {
+  // One challan, two parts. A follow-up on the second never touches the first.
+  const items = [
+    line("body", 250, 250),
+    line("connector", 250, 100),
+    line("follow", 0, 50, "connector"),
+  ];
+  const index = indexChain(items);
+
+  assert.equal(figuresFor(items[0], index).balance, 0);
+  assert.equal(figuresFor(items[0], index).sent, 250);
+  assert.equal(figuresFor(items[1], index).balance, 100);
+  assert.equal(figuresFor(items[1], index).sent, 150);
+  assert.equal(challanSettled(items.slice(0, 2), items), false);
+});
+
+test("one component short and another over do not add up to finished", () => {
+  const items = [line("a", 250, 270), line("b", 250, 230)];
+  assert.equal(outstandingForChallan(items, items), 0, "the sum is zero");
+  assert.equal(challanSettled(items, items), false, "but neither line is");
+});
+
+test("a negative balance is never settled", () => {
+  const items = [line("a", 250, 260)];
+  assert.equal(remainingOnLine("a", items), -10);
+  assert.equal(challanSettled(items, items), false);
 });

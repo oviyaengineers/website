@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { isOriginalLine, outstandingForChallan, remainingByLine } from "@/lib/dc-chain";
+import { challanSettledIn, figuresFor, indexChain, type LineFigures } from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { ScannedItemSelection } from "@/components/dc-scan-dialog";
 
@@ -30,15 +31,20 @@ export type LedgerRow = {
   ourDcNumber: string | null;
   material: string | null;
   received: number;
+  /** For an original line, its own despatch plus every confirmed follow-up. */
   sent: number;
+  /** This row's own sent quantity, shown when the chain figure differs from it. */
+  ownSent: number;
   materialProblem: number;
   rejection: number;
   /**
-   * Received less everything accounted back, counting despatches made on
-   * later challans. Null where the line has no balance of its own: a scan
+   * Received less everything accounted back, counting confirmed despatches
+   * on later challans. Null where the line has no balance of its own: a scan
    * not yet entered, or a line that continues an earlier challan.
    */
   balance: number | null;
+  /** Quantity on draft follow-ups against this line, not yet counted. */
+  onDraft: number;
   status: LedgerStatus;
 };
 
@@ -133,17 +139,21 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
     else rowsByDc.set(row.dc_id, [row]);
   }
 
-  // Balance is a property of a chain, so it is read from every line on file:
-  // the despatch that settles this component may sit on a challan that holds
-  // nothing else of it.
-  const { data: allItems } = await supabase.from("delivery_challan_items").select("*");
-  const remaining = remainingByLine(allItems ?? []);
+  // Balance is a property of a chain, so it is read from every line on file,
+  // marked draft or not, through the calculation every screen shares. The
+  // despatch that settles this component may sit on a challan that holds
+  // nothing else of it, and a draft follow-up must not settle it at all.
+  const chain = indexChain(await fetchChainRows(supabase));
+  const originals: LineFigures[] = [];
 
   const rows: LedgerRow[] = [];
 
   for (const item of items ?? []) {
     const dc = challanById.get(item.dc_id);
     if (!dc) continue;
+    const line = figuresFor(item, chain);
+    if (!line.continues) originals.push(line);
+    const challanRows = rowsByDc.get(dc.id) ?? [];
     rows.push({
       key: `item-${item.id}`,
       source: "challan",
@@ -154,16 +164,17 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
       customerDcDate: (dc.customer_dc_date ?? []).filter(Boolean)[0] ?? null,
       ourDcNumber: dc.dc_number,
       material: item.material,
-      received: Number(item.received_qty) || 0,
-      sent: Number(item.sent_qty) || 0,
-      materialProblem: Number(item.material_problem_qty) || 0,
-      rejection: Number(item.rejection_qty) || 0,
-      balance: isOriginalLine(item) ? (remaining.get(item.id) ?? 0) : null,
-      status: dcLifecycle(
-        dc.status,
-        rowsByDc.get(dc.id) ?? [],
-        outstandingForChallan(rowsByDc.get(dc.id) ?? [], allItems ?? [])
-      ),
+      // An original row carries its confirmed follow-ups, as on every other
+      // screen, so the row adds up to its balance. A follow-up row shows its
+      // own despatch and has no balance of its own.
+      received: line.received,
+      sent: line.sent,
+      ownSent: line.ownSent,
+      materialProblem: line.materialProblem,
+      rejection: line.rejection,
+      balance: line.balance,
+      onDraft: line.onDraft,
+      status: dcLifecycle(dc.status, challanRows, challanSettledIn(challanRows, chain)),
     });
   }
 
@@ -184,9 +195,11 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
         material: line.material ?? null,
         received: Number(line.received_qty) || 0,
         sent: 0,
+        ownSent: 0,
         materialProblem: 0,
         rejection: 0,
         balance: null,
+        onDraft: 0,
         status: "pending-scan",
       });
     }
@@ -194,21 +207,25 @@ export async function fetchComponentLedger(componentId: string): Promise<Compone
 
   rows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
-  const challanRows = rows.filter((row) => row.source === "challan");
+  const total = (pick: (line: LineFigures) => number) =>
+    originals.reduce((sum, line) => sum + pick(line), 0);
 
   return {
     id: component.id,
     name: component.name,
     rows,
+    // Totals from the original lines alone, each carrying its confirmed
+    // follow-ups, so received less outward always equals the balance and no
+    // despatch is counted on both its own row and the line it completes.
     summary: {
-      received: challanRows.reduce((total, row) => total + row.received, 0),
-      sent: challanRows.reduce((total, row) => total + row.sent, 0),
-      materialProblem: challanRows.reduce((total, row) => total + row.materialProblem, 0),
-      rejection: challanRows.reduce((total, row) => total + row.rejection, 0),
-      balance: challanRows.reduce((total, row) => total + (row.balance ?? 0), 0),
+      received: total((line) => line.received),
+      sent: total((line) => line.sent),
+      materialProblem: total((line) => line.materialProblem),
+      rejection: total((line) => line.rejection),
+      balance: total((line) => line.balance ?? 0),
       awaitingEntry: rows
         .filter((row) => row.source === "scan")
-        .reduce((total, row) => total + row.received, 0),
+        .reduce((sum, row) => sum + row.received, 0),
       pendingScans: rows.filter((row) => row.status === "pending-scan").length,
       activeChallans: new Set(
         rows.filter((row) => row.status === "active").map((row) => row.ourDcNumber)

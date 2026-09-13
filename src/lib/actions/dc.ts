@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { findOverDelivered, outwardTotal } from "@/lib/dc-balance";
-import { remainingOnLine } from "@/lib/dc-chain";
+import { bookableOnLine, isContinuationLine, remainingByLine } from "@/lib/dc-chain";
+import { fetchChainRows } from "@/lib/dc-chain-data";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import { getScannedDc, markScansConverted } from "@/lib/actions/dc-scan-queue";
 import { storedStatusFor } from "@/lib/dc-lifecycle";
@@ -88,39 +89,39 @@ async function findExistingRefs(
  * people entering despatches against the same lot is exactly when that
  * matters.
  */
-async function findOverContinued(items: DcItemInput[]): Promise<string[]> {
+async function findOverContinued(
+  items: DcItemInput[],
+  /** The challan being edited, whose current figures are about to be replaced. */
+  editingDcId?: string | null
+): Promise<string[]> {
   const continuations = items.filter((item) => item.parent_item_id);
   if (continuations.length === 0) return [];
 
   const supabase = await createClient();
+  const chainRows = await fetchChainRows(supabase);
   const parentIds = [...new Set(continuations.map((item) => item.parent_item_id as string))];
-
-  const { data: parents } = await supabase
-    .from("delivery_challan_items")
-    .select("id, component, received_qty, sent_qty, material_problem_qty, rejection_qty")
-    .in("id", parentIds);
-
-  const { data: siblings } = await supabase
-    .from("delivery_challan_items")
-    .select("id, parent_item_id, received_qty, sent_qty, material_problem_qty, rejection_qty")
-    .in("parent_item_id", parentIds);
 
   const problems: string[] = [];
   for (const parentId of parentIds) {
-    const parent = (parents ?? []).find((row) => row.id === parentId);
+    const parent = chainRows.find((row) => row.id === parentId);
     if (!parent) {
       problems.push("one line no longer exists");
       continue;
     }
-    const remaining = remainingOnLine(parentId, [
-      { ...parent, parent_item_id: null },
-      ...(siblings ?? []),
-    ]);
+    // Room left on the line: the balance after confirmed despatches, less what
+    // other drafts have already booked. A challan being edited is left out
+    // entirely, confirmed or not, because these rows replace its old ones.
+    const pool = editingDcId
+      ? chainRows.filter((row) => row.dc_id !== editingDcId || row.id === parentId)
+      : chainRows;
+    const room = bookableOnLine(parentId, pool);
     const asked = continuations
       .filter((item) => item.parent_item_id === parentId)
       .reduce((total, item) => total + outwardTotal(item), 0);
-    if (asked > remaining) {
-      problems.push(`${parent.component} has ${remaining} outstanding but ${asked} is entered`);
+    if (asked > room) {
+      problems.push(
+        `${parent.component} has ${Math.max(0, room)} left to despatch but ${asked} is entered`
+      );
     }
   }
   return problems;
@@ -396,12 +397,23 @@ export async function updateDcAction(
     };
   }
 
-  const overDelivered = findOverDelivered(values.items);
+  // Same two rules as creating one. Only original lines are judged by
+  // came-in-versus-went-out, because a follow-up received nothing and that rule
+  // would refuse every one. Follow-up rows are held to what their line can
+  // still take, with this challan's own old rows left out of the count.
+  const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
   if (overDelivered.length > 0) {
     return {
       error: `More pieces go out than came in on: ${overDelivered
         .map((row) => `${row.component} (${row.extra} extra)`)
         .join("; ")}.`,
+    };
+  }
+
+  const tooMuch = await findOverContinued(values.items, id);
+  if (tooMuch.length > 0) {
+    return {
+      error: `More is being despatched than remains outstanding: ${tooMuch.join("; ")}.`,
     };
   }
 
@@ -461,6 +473,32 @@ export async function updateDcAction(
  */
 export async function updateDcStatusAction(id: string, lifecycle: "draft" | "active") {
   const supabase = await createClient();
+
+  // Confirming a follow-up is the moment its quantity starts to count against
+  // the line it continues. Another follow-up may have been confirmed against
+  // the same line since this one was drafted, so check it still fits.
+  if (lifecycle === "active") {
+    const chainRows = await fetchChainRows(supabase);
+    if (chainRows.some((row) => row.dc_id === id && isContinuationLine(row))) {
+      const before = remainingByLine(chainRows);
+      const after = remainingByLine(
+        chainRows.map((row) => (row.dc_id === id ? { ...row, draft: false } : row))
+      );
+      const pushedOver = [...after].filter(
+        ([lineId, left]) => left < 0 && left < (before.get(lineId) ?? 0)
+      );
+      if (pushedOver.length > 0) {
+        const named = pushedOver.map(([lineId, left]) => {
+          const line = chainRows.find((row) => row.id === lineId);
+          return `${line?.component ?? "a line"} (${-left} over)`;
+        });
+        throw new Error(
+          `Confirming this would despatch more than was received: ${named.join("; ")}. Reduce the quantity first.`
+        );
+      }
+    }
+  }
+
   const status = storedStatusFor(lifecycle);
   const { error } = await supabase.from("delivery_challans").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);

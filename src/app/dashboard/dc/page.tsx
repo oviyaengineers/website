@@ -19,7 +19,8 @@ import { DcFilters } from "@/components/dc-filters";
 import { SearchBox } from "@/components/search-box";
 import { DeleteDcButton } from "@/components/delete-dc-button";
 import { DcStatusBadge } from "@/components/status-badge";
-import { isContinuationLine } from "@/lib/dc-chain";
+import { isContinuationLine, type LineFigures } from "@/lib/dc-chain";
+import { shortCustomerName } from "@/lib/customer-name";
 import { fetchDcSummaries, totalDcSummaries, type DcSummary } from "@/lib/dc-list";
 
 export const metadata: Metadata = { title: "All DCs | Oviya Engineers" };
@@ -32,8 +33,15 @@ type Search = {
   component?: string;
 };
 
-/** The balance column reads differently in each direction, so it says which. */
-function balanceText(balance: number): { text: string; className: string } {
+/**
+ * One component's balance, worded for its direction.
+ *
+ * A follow-up line owes nothing of its own, so it shows a dash rather than a
+ * zero that would read as "finished".
+ */
+function balanceText(line: LineFigures): { text: string; className: string } {
+  const balance = line.balance;
+  if (balance === null) return { text: "—", className: "text-muted-foreground" };
   if (balance < 0) return { text: `${-balance} extra`, className: "font-medium text-destructive" };
   if (balance > 0) return { text: `${balance} pending`, className: "text-amber-600" };
   return { text: "0", className: "text-muted-foreground" };
@@ -61,10 +69,11 @@ function continuesEarlier(dc: DcSummary): boolean {
  * the line can be chosen, and every line there carries the same button.
  */
 function followUpHref(dc: DcSummary): string | null {
-  if (dc.outstandingLines.length === 0) return null;
-  if (dc.outstandingLines.length === 1) {
-    return `/dashboard/dc/new?from=${dc.outstandingLines[0].id}`;
-  }
+  // Only lines with room left once drafts are allowed for. A balance already
+  // booked on a draft follow-up has nothing a new one could carry.
+  const open = dc.outstandingLines.filter((line) => line.bookable > 0);
+  if (open.length === 0) return null;
+  if (open.length === 1) return `/dashboard/dc/new?from=${open[0].id}`;
   return `/dashboard/dc/${dc.id}`;
 }
 
@@ -118,19 +127,21 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
         <ComponentPicker components={picklist ?? []} />
       </div>
 
-      {/* Desktop: every quantity column stays visible, and the table scrolls
-          inside its own card rather than dropping columns or widening the
-          page. Which columns matter is not ours to decide — the operator
-          reconciles against all of them. */}
+      {/* Desktop: one row per component, with the challan's own details
+          spanning its rows. A single row per challan could not say which part
+          a quantity belonged to, and a balance summed across two parts hides
+          which one is still owed. Every quantity column stays visible, and the
+          table scrolls inside its own card rather than widening the page. */}
       <Card className="hidden md:block">
         <CardContent className="overflow-x-auto p-0">
-          <Table className="min-w-[1040px]">
+          <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow>
                 <TableHead>DC #</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Their DC #</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Received</TableHead>
                 <TableHead className="text-right">Sent</TableHead>
                 <TableHead className="text-right">Mat. Problem</TableHead>
@@ -141,72 +152,129 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
               </TableRow>
             </TableHeader>
             <TableBody>
-              {summaries.map((dc) => {
-                const balance = balanceText(dc.balance);
-                return (
-                  <TableRow key={dc.id}>
-                    <TableCell className="font-medium">
-                      {dc.dcNumber}
-                      {continuesEarlier(dc) && (
-                        <span className="block text-xs font-normal text-muted-foreground">
-                          continues an earlier challan
-                        </span>
+              {summaries.flatMap((dc) => {
+                // A challan with no items still gets its row, so an empty one
+                // is visible rather than silently missing.
+                const rows = dc.items.length > 0 ? dc.items : [null];
+                const span = rows.length;
+                return rows.map((item, index) => {
+                  const line = item ? dc.lines[index] : null;
+                  const balance = line ? balanceText(line) : null;
+                  return (
+                    <TableRow key={`${dc.id}-${item?.id ?? "empty"}`}>
+                      {index === 0 && (
+                        <>
+                          <TableCell rowSpan={span} className="align-top font-medium">
+                            {dc.dcNumber}
+                            {continuesEarlier(dc) && (
+                              <span className="block text-xs font-normal text-muted-foreground">
+                                continues an earlier challan
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell rowSpan={span} className="align-top whitespace-nowrap">
+                            {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                          </TableCell>
+                          {/* Shortened for the column; the full name is on hover
+                              and on the challan itself. */}
+                          <TableCell
+                            rowSpan={span}
+                            className="max-w-[200px] align-top"
+                            title={dc.customerName}
+                          >
+                            {shortCustomerName(dc.customerName)}
+                          </TableCell>
+                          <TableCell
+                            rowSpan={span}
+                            className="max-w-[160px] truncate align-top"
+                            title={refsOf(dc)}
+                          >
+                            {refsOf(dc)}
+                          </TableCell>
+                        </>
                       )}
-                    </TableCell>
-                    <TableCell>{format(new Date(dc.dcDate), "dd MMM yyyy")}</TableCell>
-                    <TableCell>{dc.customerName}</TableCell>
-                    <TableCell className="max-w-[180px] truncate" title={refsOf(dc)}>
-                      {refsOf(dc)}
-                    </TableCell>
-                    <TableCell className="text-right">{dc.received}</TableCell>
-                    <TableCell className="text-right">{dc.sent}</TableCell>
-                    <TableCell className="text-right">{dc.materialProblem}</TableCell>
-                    <TableCell className="text-right">{dc.rejection}</TableCell>
-                    <TableCell className={`text-right ${balance.className}`}>
-                      {balance.text}
-                    </TableCell>
-                    <TableCell>
-                      <DcStatusBadge status={dc.lifecycle} />
-                    </TableCell>
-                    <TableCell className="space-x-2 text-right whitespace-nowrap">
-                      {followUpHref(dc) && (
-                        <Button
-                          render={<Link href={followUpHref(dc) as string} />}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <FilePlus2 className="h-4 w-4" /> Follow-up
-                        </Button>
+                      {/* A floor under the width: the other columns do not
+                          wrap, so without one this was the column squeezed,
+                          and a part name ran down six lines. */}
+                      <TableCell className="min-w-[260px] max-w-[320px] whitespace-normal">
+                        {item?.component ?? "-"}
+                        {item?.material && (
+                          <span className="block text-xs text-muted-foreground">
+                            {item.material}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{line?.received ?? 0}</TableCell>
+                      <TableCell className="text-right">
+                        {line?.sent ?? 0}
+                        {/* An original line's Sent includes its confirmed
+                            follow-ups, so the row adds up to its balance. */}
+                        {line && !line.continues && line.sent !== line.ownSent && (
+                          <span className="block text-xs text-muted-foreground">
+                            {line.ownSent} on this DC
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{line?.materialProblem ?? 0}</TableCell>
+                      <TableCell className="text-right">{line?.rejection ?? 0}</TableCell>
+                      <TableCell className={`text-right ${balance?.className ?? ""}`}>
+                        {balance?.text ?? "—"}
+                        {line && line.onDraft > 0 && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {line.onDraft} on draft
+                          </span>
+                        )}
+                      </TableCell>
+                      {index === 0 && (
+                        <>
+                          <TableCell rowSpan={span} className="align-top">
+                            <DcStatusBadge status={dc.lifecycle} />
+                          </TableCell>
+                          <TableCell
+                            rowSpan={span}
+                            className="space-x-2 text-right align-top whitespace-nowrap"
+                          >
+                            {followUpHref(dc) && (
+                              <Button
+                                render={<Link href={followUpHref(dc) as string} />}
+                                variant="outline"
+                                size="sm"
+                              >
+                                <FilePlus2 className="h-4 w-4" /> Follow-up
+                              </Button>
+                            )}
+                            <Button
+                              render={<Link href={`/dashboard/dc/${dc.id}`} />}
+                              variant="outline"
+                              size="sm"
+                            >
+                              View
+                            </Button>
+                            <Button
+                              render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
+                          </TableCell>
+                        </>
                       )}
-                      <Button
-                        render={<Link href={`/dashboard/dc/${dc.id}`} />}
-                        variant="outline"
-                        size="sm"
-                      >
-                        View
-                      </Button>
-                      <Button
-                        render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
-                    </TableCell>
-                  </TableRow>
-                );
+                    </TableRow>
+                  );
+                });
               })}
               {summaries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="py-8 text-center text-muted-foreground">
                     No delivery challans match these filters.
                   </TableCell>
                 </TableRow>
               )}
               {summaries.length > 0 && (
                 <TableRow className="border-t-2 font-medium">
-                  <TableCell colSpan={4}>Total</TableCell>
+                  <TableCell colSpan={5}>Total</TableCell>
                   <TableCell className="text-right">{totals.received}</TableCell>
                   <TableCell className="text-right">{totals.sent}</TableCell>
                   <TableCell className="text-right">{totals.materialProblem}</TableCell>
@@ -220,77 +288,100 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
         </CardContent>
       </Card>
 
-      {/* Phone: the same figures as a labelled stack. Nothing is hidden here
-          either — a column dropped on a phone is a column the shop floor
-          cannot check. */}
+      {/* Phone: the same figures as a labelled stack, one block per component.
+          Nothing is hidden here either — a column dropped on a phone is a
+          column the shop floor cannot check. */}
       <div className="grid gap-3 md:hidden">
-        {summaries.map((dc) => {
-          const balance = balanceText(dc.balance);
-          return (
-            <Card key={dc.id}>
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{dc.dcNumber}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(dc.dcDate), "dd MMM yyyy")}
-                    </p>
-                  </div>
-                  <DcStatusBadge status={dc.lifecycle} />
+        {summaries.map((dc) => (
+          <Card key={dc.id}>
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">{dc.dcNumber}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                  </p>
                 </div>
-                <div className="text-sm">
-                  <p>{dc.customerName}</p>
-                  <p className="text-muted-foreground">Their DC #: {refsOf(dc)}</p>
-                  {continuesEarlier(dc) && (
-                    <p className="text-muted-foreground">Continues an earlier challan</p>
-                  )}
-                </div>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <dt className="text-muted-foreground">Received</dt>
-                  <dd className="text-right">{dc.received}</dd>
-                  <dt className="text-muted-foreground">Sent</dt>
-                  <dd className="text-right">{dc.sent}</dd>
-                  <dt className="text-muted-foreground">Material problem</dt>
-                  <dd className="text-right">{dc.materialProblem}</dd>
-                  <dt className="text-muted-foreground">Rejection</dt>
-                  <dd className="text-right">{dc.rejection}</dd>
-                  <dt className="text-muted-foreground">Balance</dt>
-                  <dd className={`text-right ${balance.className}`}>{balance.text}</dd>
-                </dl>
-                {/* A full thumb's height, delete included: it sits beside
-                    print, and a missed tap there is the expensive one. */}
-                {followUpHref(dc) && (
-                  <Button
-                    render={<Link href={followUpHref(dc) as string} />}
-                    variant="outline"
-                    size="sm"
-                    className="h-11 w-full sm:h-8"
-                  >
-                    <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
-                  </Button>
+                <DcStatusBadge status={dc.lifecycle} />
+              </div>
+              <div className="text-sm">
+                <p title={dc.customerName}>{shortCustomerName(dc.customerName)}</p>
+                <p className="text-muted-foreground">Their DC #: {refsOf(dc)}</p>
+                {continuesEarlier(dc) && (
+                  <p className="text-muted-foreground">Continues an earlier challan</p>
                 )}
-                <div className="flex gap-2 [&>*]:h-11 sm:[&>*]:h-8">
-                  <Button
-                    render={<Link href={`/dashboard/dc/${dc.id}`} />}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                  >
-                    View
-                  </Button>
-                  <Button
-                    render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Printer className="h-4 w-4" />
-                  </Button>
-                  {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+
+              {dc.items.map((item, index) => {
+                const line = dc.lines[index];
+                const balance = balanceText(line);
+                return (
+                  <div key={item.id} className="rounded-lg border p-3 text-sm">
+                    <p className="font-medium">{item.component}</p>
+                    {item.material && <p className="text-muted-foreground">{item.material}</p>}
+                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                      <dt className="text-muted-foreground">Received</dt>
+                      <dd className="text-right">{line.received}</dd>
+                      <dt className="text-muted-foreground">Sent</dt>
+                      <dd className="text-right">
+                        {line.sent}
+                        {!line.continues && line.sent !== line.ownSent && (
+                          <span className="block text-xs text-muted-foreground">
+                            {line.ownSent} on this DC
+                          </span>
+                        )}
+                      </dd>
+                      <dt className="text-muted-foreground">Material problem</dt>
+                      <dd className="text-right">{line.materialProblem}</dd>
+                      <dt className="text-muted-foreground">Rejection</dt>
+                      <dd className="text-right">{line.rejection}</dd>
+                      <dt className="text-muted-foreground">Balance</dt>
+                      <dd className={`text-right ${balance.className}`}>
+                        {balance.text}
+                        {line.onDraft > 0 && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {line.onDraft} on draft
+                          </span>
+                        )}
+                      </dd>
+                    </dl>
+                  </div>
+                );
+              })}
+
+              {/* A full thumb's height, delete included: it sits beside
+                  print, and a missed tap there is the expensive one. */}
+              {followUpHref(dc) && (
+                <Button
+                  render={<Link href={followUpHref(dc) as string} />}
+                  variant="outline"
+                  size="sm"
+                  className="h-11 w-full sm:h-8"
+                >
+                  <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                </Button>
+              )}
+              <div className="flex gap-2 [&>*]:h-11 sm:[&>*]:h-8">
+                <Button
+                  render={<Link href={`/dashboard/dc/${dc.id}`} />}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  View
+                </Button>
+                <Button
+                  render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Printer className="h-4 w-4" />
+                </Button>
+                {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dcNumber} />}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
         {summaries.length === 0 && (
           <p className="py-8 text-center text-muted-foreground">
             No delivery challans match these filters.

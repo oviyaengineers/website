@@ -39,6 +39,18 @@ test("a challan with no items is active, not silently complete", () => {
   assert.equal(dcLifecycle("active", []), "active");
 });
 
+test("a row with more out than in is not completed", () => {
+  // Over-despatched is a keying error, and Completed would hide it.
+  assert.equal(dcLifecycle("active", [item(200, 210)]), "active");
+});
+
+test("the chain's verdict decides when it is known", () => {
+  // The row alone reads 250 in, 80 out; confirmed follow-ups settled the rest.
+  assert.equal(dcLifecycle("active", [item(250, 80)], true), "completed");
+  assert.equal(dcLifecycle("active", [item(250, 250)], false), "active");
+  assert.equal(dcLifecycle("draft", [item(250, 80)], true), "draft");
+});
+
 test("what is written reads back as the lifecycle that was asked for", () => {
   // Since migration 0016 the type holds these names, so they are stored as
   // themselves rather than translated.

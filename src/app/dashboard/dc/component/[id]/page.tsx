@@ -122,11 +122,27 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
                   <td className="p-3 font-medium">{row.ourDcNumber ?? "—"}</td>
                   <td className="p-3 text-muted-foreground">{row.material ?? "-"}</td>
                   <td className="p-3 text-right tabular-nums">{row.received}</td>
-                  <td className="p-3 text-right tabular-nums">{row.sent}</td>
+                  <td className="p-3 text-right tabular-nums">
+                    {row.sent}
+                    {row.sent !== row.ownSent && (
+                      <span className="block text-xs text-muted-foreground">
+                        {row.ownSent} on this DC
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3 text-right tabular-nums">{row.materialProblem}</td>
                   <td className="p-3 text-right tabular-nums">{row.rejection}</td>
                   <td className="p-3 text-right tabular-nums">
-                    {row.balance === null ? "—" : row.balance}
+                    {row.balance === null
+                      ? "—"
+                      : row.balance < 0
+                        ? `${-row.balance} extra`
+                        : row.balance}
+                    {row.onDraft > 0 && (
+                      <span className="block text-xs text-muted-foreground">
+                        {row.onDraft} on draft
+                      </span>
+                    )}
                   </td>
                   <td className="p-3">
                     <Badge

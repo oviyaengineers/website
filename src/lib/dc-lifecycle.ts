@@ -36,25 +36,26 @@ export function normalizeDcStatus(status: DcStatus | string | null | undefined):
  * A challan's real state, from its stored status and its item rows.
  *
  * A draft stays a draft whatever its numbers say — it is not on the books
- * yet. Everything else is Completed once nothing is outstanding on any row,
- * and Active until then.
+ * yet. Everything else is Completed once every row stands at exactly zero,
+ * and Active until then. A negative row is not finished: more went out than
+ * came in, which is a keying error, so it stays Active where it will be seen.
  */
 export function dcLifecycle(
   status: DcStatus | string | null | undefined,
   items: DcQuantities[],
   /**
-   * What the challan still owes once despatches made on later challans are
-   * counted. Pass it wherever the chain is known; without it the rows are
-   * read on their own, which is right for a challan that stands alone.
+   * Whether every line is at zero once confirmed despatches on later
+   * challans are counted, from challanSettled. Pass it wherever the chain is
+   * known; without it the rows are read on their own, which is right only for
+   * a challan that stands alone.
    */
-  outstanding?: number
+  settled?: boolean
 ): DcLifecycle {
   const stored = normalizeDcStatus(status);
   if (stored === "draft") return "draft";
   if (items.length === 0) return "active";
-  const settled =
-    outstanding === undefined ? items.every((item) => balanceQty(item) <= 0) : outstanding <= 0;
-  return settled ? "completed" : "active";
+  const done = settled ?? items.every((item) => balanceQty(item) === 0);
+  return done ? "completed" : "active";
 }
 
 /**
