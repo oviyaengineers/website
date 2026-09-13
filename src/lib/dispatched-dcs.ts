@@ -50,6 +50,12 @@ export type DispatchedLine = {
   ownSent: number;
   /** True where the line despatches against a lot received on an earlier challan. */
   continues: boolean;
+  /** On a follow-up line: pending on the original without this challan. */
+  pending: number | null;
+  /** On a follow-up line: what the original owes once this challan counts. */
+  after: number | null;
+  /** On a follow-up line: the original's challan number. */
+  rootDcNumber: string | null;
 };
 
 export type DispatchedDc = {
@@ -86,6 +92,9 @@ function lineFrom(dc: DcSummary, item: DeliveryChallanItemRow, line: LineFigures
     bookable: line.bookable,
     ownSent: line.ownSent,
     continues: line.continues,
+    pending: line.pending,
+    after: line.after,
+    rootDcNumber: line.rootDcNumber,
   };
 }
 

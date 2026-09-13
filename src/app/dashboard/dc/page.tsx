@@ -36,15 +36,25 @@ type Search = {
 /**
  * One component's balance, worded for its direction.
  *
- * A follow-up line owes nothing of its own, so it shows a dash rather than a
- * zero that would read as "finished".
+ * A follow-up line owes nothing of its own. It shows what is left on the
+ * original it continues once it counts, with a note saying whose balance that
+ * is, so the figure is not read as the follow-up's own.
  */
-function balanceText(line: LineFigures): { text: string; className: string } {
-  const balance = line.balance;
+function balanceText(
+  line: LineFigures,
+  draft = false
+): { text: string; className: string; note?: string } {
+  const balance = line.continues ? line.after : line.balance;
+  const note =
+    line.continues && line.after !== null
+      ? `left on ${line.rootDcNumber}${draft ? " once confirmed" : ""}`
+      : undefined;
   if (balance === null) return { text: "—", className: "text-muted-foreground" };
-  if (balance < 0) return { text: `${-balance} extra`, className: "font-medium text-destructive" };
-  if (balance > 0) return { text: `${balance} pending`, className: "text-amber-600" };
-  return { text: "0", className: "text-muted-foreground" };
+  if (balance < 0) {
+    return { text: `${-balance} extra`, className: "font-medium text-destructive", note };
+  }
+  if (balance > 0) return { text: `${balance} pending`, className: "text-amber-600", note };
+  return { text: "0", className: "text-muted-foreground", note };
 }
 
 function refsOf(dc: DcSummary): string {
@@ -54,8 +64,8 @@ function refsOf(dc: DcSummary): string {
 /**
  * A challan that only despatches against lots received on earlier ones.
  *
- * Worth saying on the row: it received nothing itself, so a Received of zero
- * beside a Sent of fifty is correct rather than a mistake.
+ * Worth saying on the row: it received nothing itself, so its figures come
+ * from the original it continues rather than from a receipt of its own.
  */
 function continuesEarlier(dc: DcSummary): boolean {
   return dc.items.length > 0 && dc.items.every(isContinuationLine);
@@ -159,7 +169,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 const span = rows.length;
                 return rows.map((item, index) => {
                   const line = item ? dc.lines[index] : null;
-                  const balance = line ? balanceText(line) : null;
+                  const balance = line ? balanceText(line, dc.lifecycle === "draft") : null;
                   return (
                     <TableRow key={`${dc.id}-${item?.id ?? "empty"}`}>
                       {index === 0 && (
@@ -196,7 +206,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                       {/* A floor under the width: the other columns do not
                           wrap, so without one this was the column squeezed,
                           and a part name ran down six lines. */}
-                      <TableCell className="min-w-[260px] max-w-[320px] whitespace-normal">
+                      <TableCell className="max-w-[320px] min-w-[260px] whitespace-normal">
                         {item?.component ?? "-"}
                         {item?.material && (
                           <span className="block text-xs text-muted-foreground">
@@ -204,7 +214,21 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">{line?.received ?? 0}</TableCell>
+                      {/* A follow-up received nothing, so a zero here said
+                          nothing. It shows what is pending on the original it
+                          continues instead, as the follow-up's own page does. */}
+                      <TableCell className="text-right">
+                        {line && line.pending !== null ? (
+                          <>
+                            {line.pending}
+                            <span className="block text-xs text-muted-foreground">
+                              pending on {line.rootDcNumber}
+                            </span>
+                          </>
+                        ) : (
+                          (line?.received ?? 0)
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         {line?.sent ?? 0}
                         {/* An original line's Sent includes its confirmed
@@ -222,6 +246,11 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                         {line && line.onDraft > 0 && (
                           <span className="block text-xs font-normal text-muted-foreground">
                             {line.onDraft} on draft
+                          </span>
+                        )}
+                        {balance?.note && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {balance.note}
                           </span>
                         )}
                       </TableCell>
@@ -314,14 +343,30 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
 
               {dc.items.map((item, index) => {
                 const line = dc.lines[index];
-                const balance = balanceText(line);
+                const balance = balanceText(line, dc.lifecycle === "draft");
                 return (
                   <div key={item.id} className="rounded-lg border p-3 text-sm">
                     <p className="font-medium">{item.component}</p>
                     {item.material && <p className="text-muted-foreground">{item.material}</p>}
                     <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                      <dt className="text-muted-foreground">Received</dt>
-                      <dd className="text-right">{line.received}</dd>
+                      {/* A follow-up received nothing; it shows what is pending
+                          on the original it continues, as its own page does. */}
+                      {line.pending !== null ? (
+                        <>
+                          <dt className="text-muted-foreground">Pending</dt>
+                          <dd className="text-right">
+                            {line.pending}
+                            <span className="block text-xs text-muted-foreground">
+                              on {line.rootDcNumber}
+                            </span>
+                          </dd>
+                        </>
+                      ) : (
+                        <>
+                          <dt className="text-muted-foreground">Received</dt>
+                          <dd className="text-right">{line.received}</dd>
+                        </>
+                      )}
                       <dt className="text-muted-foreground">Sent</dt>
                       <dd className="text-right">
                         {line.sent}
@@ -341,6 +386,11 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                         {line.onDraft > 0 && (
                           <span className="block text-xs font-normal text-muted-foreground">
                             {line.onDraft} on draft
+                          </span>
+                        )}
+                        {balance.note && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {balance.note}
                           </span>
                         )}
                       </dd>

@@ -21,7 +21,8 @@ import { outwardTotal, type DcQuantities } from "@/lib/dc-balance";
  *
  * A continuation line has no balance of its own. Reading one as if it did
  * would show it as over-delivered, and would subtract the same pieces twice
- * from stock.
+ * from stock. What it shows instead is the original it continues: pending
+ * there without this challan, and what is left once this challan counts.
  *
  * Every screen reads balance through this module. A page that works it out
  * for itself is how two pages come to disagree about the same line.
@@ -39,6 +40,8 @@ export type ChainItem = DcQuantities & {
   parent_item_id?: string | null;
   /** The challan the line is on, so a challan being edited can leave out its own drafts. */
   dc_id?: string;
+  /** That challan's number, for naming the original a follow-up continues. */
+  dc_number?: string;
   /** True when the line sits on a challan still in draft. */
   draft?: boolean;
 };
@@ -214,14 +217,36 @@ export type ChainIndex = {
   parts: Map<string, OutwardParts>;
   remaining: Map<string, number>;
   onDraft: Map<string, number>;
+  /** Every line handed in, by id, carrying its draft mark and challan. */
+  rows: Map<string, ChainItem>;
+  /** The original each line belongs to, by line id. */
+  rootOf: Map<string, string>;
+  /**
+   * Outward on one challan against one original, keyed "dcId|rootId", drafts
+   * included: what that challan does to the original once it counts.
+   */
+  onChallanAgainstRoot: Map<string, number>;
 };
 
 /** Build the maps once, so a list of many challans does not rescan every line per row. */
 export function indexChain(items: ChainItem[]): ChainIndex {
+  const rootOf = new Map<string, string>();
+  const onChallanAgainstRoot = new Map<string, number>();
+  for (const [rootId, item] of eachWithRoot(items)) {
+    rootOf.set(item.id, rootId);
+    if (isContinuationLine(item) && rootId !== item.id) {
+      const key = `${item.dc_id ?? ""}|${rootId}`;
+      onChallanAgainstRoot.set(key, (onChallanAgainstRoot.get(key) ?? 0) + outwardTotal(item));
+    }
+  }
+
   return {
     parts: outwardPartsByOriginal(items),
     remaining: remainingByLine(items),
     onDraft: draftOutwardByOriginal(items),
+    rows: new Map(items.map((item) => [item.id, item])),
+    rootOf,
+    onChallanAgainstRoot,
   };
 }
 
@@ -244,12 +269,40 @@ export type LineFigures = {
   bookable: number;
   /** This row's own sent quantity, to show when the chain figure differs from it. */
   ownSent: number;
+  /**
+   * On a follow-up line: what the original owes without this challan's
+   * despatch against it. Shown where an original line shows Received. Null
+   * on an original line, or when the original is not on file.
+   */
+  pending: number | null;
+  /** On a follow-up line: what the original owes once this challan counts. */
+  after: number | null;
+  /** On a follow-up line: the challan the original line is on. */
+  rootDcId: string | null;
+  rootDcNumber: string | null;
 };
 
 export function figuresFor(item: ChainItem, index: ChainIndex): LineFigures {
   const own = ownParts(item);
 
   if (isContinuationLine(item)) {
+    // The indexed copy carries the draft mark and challan, which a row handed
+    // in from a page's own query may not.
+    const row = index.rows.get(item.id) ?? item;
+    const rootId = index.rootOf.get(item.id);
+    const root = rootId && rootId !== item.id ? index.rows.get(rootId) : undefined;
+
+    let pending: number | null = null;
+    let after: number | null = null;
+    if (rootId && root) {
+      const here = index.onChallanAgainstRoot.get(`${row.dc_id ?? ""}|${rootId}`) ?? 0;
+      const owed = index.remaining.get(rootId) ?? 0;
+      // A confirmed challan is already inside the original's balance, so it is
+      // added back to find what was pending without it. A draft is not.
+      pending = row.draft ? owed : owed + here;
+      after = pending - here;
+    }
+
     return {
       id: item.id,
       continues: true,
@@ -260,6 +313,10 @@ export function figuresFor(item: ChainItem, index: ChainIndex): LineFigures {
       onDraft: 0,
       bookable: 0,
       ownSent: own.sent,
+      pending,
+      after,
+      rootDcId: root?.dc_id ?? null,
+      rootDcNumber: root?.dc_number ?? null,
     };
   }
 
@@ -279,6 +336,10 @@ export function figuresFor(item: ChainItem, index: ChainIndex): LineFigures {
     onDraft,
     bookable: balance - onDraft,
     ownSent: own.sent,
+    pending: null,
+    after: null,
+    rootDcId: null,
+    rootDcNumber: null,
   };
 }
 

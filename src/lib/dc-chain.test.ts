@@ -239,6 +239,52 @@ test("one component short and another over do not add up to finished", () => {
   assert.equal(challanSettled(items, items), false, "but neither line is");
 });
 
+// --- What a follow-up line shows ---------------------------------------------
+
+test("a draft follow-up reads what its original owes now and once confirmed", () => {
+  // 26-27-017 before it was confirmed: 200 owed on 26-27-001, 92 going out.
+  const items = [
+    { ...line("a", 200), dc_id: "dc-001", dc_number: "26-27-001" },
+    onDraft(line("b", 0, 90, "a", 0, 2), "dc-017"),
+  ];
+  const figures = figuresFor(items[1], indexChain(items));
+  assert.equal(figures.pending, 200);
+  assert.equal(figures.after, 108);
+  assert.equal(figures.rootDcNumber, "26-27-001");
+  assert.equal(figures.rootDcId, "dc-001");
+});
+
+test("a confirmed follow-up reads the same pair, its despatch already counted", () => {
+  const items = [
+    { ...line("a", 200), dc_id: "dc-001", dc_number: "26-27-001" },
+    { ...line("b", 0, 90, "a", 0, 2), dc_id: "dc-017", draft: false },
+  ];
+  const figures = figuresFor(items[1], indexChain(items));
+  assert.equal(figures.pending, 200, "the 92 is added back to show what was pending");
+  assert.equal(figures.after, 108);
+});
+
+test("a follow-up read from a page's own query still knows it is a draft", () => {
+  // Pages pass rows straight from their own select, without the draft mark;
+  // the index holds the marked copy and has to be the one believed.
+  const indexed = [
+    { ...line("a", 250, 80), dc_id: "dc-006", dc_number: "26-27-006" },
+    onDraft(line("b", 0, 160, "a"), "dc-014"),
+  ];
+  const unmarked = { ...line("b", 0, 160, "a"), dc_id: "dc-014" };
+  const figures = figuresFor(unmarked, indexChain(indexed));
+  assert.equal(figures.pending, 170);
+  assert.equal(figures.after, 10);
+});
+
+test("an original line has no pending pair of its own", () => {
+  const items = [line("a", 200, 50)];
+  const figures = figuresFor(items[0], indexChain(items));
+  assert.equal(figures.pending, null);
+  assert.equal(figures.after, null);
+  assert.equal(figures.rootDcNumber, null);
+});
+
 test("a negative balance is never settled", () => {
   const items = [line("a", 250, 260)];
   assert.equal(remainingOnLine("a", items), -10);

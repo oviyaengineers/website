@@ -11,7 +11,7 @@ import type { DeliveryChallanItemRow } from "@/types/database";
  * into the same calculation.
  */
 
-export type ChainRow = DeliveryChallanItemRow & { draft: boolean };
+export type ChainRow = DeliveryChallanItemRow & { draft: boolean; dc_number?: string };
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -26,12 +26,21 @@ export function withDraftFlags<T extends { dc_id: string }>(
   }));
 }
 
-/** Every line on file, marked, for any balance that has to see the whole chain. */
+/**
+ * Every line on file, marked, for any balance that has to see the whole chain.
+ *
+ * Each line also carries its challan's number, so a follow-up can name the
+ * original it continues even when that challan is not on the page asking.
+ */
 export async function fetchChainRows(supabase: Supabase): Promise<ChainRow[]> {
   const [{ data: items }, { data: challans }] = await Promise.all([
     supabase.from("delivery_challan_items").select("*"),
-    supabase.from("delivery_challans").select("id, status"),
+    supabase.from("delivery_challans").select("id, status, dc_number"),
   ]);
   const statusByDc = new Map((challans ?? []).map((dc) => [dc.id, dc.status]));
-  return withDraftFlags(items ?? [], statusByDc);
+  const numberByDc = new Map((challans ?? []).map((dc) => [dc.id, dc.dc_number]));
+  return withDraftFlags(items ?? [], statusByDc).map((row) => ({
+    ...row,
+    dc_number: numberByDc.get(row.dc_id),
+  }));
 }

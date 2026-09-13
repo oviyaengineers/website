@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
-import { challanSettledIn, figuresFor, indexChain, rootLineOf } from "@/lib/dc-chain";
+import { challanSettledIn, figuresFor, indexChain } from "@/lib/dc-chain";
 import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
@@ -71,47 +71,37 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   });
   const lifecycle = dcLifecycle(dc.status, items ?? [], challanSettledIn(items ?? [], chain));
 
-  // For a follow-up: the original line each row despatches against, what it
-  // owes now, and what it will owe once this challan counts. A follow-up row's
-  // own Balance is only a dash, because it owes nothing itself, so without this
-  // the page gave no figure at the moment somebody decides whether to confirm.
-  const continued = (items ?? []).flatMap((item) => {
-    if (!item.parent_item_id) return [];
-    const root = rootLineOf(item.id, chainRows);
-    return root && root.id !== item.id ? [{ item, root }] : [];
-  });
-  const rootDcIds = [...new Set(continued.map(({ root }) => root.dc_id))];
-  const { data: rootDcs } =
-    rootDcIds.length > 0
-      ? await supabase.from("delivery_challans").select("id, dc_number").in("id", rootDcIds)
-      : { data: [] as { id: string; dc_number: string }[] };
-  const rootDcNumbers = new Map((rootDcs ?? []).map((row) => [row.id, row.dc_number]));
+  // Whether this challan counts, read from the same snapshot of lines as the
+  // balances, not from the challan row read a moment earlier: confirmed in
+  // between, the two disagreed and the page took the same quantity off twice.
+  const ownChainRows = chainRows.filter((row) => row.dc_id === id);
+  const isDraft =
+    ownChainRows.length > 0 ? ownChainRows.every((row) => row.draft) : lifecycle === "draft";
+
+  // For a follow-up: the original each row despatches against, and what this
+  // challan does to it. Read from the shared figures, so the card cannot drift
+  // from the table below or from the lists. One entry per original, however
+  // many rows despatch against it.
   const followUpOf = new Map<
     string,
     { dcId: string; dcNumber: string; component: string; now: number; here: number }
   >();
-  for (const { item, root } of continued) {
-    const entry = followUpOf.get(root.id) ?? {
-      dcId: root.dc_id,
-      dcNumber: rootDcNumbers.get(root.dc_id) ?? "an earlier challan",
-      component: componentNameOf(root, componentNames),
-      now: figuresFor(root, chain).balance ?? 0,
-      here: 0,
-    };
-    entry.here +=
-      (Number(item.sent_qty) || 0) +
-      (Number(item.material_problem_qty) || 0) +
-      (Number(item.rejection_qty) || 0);
-    followUpOf.set(root.id, entry);
+  for (const item of items ?? []) {
+    const line = figures.get(item.id);
+    if (!line || line.pending === null || line.after === null || !line.rootDcId) continue;
+    const component = componentNameOf(item, componentNames);
+    const key = `${line.rootDcId}|${component}`;
+    if (followUpOf.has(key)) continue;
+    followUpOf.set(key, {
+      dcId: line.rootDcId,
+      dcNumber: line.rootDcNumber ?? "an earlier challan",
+      component,
+      // The card words a draft as "owed now, and after confirming", and a
+      // confirmed challan as "what it despatched, and what is left".
+      now: isDraft ? line.pending : line.after,
+      here: line.pending - line.after,
+    });
   }
-  // A confirmed follow-up is already inside `now`; a draft is not, so its
-  // quantity still has to come off. Whether this challan counts is read from
-  // the same snapshot of lines as the balances, not from the challan row read
-  // a moment earlier: confirmed in between, the two disagreed and the page took
-  // the same quantity off twice.
-  const ownChainRows = chainRows.filter((row) => row.dc_id === id);
-  const isDraft =
-    ownChainRows.length > 0 ? ownChainRows.every((row) => row.draft) : lifecycle === "draft";
 
   return (
     <div className="space-y-6">
@@ -272,10 +262,12 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 // pending there without this challan, and what is left once
                 // this challan counts. The same pending-minus-sent reckoning
                 // the follow-up form uses, so the two pages agree.
-                const root = line.continues ? rootLineOf(item.id, chainRows) : undefined;
-                const entry = root ? followUpOf.get(root.id) : undefined;
-                const pending = entry ? (isDraft ? entry.now : entry.now + entry.here) : null;
-                const balance = entry && pending !== null ? pending - entry.here : line.balance;
+                // Taken from the shared figures, so this page cannot drift from
+                // All DCs and Dispatched, which read the same pair.
+                const pending = line.pending;
+                const balance = line.continues ? line.after : line.balance;
+                const entry =
+                  line.continues && line.rootDcNumber ? { dcNumber: line.rootDcNumber } : undefined;
                 return (
                   <TableRow key={item.id}>
                     <TableCell>{componentNameOf(item, componentNames)}</TableCell>

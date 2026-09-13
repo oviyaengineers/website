@@ -202,7 +202,20 @@ export default async function DispatchedDcsPage({
                       )}
                     </td>
                     <td className="p-3 text-muted-foreground">{line.material ?? "-"}</td>
-                    <td className="p-3 text-right tabular-nums">{line.received}</td>
+                    {/* A follow-up received nothing, so it shows what is
+                        pending on the original it continues instead. */}
+                    <td className="p-3 text-right tabular-nums">
+                      {line.pending !== null ? (
+                        <>
+                          {line.pending}
+                          <span className="block text-xs text-muted-foreground">
+                            pending on {line.rootDcNumber}
+                          </span>
+                        </>
+                      ) : (
+                        line.received
+                      )}
+                    </td>
                     <td className="p-3 text-right tabular-nums">
                       {line.sent}
                       {/* The original's Sent includes confirmed follow-ups, so
@@ -216,25 +229,32 @@ export default async function DispatchedDcsPage({
                     </td>
                     <td className="p-3 text-right tabular-nums">{line.materialProblem}</td>
                     <td className="p-3 text-right tabular-nums">{line.rejection}</td>
+                    {/* A follow-up owes nothing itself, so its cell shows what
+                        is left on the original it continues, and says whose. */}
                     <td
                       className={`p-3 text-right tabular-nums ${
-                        line.balance === null
+                        (line.balance ?? line.after) === null
                           ? "text-muted-foreground"
-                          : line.balance < 0
+                          : (line.balance ?? line.after ?? 0) < 0
                             ? "font-medium text-destructive"
-                            : line.balance > 0
+                            : (line.balance ?? line.after ?? 0) > 0
                               ? "text-amber-600"
                               : "text-muted-foreground"
                       }`}
                     >
-                      {line.balance === null
+                      {(line.balance ?? line.after) === null
                         ? "—"
-                        : line.balance < 0
-                          ? `${-line.balance} extra`
-                          : line.balance}
+                        : (line.balance ?? line.after ?? 0) < 0
+                          ? `${-(line.balance ?? line.after ?? 0)} extra`
+                          : (line.balance ?? line.after)}
                       {line.onDraft > 0 && (
                         <span className="block text-xs font-normal text-muted-foreground">
                           {line.onDraft} on draft
+                        </span>
+                      )}
+                      {line.continues && line.after !== null && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          left on {line.rootDcNumber}
                         </span>
                       )}
                     </td>
@@ -342,8 +362,24 @@ export default async function DispatchedDcsPage({
                     {line.continues ? " · continues an earlier challan" : ""}
                   </p>
                   <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                    <dt className="text-muted-foreground">Received</dt>
-                    <dd className="text-right tabular-nums">{line.received}</dd>
+                    {/* A follow-up received nothing; it shows what is pending
+                        on the original it continues, as its own page does. */}
+                    {line.pending !== null ? (
+                      <>
+                        <dt className="text-muted-foreground">Pending</dt>
+                        <dd className="text-right tabular-nums">
+                          {line.pending}
+                          <span className="block text-xs text-muted-foreground">
+                            on {line.rootDcNumber}
+                          </span>
+                        </dd>
+                      </>
+                    ) : (
+                      <>
+                        <dt className="text-muted-foreground">Received</dt>
+                        <dd className="text-right tabular-nums">{line.received}</dd>
+                      </>
+                    )}
                     <dt className="text-muted-foreground">Sent</dt>
                     <dd className="text-right tabular-nums">
                       {line.sent}
@@ -360,21 +396,26 @@ export default async function DispatchedDcsPage({
                     <dt className="text-muted-foreground">Balance</dt>
                     <dd
                       className={`text-right tabular-nums ${
-                        line.balance !== null && line.balance < 0
+                        (line.balance ?? line.after ?? 0) < 0
                           ? "font-medium text-destructive"
-                          : line.balance !== null && line.balance > 0
+                          : (line.balance ?? line.after ?? 0) > 0
                             ? "text-amber-600"
                             : ""
                       }`}
                     >
-                      {line.balance === null
+                      {(line.balance ?? line.after) === null
                         ? "—"
-                        : line.balance < 0
-                          ? `${-line.balance} extra`
-                          : line.balance}
+                        : (line.balance ?? line.after ?? 0) < 0
+                          ? `${-(line.balance ?? line.after ?? 0)} extra`
+                          : (line.balance ?? line.after)}
                       {line.onDraft > 0 && (
                         <span className="block text-xs font-normal text-muted-foreground">
                           {line.onDraft} on draft
+                        </span>
+                      )}
+                      {line.continues && line.after !== null && (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          left on {line.rootDcNumber}
                         </span>
                       )}
                     </dd>
