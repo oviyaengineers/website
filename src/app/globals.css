@@ -370,9 +370,9 @@
     gap: 0 !important;
   }
 
+  /* The printed size of this box is set in the second print block below, after
+     the on-screen rule, because a size set here loses to that rule. */
   .dc-print-page {
-    width: 186mm;
-    height: 273mm;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -473,7 +473,20 @@
     overflow: visible !important;
   }
 
+  /* Sized to the page it is actually printed on, not to A4 in millimetres.
+     A4 is asked for above, but a phone's print service or a printer set to US
+     Letter can still hand the browser a shorter sheet; Letter is 18mm shorter
+     than A4, so a box fixed at 273mm overran it and the DUPLICATE copy spilled
+     onto a second page. In print, 100vh is the height of the page area and
+     100% its width, so on A4 this is exactly the 186 x 273mm box, and on any
+     other paper both copies still share one sheet.
+
+     It lives here, after the on-screen rule above, on purpose. That rule is
+     not limited to screens and sets the box in millimetres, so a print rule
+     placed before it lost to it and the fixed height still printed. */
   .dc-print-page {
+    width: 100%;
+    height: 100vh;
     box-shadow: none !important;
   }
 }
