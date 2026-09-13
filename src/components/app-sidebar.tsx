@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  CalendarRange,
   CheckCircle2,
   FileClock,
   FilePlus2,
@@ -121,6 +122,12 @@ const NAV: NavGroup[] = [
         label: "Completed DCs",
         icon: CheckCircle2,
         color: "text-lime-400",
+      },
+      {
+        href: "/dashboard/dc/history",
+        label: "DC History",
+        icon: CalendarRange,
+        color: "text-orange-300",
       },
     ],
   },
