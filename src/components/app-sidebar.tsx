@@ -259,11 +259,16 @@ export function AppSidebar({
                         <span>{item.label}</span>
                       </SidebarMenuButton>
                       {/* Shown only when something is waiting, so an empty
-                          badge never reads as a figure to act on. Centred on
-                          the taller mobile row as well as the desktop one. */}
+                          badge never reads as a figure to act on. The kit
+                          places a badge with a rule keyed to the button's
+                          size, which outranked plain centring: on the 44px
+                          mobile row it sat 16px high, on the line with All
+                          DCs, and read as that entry's count. Set with the
+                          same rule instead: 12px down the mobile row, 6px
+                          down the 32px desktop one, centred on both. */}
                       {count > 0 && (
                         <SidebarMenuBadge
-                          className="top-1/2 -translate-y-1/2 bg-amber-400/20 text-amber-300"
+                          className="bg-amber-400/20 text-amber-300 peer-data-[size=default]/menu-button:top-3 md:peer-data-[size=default]/menu-button:top-1.5"
                           aria-label={`${count} draft challan${count === 1 ? "" : "s"}`}
                         >
                           {count}
