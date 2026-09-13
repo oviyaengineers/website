@@ -238,39 +238,46 @@ export default async function DcHistoryPage({
 
       <Card className="hidden md:block">
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[1280px] text-sm">
+          {/* Sized to fit a 1280px laptop beside the sidebar with every column,
+              Status and View included, in view. The customer's DC number rides
+              under ours and the material under the part, rather than taking
+              columns of their own; narrower screens scroll inside the card. */}
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="p-3 text-left font-medium">Date</th>
-                <th className="p-3 text-left font-medium">DC No.</th>
-                <th className="p-3 text-left font-medium">Customer</th>
-                <th className="p-3 text-left font-medium">Customer DC No.</th>
-                <th className="p-3 text-left font-medium">Component</th>
-                <th className="p-3 text-left font-medium">Material</th>
-                <th className="p-3 text-right font-medium">Received</th>
-                <th className="p-3 text-right font-medium">Sent</th>
-                <th className="p-3 text-right font-medium">Mat. Problem</th>
-                <th className="p-3 text-right font-medium">Rejection</th>
-                <th className="p-3 text-right font-medium">Balance</th>
-                <th className="p-3 text-left font-medium">Status</th>
-                <th className="p-3 text-right font-medium">View</th>
+                <th className="px-2 py-2.5 text-left font-medium">Date</th>
+                <th className="px-2 py-2.5 text-left font-medium">DC No. / Customer DC</th>
+                <th className="px-2 py-2.5 text-left font-medium">Customer</th>
+                <th className="px-2 py-2.5 text-left font-medium">Component / Material</th>
+                <th className="px-2 py-2.5 text-right font-medium">Received</th>
+                <th className="px-2 py-2.5 text-right font-medium">Sent</th>
+                <th className="px-2 py-2.5 text-right font-medium">Mat. Problem</th>
+                <th className="px-2 py-2.5 text-right font-medium">Rejection</th>
+                <th className="px-2 py-2.5 text-right font-medium">Balance</th>
+                <th className="px-2 py-2.5 text-left font-medium">Status</th>
+                <th className="px-2 py-2.5 text-right font-medium">View</th>
               </tr>
             </thead>
             <tbody>
               {records.map((record) => (
                 <tr key={record.key} className="border-b align-top last:border-b-0">
-                  <td className="p-3 whitespace-nowrap">
-                    {day(record.date)}
+                  <td className="px-2 py-2.5">
+                    <span className="whitespace-nowrap">{day(record.date)}</span>
                     <span className="block text-xs text-muted-foreground">
                       {HISTORY_DATE_SOURCE_LABELS[record.dateSource]}
                     </span>
                   </td>
-                  <td className="p-3 whitespace-nowrap">
+                  <td className="px-2 py-2.5">
                     {record.dcNumber ? (
-                      <span className="font-medium">{record.dcNumber}</span>
+                      <span className="font-medium whitespace-nowrap">{record.dcNumber}</span>
                     ) : (
                       <span className="text-muted-foreground">Not yet raised</span>
                     )}
+                    <span className="block text-xs whitespace-nowrap text-muted-foreground">
+                      {record.customerDcNumbers.length > 0
+                        ? record.customerDcNumbers.join(", ")
+                        : "-"}
+                    </span>
                     {record.followUpOf ? (
                       <span className="block text-xs text-muted-foreground">
                         Follow-up of{" "}
@@ -287,17 +294,16 @@ export default async function DcHistoryPage({
                       </span>
                     ) : null}
                   </td>
-                  <td className="p-3" title={record.customerName}>
+                  <td className="px-2 py-2.5" title={record.customerName}>
                     {shortCustomerName(record.customerName)}
                   </td>
-                  <td className="p-3 whitespace-nowrap">
-                    {record.customerDcNumbers.length > 0
-                      ? record.customerDcNumbers.join(", ")
-                      : "-"}
+                  <td className="min-w-[180px] px-2 py-2.5">
+                    {record.component ?? "-"}
+                    <span className="block text-xs text-muted-foreground">
+                      {record.material ?? "-"}
+                    </span>
                   </td>
-                  <td className="min-w-[240px] p-3">{record.component ?? "-"}</td>
-                  <td className="p-3 text-muted-foreground">{record.material ?? "-"}</td>
-                  <td className="p-3 text-right tabular-nums">
+                  <td className="px-2 py-2.5 text-right tabular-nums">
                     {record.received !== null ? (
                       record.received
                     ) : record.pending !== null ? (
@@ -311,7 +317,7 @@ export default async function DcHistoryPage({
                       "—"
                     )}
                   </td>
-                  <td className="p-3 text-right tabular-nums">
+                  <td className="px-2 py-2.5 text-right tabular-nums">
                     {record.sent}
                     {record.sentOnFollowUps > 0 ? (
                       <span className="block text-xs text-muted-foreground">
@@ -319,9 +325,9 @@ export default async function DcHistoryPage({
                       </span>
                     ) : null}
                   </td>
-                  <td className="p-3 text-right tabular-nums">{record.materialProblem}</td>
-                  <td className="p-3 text-right tabular-nums">{record.rejection}</td>
-                  <td className={`p-3 text-right tabular-nums ${balanceClass(record)}`}>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{record.materialProblem}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{record.rejection}</td>
+                  <td className={`px-2 py-2.5 text-right tabular-nums ${balanceClass(record)}`}>
                     {balanceText(record)}
                     {record.followUpOf && record.balance !== null ? (
                       <span className="block text-xs font-normal text-muted-foreground">
@@ -329,10 +335,10 @@ export default async function DcHistoryPage({
                       </span>
                     ) : null}
                   </td>
-                  <td className="p-3">
+                  <td className="px-2 py-2.5">
                     <HistoryKindBadge kind={record.kind} />
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="px-2 py-2.5 text-right">
                     <Button render={<Link href={record.href} />} variant="outline" size="sm">
                       View
                     </Button>
@@ -341,7 +347,7 @@ export default async function DcHistoryPage({
               ))}
               {records.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={11} className="p-8 text-center text-muted-foreground">
                     {error
                       ? "No range to show."
                       : filtered
@@ -387,7 +393,14 @@ export default async function DcHistoryPage({
                   {record.received ?? record.pending ?? "—"}
                 </dd>
                 <dt className="text-muted-foreground">Sent</dt>
-                <dd className="text-right tabular-nums">{record.sent}</dd>
+                <dd className="text-right tabular-nums">
+                  {record.sent}
+                  {record.sentOnFollowUps > 0 ? (
+                    <span className="block text-xs text-muted-foreground">
+                      +{record.sentOnFollowUps} on follow-ups
+                    </span>
+                  ) : null}
+                </dd>
                 <dt className="text-muted-foreground">Material problem</dt>
                 <dd className="text-right tabular-nums">{record.materialProblem}</dd>
                 <dt className="text-muted-foreground">Rejection</dt>
