@@ -303,29 +303,30 @@
   margin-top: 1mm !important;
 }
 
-/* The cut line runs horizontally across the middle of the portrait sheet. */
+/* The cut line is drawn exactly across the middle of the sheet, on the
+   boundary between the two halves, and takes no space of its own. It used to
+   be a 5mm strip between the copies, which left each torn half with its full
+   outer margin on one edge and barely 2.5mm on the torn one. Now each half is
+   precisely half the paper, so the sheet folds and tears into two identical
+   challans. */
 .dc-print-cut {
-  flex: 0 0 auto;
-  width: auto !important;
-  height: 5mm !important;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 0 !important;
   margin: 0 !important;
+  pointer-events: none;
 }
 .dc-print-cut span {
   font-size: 5.5pt !important;
 }
 
 @media print {
-  /* One A4 portrait page carrying ORIGINAL above DUPLICATE. 12mm margins
-     leave 186 x 273mm printable, split into two equal halves with a cut line
-     between them. Dropping the Material and Received columns freed enough
-     room to print this at a comfortable size.
-
-     The margin is 12mm rather than the 8mm this used to use because few
-     office printers can lay ink that close to the paper edge. At 8mm the
-     driver either clipped the border or quietly scaled the whole page to fit
-     its own hardware margin, which shrank the type and moved the cut line off
-     the middle of the sheet. 12mm clears the unprintable edge of every
-     printer we are likely to meet, so the page prints at its true size. */
+  /* The unnamed page serves every other printed document, such as the
+     invoice: A4 with 12mm margins. The delivery challan sheet prints on its
+     own named page, dc-sheet, below, because it lays out the whole sheet
+     itself and needs no page margin at all. */
   @page {
     size: A4 portrait;
     margin: 12mm;
@@ -336,7 +337,8 @@
     background: #fff !important;
   }
 
-  /* The navy header block is part of the document, not decoration. */
+  /* Print colours exactly as they appear on screen, so the ruled lines keep
+     their weight instead of being lightened by the browser's economy mode. */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -435,14 +437,16 @@
 }
 
 /* --- Delivery challan sheet, on screen -----------------------------------
-   The printed challan is a fixed box: one A4 portrait page, 186 x 273mm
-   inside 12mm margins, carrying ORIGINAL above DUPLICATE. On screen it used
-   to be a free-flowing column at whatever height its contents wanted, so
-   nothing on this page told you whether the challan actually fitted, and a
-   long one was silently cropped by the printer instead.
+   The printed challan is the whole A4 sheet, 210 x 297mm, cut across the
+   middle into two identical halves: ORIGINAL above, DUPLICATE below, each
+   148.5mm tall with its own margin on every side, so the sheet folds and tears
+   into two complete challans. On screen it used to be a free-flowing column
+   at whatever height its contents wanted, so nothing on this page told you
+   whether the challan actually fitted, and a long one was silently cropped by
+   the printer instead.
 
    These rules give the screen the same box as the paper. What you see here
-   is the page that comes out: if a row falls outside the sheet on screen, it
+   is the page that comes out: if a row falls outside a half on screen, it
    will not be on the printout either. */
 .dc-print-stage {
   display: flex;
@@ -453,8 +457,10 @@
 }
 
 .dc-print-page {
-  width: 186mm;
-  height: 273mm;
+  /* The cut line is positioned against this box. */
+  position: relative;
+  width: 210mm;
+  height: 297mm;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -465,7 +471,33 @@
     0 12px 32px rgb(16 35 63 / 0.14);
 }
 
+/* Each copy is exactly half the sheet, with the same margin on every side:
+   8mm across and 7mm top and bottom, which clears the unprintable edge of an
+   ordinary office printer and gives the torn edge the same margin as the
+   others. Scoped to the challan sheet, because the invoice print reuses the
+   .dc-print-sheet class and has margins of its own. */
+.dc-print-page > .dc-print-sheet {
+  box-sizing: border-box;
+  padding: 7mm 8mm;
+}
+
 @media print {
+  /* The challan lays out the whole sheet itself, so its page has no margin.
+     A named page, so the invoice keeps the 12mm margins of the unnamed one. */
+  @page dc-sheet {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  /* The whole document takes the named page whenever a challan sheet is on
+     it, not the sheet alone. A browser starts a new page wherever the page
+     name changes, and the empty notification area after the sheet still
+     carried the unnamed page, so naming only the sheet printed a blank
+     second page behind it. */
+  body:has(.dc-print-page) {
+    page: dc-sheet;
+  }
+
   /* The stage is screen furniture: no padding, no scrolling, no shadow. */
   .dc-print-stage {
     display: block !important;
@@ -473,17 +505,16 @@
     overflow: visible !important;
   }
 
-  /* Sized to the page it is actually printed on, not to A4 in millimetres.
-     A4 is asked for above, but a phone's print service or a printer set to US
-     Letter can still hand the browser a shorter sheet; Letter is 18mm shorter
-     than A4, so a box fixed at 273mm overran it and the DUPLICATE copy spilled
-     onto a second page. In print, 100vh is the height of the page area and
-     100% its width, so on A4 this is exactly the 186 x 273mm box, and on any
-     other paper both copies still share one sheet.
+  /* In print, 100vh and 100% are the page area, which with no margin is the
+     sheet itself: exactly 210 x 297mm on A4, so the cut falls at 148.5mm. A
+     phone's print service or a printer set to US Letter can still hand the
+     browser a different sheet; sized this way the halves still split it evenly
+     on one page, where a box fixed in millimetres spilled the DUPLICATE onto a
+     second.
 
-     It lives here, after the on-screen rule above, on purpose. That rule is
+     It lives here, after the on-screen rule above, on purpose: that rule is
      not limited to screens and sets the box in millimetres, so a print rule
-     placed before it lost to it and the fixed height still printed. */
+     placed before it lost to it. */
   .dc-print-page {
     width: 100%;
     height: 100vh;

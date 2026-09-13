@@ -90,7 +90,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
         <div className="dc-print-page">
           <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={printItems} />
           <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
-            <span className="relative -top-2 bg-[#f4f6f9] px-2 print:bg-white">✂ cut here</span>
+            <span className="relative -top-2 bg-white px-2">✂ cut here</span>
           </div>
           <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
         </div>
@@ -128,6 +128,9 @@ function Field({
   );
 }
 
+/** Every cell of the items table: a plain ruled box, the same line as the form's. */
+const CELL = "border border-[#222] p-1.5";
+
 function DcCopy({
   label,
   dc,
@@ -141,21 +144,24 @@ function DcCopy({
 }) {
   return (
     <div className="dc-print-sheet break-inside-avoid">
-      <header className="relative mb-3 rounded-t-2xl bg-[#10233f] px-6 py-3 text-white print:rounded-none print:py-2">
-        <div className="absolute right-4 top-4 text-xs opacity-90">
-          <p className="dc-print-copy-label rounded-full border border-white/40 px-3 py-1 font-semibold tracking-wide">
+      {/* Plain ruled boxes throughout, with no filled band behind the company
+          name and no tinted table headings, so the heading reads as one more
+          box of the same form. */}
+      <header className="relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033] print:py-2">
+        <div className="absolute right-4 top-4 text-xs">
+          <p className="dc-print-copy-label border border-[#222] px-3 py-1 font-semibold tracking-wide">
             {label}
           </p>
         </div>
         <div className="flex flex-col items-center text-center">
-          <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center rounded-lg bg-white/95 p-1">
+          <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center p-1">
             <LogoMark className="h-full w-full" />
           </div>
           <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
-          <div className="mt-1 text-xs opacity-80">
+          <div className="mt-1 text-xs">
             40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
           </div>
-          <div className="mt-0.5 text-xs opacity-80">Ph: 9965902970, 9965702970</div>
+          <div className="mt-0.5 text-xs">Ph: 9965902970, 9965702970</div>
         </div>
       </header>
 
@@ -220,42 +226,29 @@ function DcCopy({
             </colgroup>
             <thead>
               <tr>
-                <th
-                  colSpan={6}
-                  className="border border-[#222] bg-[#eef2f7] p-1.5 text-center text-sm font-bold text-[#172033]"
-                >
+                <th colSpan={6} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
                   Material / Component Details
                 </th>
               </tr>
               <tr>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">S.No.</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  Description
-                </th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Qty</th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  Mat. Problem
-                </th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">
-                  Rejection
-                </th>
-                <th className="border border-[#d9dee7] bg-[#eef2f7] p-1.5 text-center">Total</th>
+                <th className={`${CELL} text-center`}>S.No.</th>
+                <th className={`${CELL} text-center`}>Description</th>
+                <th className={`${CELL} text-center`}>Qty</th>
+                <th className={`${CELL} text-center`}>Mat. Problem</th>
+                <th className={`${CELL} text-center`}>Rejection</th>
+                <th className={`${CELL} text-center`}>Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.id}>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{idx + 1}</td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.component}</td>
+                  <td className={`${CELL} text-center`}>{idx + 1}</td>
+                  <td className={`${CELL} text-center`}>{item.component}</td>
                   {/* The "Qty" column on the printed challan is the sent quantity. */}
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.sent_qty}</td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {item.material_problem_qty}
-                  </td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">
-                    {item.rejection_qty}
-                  </td>
-                  <td className="border border-[#d9dee7] p-1.5 text-center">{item.total_qty}</td>
+                  <td className={`${CELL} text-center`}>{item.sent_qty}</td>
+                  <td className={`${CELL} text-center`}>{item.material_problem_qty}</td>
+                  <td className={`${CELL} text-center`}>{item.rejection_qty}</td>
+                  <td className={`${CELL} text-center`}>{item.total_qty}</td>
                 </tr>
               ))}
               {/* Pad short challans out to a consistent form height, but never
@@ -264,12 +257,12 @@ function DcCopy({
                 length: Math.max(0, MIN_TABLE_ROWS - items.length),
               }).map((_, i) => (
                 <tr key={`blank-${i}`}>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
-                  <td className="border border-[#d9dee7] p-1.5">&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
+                  <td className={CELL}>&nbsp;</td>
                 </tr>
               ))}
             </tbody>
