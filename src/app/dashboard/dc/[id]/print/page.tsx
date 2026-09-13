@@ -39,11 +39,25 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   // the part's current name rather than the spelling stored at entry.
   const componentNames = componentNameIndex(picklist ?? []);
   // Resolved once and used by both the printed sheet and the PDF, so the two
-  // copies of the same document cannot name a part differently.
-  const printItems: PrintItem[] = (items ?? []).map((i) => ({
-    ...i,
-    component: componentNameOf(i, componentNames),
-  }));
+  // copies of the same document cannot name a part differently, or list
+  // different parts.
+  //
+  // Only the lines with something entered on this challan are printed: a
+  // quantity sent, returned with a material problem, or rejected. A challan
+  // can carry a component that has not moved yet, and a row reading 0 on the
+  // customer's copy says this despatch included a part it did not.
+  const printItems: PrintItem[] = (items ?? [])
+    .filter(
+      (i) =>
+        (Number(i.sent_qty) || 0) +
+          (Number(i.material_problem_qty) || 0) +
+          (Number(i.rejection_qty) || 0) >
+        0
+    )
+    .map((i) => ({
+      ...i,
+      component: componentNameOf(i, componentNames),
+    }));
 
   const pdfData = {
     dc_number: dc.dc_number,
