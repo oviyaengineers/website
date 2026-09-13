@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   BarChart3,
   Boxes,
   CheckCircle2,
+  FileClock,
   FilePlus2,
   Hash,
   LayoutDashboard,
@@ -28,6 +29,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -40,6 +42,7 @@ import type { UserRole } from "@/types/database";
 // Each entry gets its own icon colour so the nav is scannable at a glance —
 // people learn the colour faster than they read the label.
 type NavItem = {
+  /** May carry a query, for an entry that is a filtered view of another page. */
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
@@ -48,6 +51,8 @@ type NavItem = {
   alsoUnder?: string[];
   /** Match the path exactly, for an entry that is a parent of the others. */
   exact?: boolean;
+  /** Which count, if any, is shown beside the entry. */
+  badge?: "drafts";
 };
 
 type NavGroup = { label: string; items: NavItem[]; adminOnly?: boolean };
@@ -88,6 +93,16 @@ const NAV: NavGroup[] = [
       // Sits at /dashboard/dc, a prefix of the two entries above it, so the
       // active marker has to prefer the longest match rather than the first.
       { href: "/dashboard/dc", label: "All DCs", icon: ListChecks, color: "text-sky-400" },
+      // All DCs filtered to challans not yet confirmed. Not a page of its own:
+      // a draft is an ordinary challan in an early state, and the list already
+      // shows everything about it.
+      {
+        href: "/dashboard/dc?status=draft",
+        label: "Draft DCs",
+        icon: FileClock,
+        color: "text-slate-300",
+        badge: "drafts",
+      },
       {
         href: "/dashboard/dc/dispatched",
         label: "Dispatched DCs",
@@ -144,19 +159,26 @@ const NAV: NavGroup[] = [
 ];
 
 /**
- * Which nav entry owns the current path.
+ * Which nav entry owns the current page.
  *
  * Resolved across every entry at once and won by the longest match, because
  * "All DCs" is a prefix of both entry points listed above it and would
- * otherwise light up whenever either of them was open.
+ * otherwise light up whenever either of them was open. An entry whose href
+ * carries a query matches only while every value in it is present, so Draft
+ * DCs lights up on the drafts view and All DCs on the unfiltered list, though
+ * both are the same page.
  */
-function activeHref(pathname: string, items: NavItem[]): string | null {
+function activeHref(pathname: string, search: URLSearchParams, items: NavItem[]): string | null {
   let best: NavItem | null = null;
   for (const item of items) {
-    const paths = [item.href, ...(item.alsoUnder ?? [])];
+    const [path, query] = item.href.split("?");
+    const wanted = new URLSearchParams(query ?? "");
+    if ([...wanted].some(([key, value]) => search.get(key) !== value)) continue;
+
+    const paths = [path, ...(item.alsoUnder ?? [])];
     const hit = item.exact
       ? paths.includes(pathname)
-      : paths.some((path) => pathname === path || pathname.startsWith(path + "/"));
+      : paths.some((p) => pathname === p || pathname.startsWith(p + "/"));
     if (!hit) continue;
     if (!best || item.href.length > best.href.length) best = item;
   }
@@ -167,16 +189,21 @@ export function AppSidebar({
   fullName,
   email,
   role,
+  draftCount,
 }: {
   fullName: string | null;
   email: string | null;
   role: UserRole;
+  /** Challans still in draft, shown beside Draft DCs. */
+  draftCount: number;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isMobile, setOpenMobile } = useSidebar();
   const groups = NAV.filter((group) => !group.adminOnly || role === "admin");
   const active = activeHref(
     pathname,
+    new URLSearchParams(searchParams.toString()),
     groups.flatMap((group) => group.items)
   );
 
@@ -211,6 +238,7 @@ export function AppSidebar({
               <SidebarMenu>
                 {group.items.map((item) => {
                   const isActive = active === item.href;
+                  const count = item.badge === "drafts" ? draftCount : 0;
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
@@ -230,6 +258,17 @@ export function AppSidebar({
                         <item.icon className={isActive ? "text-amber-400" : item.color} />
                         <span>{item.label}</span>
                       </SidebarMenuButton>
+                      {/* Shown only when something is waiting, so an empty
+                          badge never reads as a figure to act on. Centred on
+                          the taller mobile row as well as the desktop one. */}
+                      {count > 0 && (
+                        <SidebarMenuBadge
+                          className="top-1/2 -translate-y-1/2 bg-amber-400/20 text-amber-300"
+                          aria-label={`${count} draft challan${count === 1 ? "" : "s"}`}
+                        >
+                          {count}
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   );
                 })}

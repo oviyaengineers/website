@@ -19,16 +19,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // The header scanner needs the same picklists the DC form matches against.
   const supabase = await createClient();
-  const [{ data: customers }, { data: picklistItems }] = await Promise.all([
+  const [{ data: customers }, { data: picklistItems }, { count: draftCount }] = await Promise.all([
     supabase.from("customers").select("id, name").order("name"),
     supabase.from("dc_picklist_items").select("*").order("name"),
+    // Drafts are raised and then easily forgotten, and a draft follow-up holds
+    // quantity no other challan can take until it is confirmed or removed, so
+    // the menu keeps a count of them in sight.
+    supabase
+      .from("delivery_challans")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft"),
   ]);
   const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);
   const materials = (picklistItems ?? []).filter((i) => i.kind === "material").map((i) => i.name);
 
   return (
     <SidebarProvider>
-      <AppSidebar fullName={profile?.full_name ?? null} email={user.email} role={role} />
+      <AppSidebar
+        fullName={profile?.full_name ?? null}
+        email={user.email}
+        role={role}
+        draftCount={draftCount ?? 0}
+      />
       <SidebarInset>
         <header className="dashboard-chrome flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1 size-11 md:size-8" />
