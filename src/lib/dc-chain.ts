@@ -371,8 +371,19 @@ export function challanSettled(challanItems: ChainItem[], allItems: ChainItem[])
   return challanSettledIn(challanItems, indexChain(allItems));
 }
 
+/**
+ * A follow-up line has no balance of its own, so it is judged by the original
+ * line it despatches against: the challan is not finished while that original
+ * still owes anything. Judging only the challan's own original lines made a
+ * challan of follow-ups settled by default, and 26-27-017 showed Completed
+ * with 108 still pending on 26-27-001. A follow-up whose original cannot be
+ * found is not settled either.
+ */
 export function challanSettledIn(challanItems: ChainItem[], index: ChainIndex): boolean {
-  return challanItems
-    .filter(isOriginalLine)
-    .every((item) => (index.remaining.get(item.id) ?? 0) === 0);
+  return challanItems.every((item) => {
+    if (isOriginalLine(item)) return (index.remaining.get(item.id) ?? 0) === 0;
+    const rootId = index.rootOf.get(item.id);
+    if (!rootId || rootId === item.id || !index.rows.has(rootId)) return false;
+    return (index.remaining.get(rootId) ?? 0) === 0;
+  });
 }
