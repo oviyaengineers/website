@@ -27,6 +27,7 @@ import { PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
 import { getScannedDc, listPendingScans } from "@/lib/actions/dc-scan-queue";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { findOverDelivered } from "@/lib/dc-balance";
+import { indiaToday } from "@/lib/india-date";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import type { DcFormState, DcItemInput } from "@/lib/actions/dc";
 import type { PendingLine } from "@/lib/actions/dc-continuation";
@@ -66,7 +67,7 @@ export function DcForm({
   const [customerId, setCustomerId] = useState(
     continues?.customerId ?? dc?.customer_id ?? (customers.length === 1 ? customers[0].id : "")
   );
-  const [date, setDate] = useState(dc?.dc_date ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(dc?.dc_date ?? indiaToday());
   const [dcRefs, setDcRefs] = useState(() =>
     continues
       ? // The customer's own reference carries across: this despatch is
