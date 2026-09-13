@@ -368,6 +368,23 @@ const LEADING_BORDER = /^[\s|![\]{}()<>*_=+~'"`.,;:\-]+/;
 const LEADING_SERIAL = /^\s*\d{1,3}\s*[).:\-]?\s+/;
 
 /**
+ * A drawing revision anywhere in a name: "REV 2", "REV2", "Rev. No. 3", "REV A".
+ *
+ * The revision is not part of what identifies a casting here. Customers print
+ * the same part both with and without it — "3P DN40FB/50RB CF8M Body Casting
+ * REV 2" and "3P DN40FB/50RB CF8M Body Casting" are one component — so a name
+ * missing it must not read as a second part. The class ("#150", "#300") is
+ * what tells two parts apart, and it is untouched.
+ */
+const REVISION =
+  /\brev(?:ision)?(?:\s*\.?\s*no\b)?\s*[.:\-]?\s*(?:\d{1,3}|[a-z](?![a-z]))?(?![a-z])/gi;
+
+/** A name with its drawing revision removed, for comparing part names only. */
+export function withoutRevision(value: string): string {
+  return (value ?? "").replace(REVISION, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
  * Normalise away the characters Tesseract swaps most often, for comparing two
  * spellings of the same part name.
  *
@@ -378,7 +395,7 @@ const LEADING_SERIAL = /^\s*\d{1,3}\s*[).:\-]?\s+/;
  * the component list as a second, wrong entry.
  */
 export function foldOcrConfusables(value: string): string {
-  return normalize(value)
+  return normalize(withoutRevision(value))
     .replace(/[oq]/g, "0")
     .replace(/[il|]/g, "1")
     .replace(/s/g, "5")
@@ -461,9 +478,14 @@ export function namesLookAlike(a: string, b: string): boolean {
  * words do not actually line up with the description.
  */
 function matchComponent(description: string, components: string[]): CandidateMatch | null {
-  const found = findCandidate(description, components);
+  // Searched with revisions removed from both sides: the digit veto would
+  // otherwise refuse a description printed without "REV 2" for want of the 2.
+  // The match still returns the listed spelling.
+  const bare = components.map(withoutRevision);
+  const found = findCandidate(withoutRevision(description), bare);
   if (!found) return null;
-  return partsAgree(description, found.value) ? found : null;
+  const value = components[bare.indexOf(found.value)];
+  return partsAgree(description, value) ? { value, score: found.score } : null;
 }
 
 /** The stored spelling of a name that differs only by confusable characters. */

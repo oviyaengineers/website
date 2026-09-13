@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanComponentName, parseInwardDc } from "./parse-inward-dc.ts";
+import {
+  cleanComponentName,
+  namesLookAlike,
+  parseInwardDc,
+  withoutRevision,
+} from "./parse-inward-dc.ts";
 
 // The real master list. These are the only names a scan may ever resolve to.
 const COMPONENTS = [
@@ -236,4 +241,53 @@ test("nothing that cannot be a part name is offered on the review screen", () =>
     [["3P DN40FB/50RB CF8M Body Casting REV 2", 200]]
   );
   assert.deepEqual(result.newComponents, []);
+});
+
+test("a part printed without its revision is the listed part", () => {
+  // Customers print the same casting with and without "REV 2"; only the class
+  // number ("#150", "#300") makes it a different part.
+  const result = parse([
+    ...BOXED_HEADER,
+    "Sl No. Product Description Quantity",
+    "1 3P DN40FB/50RB CF8M Body Casting",
+    "200.000 EA",
+  ]);
+  assert.deepEqual(
+    result.items.map((item) => [item.component, item.received_qty]),
+    [["3P DN40FB/50RB CF8M Body Casting REV 2", 200]]
+  );
+  assert.deepEqual(result.newComponents, []);
+});
+
+test("a revision printed on a part listed without one still matches", () => {
+  const result = parseInwardDc(
+    [
+      ...BOXED_HEADER,
+      "Sl No. Product Description Quantity",
+      "1 3P DN25FB/32RB CF8M Body Casting Rev. No. 3",
+      "50.000 EA",
+    ].join("\n"),
+    { customers: [], components: ["3P DN25FB/32RB CF8M Body Casting"], materials: ["CF8M"] }
+  );
+  assert.deepEqual(
+    result.items.map((item) => item.component),
+    ["3P DN25FB/32RB CF8M Body Casting"]
+  );
+  assert.deepEqual(result.newComponents, []);
+});
+
+test("revision is ignored when comparing names, class number is not", () => {
+  const listed = "3P DN40FB/50RB CF8M Body Casting REV 2";
+  assert.equal(namesLookAlike(listed, "3P DN40FB/50RB CF8M Body Casting"), true);
+  assert.equal(namesLookAlike(listed, "3P DN40FB/50RB CF8M Body Casting REV2"), true);
+  assert.equal(
+    namesLookAlike(
+      "3P DN50RB CF8M #150 Flg Connector Casting",
+      "3P DN50RB CF8M #300 Flg Connector Casting"
+    ),
+    false
+  );
+  assert.equal(namesLookAlike(listed, "3P DN40FB/50RB WCB Body Casting"), false);
+  // Words that merely start with "rev" are left alone.
+  assert.equal(withoutRevision("Reverse Flange REV 2"), "Reverse Flange");
 });

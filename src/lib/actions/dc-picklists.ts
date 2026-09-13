@@ -18,6 +18,20 @@ export async function createPicklistItemAction(
   }
 
   const supabase = await createClient();
+
+  // A part typed with or without its revision, or with a slip OCR would make,
+  // is a part already listed. The unique index only catches an exact repeat.
+  if (kind === "component") {
+    const { data: existing } = await supabase
+      .from("dc_picklist_items")
+      .select("name")
+      .eq("kind", "component");
+    const same = (existing ?? []).find(
+      (row) => foldOcrConfusables(row.name) === foldOcrConfusables(name)
+    );
+    if (same) return { error: `Already listed as "${same.name}".` };
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
