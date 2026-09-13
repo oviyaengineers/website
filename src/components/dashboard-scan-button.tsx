@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { DcScanDialog, type DcScanResult } from "@/components/dc-scan-dialog";
+import { DcScanDialog, type DcScanCapture } from "@/components/dc-scan-dialog";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
 import { countPendingScans, queuePendingScan } from "@/lib/actions/dc-scan-queue";
 import { PENDING_SCAN_CHANGED, PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
@@ -52,14 +52,12 @@ export function DashboardScanButton({
     };
   }, []);
 
-  async function handleApply(result: DcScanResult): Promise<boolean> {
+  async function handleApply(result: DcScanCapture): Promise<boolean> {
     const { waiting, error } = await queuePendingScan(result);
 
     if (error) {
       // Saying "captured" here would lose the challan silently.
-      toast.error(
-        "This challan could not be held for the delivery challan form. Enter it by hand, or try again."
-      );
+      toast.error(`This challan was not kept: ${error}`);
       return false;
     }
 

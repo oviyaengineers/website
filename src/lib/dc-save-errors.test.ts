@@ -1,0 +1,29 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { saveErrorMessage } from "./dc-save-errors.ts";
+
+test("a scan already converted names the challan it became", () => {
+  assert.match(saveErrorMessage("SCAN_NOT_PENDING:26-27-019"), /already been created.*26-27-019/);
+  assert.match(saveErrorMessage("SCAN_NOT_PENDING:discarded"), /discarded/);
+});
+
+test("an over-dispatch reads the database's figures as plain numbers", () => {
+  const text = saveErrorMessage("OVER_DISPATCH:3P DN40FB/50RB CF8M Body Casting REV 2|100.00|101");
+  assert.match(text, /CF8M Body Casting REV 2 has 100 left to despatch but 101 is entered/);
+  assert.match(text, /Nothing was saved/);
+});
+
+test("cutting an original below its follow-ups is explained", () => {
+  assert.match(saveErrorMessage("BELOW_FOLLOW_UPS:WCB Casting|170.00"), /account for 170/);
+});
+
+test("removing a line with follow-ups is explained", () => {
+  assert.match(
+    saveErrorMessage('violates foreign key constraint "x"', "23503"),
+    /follow-up DCs raised against it/
+  );
+});
+
+test("anything else still says nothing was kept", () => {
+  assert.match(saveErrorMessage("network down"), /nothing was kept.*network down/);
+});

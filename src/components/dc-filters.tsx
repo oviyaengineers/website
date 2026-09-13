@@ -12,10 +12,11 @@ export type DcFilterValues = {
   status?: string;
   component?: string;
   customer?: string;
+  material?: string;
 };
 
 /** The filter keys this bar owns. The search term is not one of them. */
-const KEYS = ["from", "to", "status", "component", "customer"] as const;
+const KEYS = ["from", "to", "status", "component", "customer", "material"] as const;
 
 /**
  * Date, status and component filters for a list of challans.
@@ -31,13 +32,16 @@ export function DcFilters({
   defaults,
   components = [],
   customers = [],
+  materials = [],
   showStatus = true,
 }: {
   defaults: DcFilterValues;
   /** The component master list, offered as a filter. */
   components?: string[];
-  /** Offered as a filter where a page has more than one customer in view. */
+  /** The customers on file, offered as a filter. */
   customers?: string[];
+  /** The material master list, offered as a filter. */
+  materials?: string[];
   /** Hidden where the page's tabs already are the status. */
   showStatus?: boolean;
 }) {
@@ -67,6 +71,7 @@ export function DcFilters({
     defaults.status ||
     defaults.component ||
     defaults.customer ||
+    defaults.material ||
     defaults.q
   );
 
@@ -107,7 +112,7 @@ export function DcFilters({
           </select>
         </div>
       )}
-      {customers.length > 1 && (
+      {customers.length > 0 && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Customer</label>
           <select
@@ -136,6 +141,23 @@ export function DcFilters({
             {components.map((component) => (
               <option key={component} value={component}>
                 {component}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {materials.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Material</label>
+          <select
+            className="w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            value={defaults.material ?? ""}
+            onChange={(e) => update("material", e.target.value)}
+          >
+            <option value="">All</option>
+            {materials.map((material) => (
+              <option key={material} value={material}>
+                {material}
               </option>
             ))}
           </select>

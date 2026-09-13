@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Camera, ImageUp, Loader2, PackagePlus, ScanLine } from "lucide-react";
+import { AlertTriangle, Camera, ImageUp, Loader2, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -23,12 +22,9 @@ import {
   type ImageQuality,
   type OcrProgress,
 } from "@/lib/ocr/recognize";
-import {
-  parseInwardDc,
-  type ScannedInwardDc,
-  type ScannedNewComponent,
-} from "@/lib/ocr/parse-inward-dc";
-import { addScannedComponentNamesAction } from "@/lib/actions/dc-picklists";
+import { parseInwardDc, type ScannedInwardDc } from "@/lib/ocr/parse-inward-dc";
+import { SearchableSelect } from "@/components/searchable-select";
+import { uploadScanImage } from "@/lib/scan-image";
 import { PENDING_SCAN_CHANGED } from "@/lib/dc-scan-handoff";
 import { countPendingScans, discardPendingScans } from "@/lib/actions/dc-scan-queue";
 import {
@@ -52,6 +48,19 @@ export type DcScanResult = {
   items: ScannedItemSelection[];
 };
 
+/** A kept scan: the reviewed values, plus what it was read from. */
+export type DcScanCapture = DcScanResult & {
+  /** The original photograph in the private dc-scans bucket. */
+  imagePath: string | null;
+  /** The raw text OCR returned. */
+  ocrText: string | null;
+  /** The values as OCR read them, before the operator changed anything. */
+  ocrResult: DcScanResult | null;
+};
+
+/** Below this a matched component is flagged for checking against the paper. */
+const LOW_CONFIDENCE = 0.85;
+
 type Stage = "idle" | "working" | "review";
 
 type ReviewItem = ScannedItemSelection & {
@@ -63,9 +72,6 @@ type ReviewItem = ScannedItemSelection & {
 
 /** Which single-value fields the operator has ticked to apply. */
 type FieldKey = "customerId" | "customerDcNumber" | "customerDcDate";
-
-/** A scanned description awaiting a decision before it joins the component list. */
-type NewNameEntry = ScannedNewComponent & { key: number; include: boolean };
 
 /** Shared look for the two capture tiles; each wraps its own file input. */
 const TILE =
@@ -97,7 +103,7 @@ export function DcScanDialog({
    * Takes the reviewed scan. Awaited, and false means it was not kept — the
    * dialog must not report a capture that never happened.
    */
-  onApply: (result: DcScanResult) => boolean | Promise<boolean>;
+  onApply: (result: DcScanCapture) => boolean | Promise<boolean>;
   /** The challan being edited, so it is not reported as its own duplicate. */
   excludeDcId?: string | null;
   /** Icon-only trigger, for the dashboard header bar. */
@@ -118,8 +124,8 @@ export function DcScanDialog({
     customerDcDate: true,
   });
   const [items, setItems] = useState<ReviewItem[]>([]);
-  /** Descriptions the component list does not hold yet, editable before storing. */
-  const [newNames, setNewNames] = useState<NewNameEntry[]>([]);
+  /** The photograph as chosen, kept so the original can be stored with the scan. */
+  const originalFile = useRef<File | null>(null);
   const [storing, setStoring] = useState(false);
   const [dragging, setDragging] = useState(false);
   /** Challans captured since this dialog was opened. */
@@ -154,7 +160,6 @@ export function DcScanDialog({
     };
   }, []);
 
-  const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
@@ -168,7 +173,7 @@ export function DcScanDialog({
     setRawText("");
     setScan(null);
     setItems([]);
-    setNewNames([]);
+    originalFile.current = null;
     setRefMatches(null);
     setCorrectedFrom(null);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -210,6 +215,7 @@ export function DcScanDialog({
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
+    originalFile.current = file;
 
     setStage("working");
     setError(null);
@@ -242,8 +248,8 @@ export function DcScanDialog({
 
       setScan(resolved);
       void lookupExisting(resolved.customerDcNumber, resolved.customerDcDate);
-      setItems(
-        parsed.items.map((item, index) => ({
+      setItems([
+        ...parsed.items.map((item, index) => ({
           key: index,
           include: true,
           component: item.component,
@@ -251,15 +257,20 @@ export function DcScanDialog({
           received_qty: item.received_qty,
           confidence: item.confidence,
           rawLine: item.rawLine,
-        }))
-      );
-      setNewNames(
-        parsed.newComponents.map((candidate, index) => ({
-          ...candidate,
-          key: index,
+        })),
+        // A description that matches nothing in Settings becomes a row whose
+        // component is chosen from the list by hand. It is never added to the
+        // list: a misreading must not turn into a part of its own.
+        ...parsed.newComponents.map((candidate, index) => ({
+          key: parsed.items.length + index,
           include: true,
-        }))
-      );
+          component: "",
+          material: candidate.material,
+          received_qty: candidate.received_qty,
+          confidence: 0,
+          rawLine: candidate.rawLine,
+        })),
+      ]);
       setStage("review");
     } catch (e) {
       setError(
@@ -274,62 +285,74 @@ export function DcScanDialog({
   async function apply() {
     if (!scan) return;
 
-    // Descriptions new to the component list are stored first, so the rows
-    // built from them have something to select in the Description dropdown.
-    const wanted = newNames
-      .filter((entry) => entry.include && entry.name.trim())
-      .map((entry) => ({ ...entry, name: entry.name.trim() }));
+    const keptItems = items.filter((item) => item.include);
+    const unpicked = keptItems.filter((item) => !item.component.trim());
+    if (unpicked.length > 0) {
+      toast.error(
+        `Choose the component from Settings for ${unpicked.length} row${
+          unpicked.length === 1 ? "" : "s"
+        }, or untick ${unpicked.length === 1 ? "it" : "them"}.`
+      );
+      return;
+    }
 
-    let stored: string[] = [];
-    if (wanted.length > 0) {
-      setStoring(true);
+    setStoring(true);
+
+    // The original photograph is stored first. If it cannot be, the scan is
+    // not kept: a scan whose image is missing cannot be checked against the
+    // paper later, and saying "captured" would hide that.
+    let imagePath: string | null = null;
+    if (originalFile.current) {
       try {
-        const result = await addScannedComponentNamesAction(wanted.map((entry) => entry.name));
-        if (result.error) {
-          toast.error(result.error);
-          setStoring(false);
-          return;
-        }
-        stored = result.added;
-      } catch {
-        toast.error("Could not save the new descriptions. Nothing was kept.");
+        imagePath = await uploadScanImage(originalFile.current);
+      } catch (e) {
+        toast.error(
+          `The photograph could not be stored, so this scan was not kept: ${
+            e instanceof Error ? e.message : "unknown error"
+          }. Check the connection and try again.`
+        );
         setStoring(false);
         return;
       }
-      setStoring(false);
     }
 
     // Awaited: the queue is on the server, so this can fail, and reporting a
     // capture that did not happen is exactly how scans were lost before.
-    setStoring(true);
     const kept = await onApply({
       customerId: fields.customerId ? scan.customerId : null,
       customerDcNumber: fields.customerDcNumber ? scan.customerDcNumber : null,
       customerDcDate: fields.customerDcDate ? scan.customerDcDate : null,
-      items: [
-        ...items
-          .filter((item) => item.include)
-          .map(({ component, material, received_qty }) => ({ component, material, received_qty })),
-        ...wanted.map(({ name, material, received_qty }) => ({
-          component: name,
-          material,
-          received_qty,
-        })),
-      ],
+      items: keptItems.map(({ component, material, received_qty }) => ({
+        component,
+        material,
+        received_qty,
+      })),
+      imagePath,
+      ocrText: rawText,
+      // What OCR read, before anybody changed it. Kept beside the corrected
+      // values so a correction can always be traced back.
+      ocrResult: {
+        customerId: scan.customerId,
+        customerDcNumber: correctedFrom ?? scan.customerDcNumber,
+        customerDcDate: scan.customerDcDate,
+        items: [
+          ...scan.items.map(({ component, material, received_qty }) => ({
+            component,
+            material,
+            received_qty,
+          })),
+          ...scan.newComponents.map(({ name, material, received_qty }) => ({
+            component: name,
+            material,
+            received_qty,
+          })),
+        ],
+      },
     });
     setStoring(false);
     // The review stays on screen so the scan can be kept again once whatever
     // refused it is fixed.
     if (!kept) return;
-
-    if (stored.length > 0) {
-      toast.success(
-        `${stored.length} description${stored.length === 1 ? "" : "s"} added to the component list.`
-      );
-      // The picklists are server data; without this the Description dropdown
-      // would not offer what was just stored until a reload.
-      router.refresh();
-    }
 
     // Return to the capture step instead of closing: several challans are
     // often photographed in one go, and each adds to the same new DC.
@@ -449,8 +472,9 @@ export function DcScanDialog({
         <DialogHeader>
           <DialogTitle>Scan inward challan</DialogTitle>
           <DialogDescription>
-            Photograph or upload the customer&apos;s delivery challan. Text is read on this device —
-            the image is never uploaded or stored. Check every value before applying.
+            Photograph or upload the customer&apos;s delivery challan. Text is read on this device.
+            The photograph is kept privately with the scan. Only components in Settings can be
+            chosen.
           </DialogDescription>
         </DialogHeader>
 
@@ -727,19 +751,43 @@ export function DcScanDialog({
                       }
                     />
                     <div className="min-w-0 flex-1">
-                      {/* Wraps on a phone rather than truncating: this line is
-                          the one being checked against the paper, and a name
-                          cut off mid-way cannot be checked at all. */}
-                      <p className="text-sm font-medium sm:truncate">
-                        {item.component}
+                      {/* Chosen from Settings only. A row OCR could not match,
+                          or matched with low confidence, is set here by hand. */}
+                      <SearchableSelect
+                        options={components}
+                        value={item.component || null}
+                        onChange={(value) =>
+                          setItems((rows) =>
+                            rows.map((row) =>
+                              row.key === item.key
+                                ? { ...row, component: value ?? "", confidence: 1 }
+                                : row
+                            )
+                          )
+                        }
+                        placeholder="Choose the component from Settings"
+                        searchPlaceholder="Search components..."
+                        emptyText="No component matches. Add it in Settings first."
+                        invalid={item.include && !item.component}
+                        ariaLabel="Component"
+                      />
+                      <p className="mt-1 text-xs">
                         {item.material && (
-                          <span className="text-muted-foreground"> · {item.material}</span>
+                          <span className="text-muted-foreground">{item.material} · </span>
                         )}
-                        {item.confidence < 1 && (
-                          <span className="ml-2 text-xs text-amber-600">
+                        {!item.component ? (
+                          <span className="text-destructive">
+                            Not matched — choose the component
+                          </span>
+                        ) : item.confidence < LOW_CONFIDENCE ? (
+                          <span className="text-amber-600">
+                            {Math.round(item.confidence * 100)}% match — check it
+                          </span>
+                        ) : item.confidence < 1 ? (
+                          <span className="text-muted-foreground">
                             {Math.round(item.confidence * 100)}% match
                           </span>
-                        )}
+                        ) : null}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{item.rawLine}</p>
                     </div>
@@ -763,53 +811,6 @@ export function DcScanDialog({
                           )
                         }
                       />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {newNames.length > 0 && (
-              <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-50 p-3 dark:bg-amber-950/20">
-                <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
-                  <PackagePlus className="h-4 w-4" />
-                  {newNames.length} new description{newNames.length === 1 ? "" : "s"}
-                </h3>
-                <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                  Not in your component list yet. Ticked ones are added to it when you keep this
-                  challan, so there is no need to type them into Settings. Correct any misreading
-                  first — the name is stored exactly as it appears here.
-                </p>
-                {newNames.map((entry) => (
-                  <div key={entry.key} className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      className="mt-2.5 h-4 w-4 shrink-0 accent-[#10233f]"
-                      checked={entry.include}
-                      onChange={(e) =>
-                        setNewNames((rows) =>
-                          rows.map((row) =>
-                            row.key === entry.key ? { ...row, include: e.target.checked } : row
-                          )
-                        )
-                      }
-                    />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <Input
-                        value={entry.name}
-                        aria-label="New component description"
-                        onChange={(e) =>
-                          setNewNames((rows) =>
-                            rows.map((row) =>
-                              row.key === entry.key ? { ...row, name: e.target.value } : row
-                            )
-                          )
-                        }
-                        className="h-9 bg-background text-sm"
-                      />
-                      <p className="truncate font-mono text-[11px] text-amber-900/70 dark:text-amber-200/70">
-                        read: {entry.rawLine} → qty {entry.received_qty}
-                      </p>
                     </div>
                   </div>
                 ))}

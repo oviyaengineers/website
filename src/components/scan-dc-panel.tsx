@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import { DcScanDialog, type DcScanResult } from "@/components/dc-scan-dialog";
+import { DcScanDialog, type DcScanCapture } from "@/components/dc-scan-dialog";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
 import { PENDING_SCAN_CHANGED, PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
 import { queuePendingScan } from "@/lib/actions/dc-scan-queue";
@@ -27,7 +27,7 @@ export function ScanDcPanel({
 }) {
   const router = useRouter();
 
-  async function handleApply(result: DcScanResult): Promise<boolean> {
+  async function handleApply(result: DcScanCapture): Promise<boolean> {
     const { error } = await queuePendingScan(result);
     if (error) {
       // Reporting a capture that did not happen is how scans were lost before.
@@ -48,8 +48,8 @@ export function ScanDcPanel({
       <CardContent className="space-y-4 p-6">
         <p className="text-sm text-muted-foreground">
           Photograph or upload the customer&apos;s inward challan. What is read is shown for
-          checking before anything is filled in, and nothing is saved until you create the delivery
-          challan.
+          checking, the photograph is kept privately with the scan, and our delivery challan is only
+          created when you save one.
         </p>
         <DcScanDialog
           customers={customers}

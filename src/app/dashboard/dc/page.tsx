@@ -31,6 +31,8 @@ type Search = {
   to?: string;
   status?: string;
   component?: string;
+  customer?: string;
+  material?: string;
 };
 
 /**
@@ -91,15 +93,18 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
   const filters = await searchParams;
   const supabase = await createClient();
 
-  const [summaries, { profile }, { data: picklist }] = await Promise.all([
-    fetchDcSummaries(filters),
-    getCurrentUserAndProfile(),
-    supabase
-      .from("dc_picklist_items")
-      .select("id, name, kind")
-      .eq("kind", "component")
-      .order("name"),
-  ]);
+  const [summaries, { profile }, { data: picklist }, { data: materialList }, { data: customers }] =
+    await Promise.all([
+      fetchDcSummaries(filters),
+      getCurrentUserAndProfile(),
+      supabase
+        .from("dc_picklist_items")
+        .select("id, name, kind")
+        .eq("kind", "component")
+        .order("name"),
+      supabase.from("dc_picklist_items").select("name").eq("kind", "material").order("name"),
+      supabase.from("customers").select("name").order("name"),
+    ]);
   const isAdmin = profile?.role === "admin";
   const totals = totalDcSummaries(summaries);
   const printHref = `/dashboard/dc/print-list?${new URLSearchParams(
@@ -130,7 +135,12 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
 
       <div className="space-y-3">
         <SearchBox placeholder="DC number, customer, their DC number, component or material..." />
-        <DcFilters defaults={filters} components={(picklist ?? []).map((item) => item.name)} />
+        <DcFilters
+          defaults={filters}
+          components={(picklist ?? []).map((item) => item.name)}
+          customers={(customers ?? []).map((c) => c.name)}
+          materials={(materialList ?? []).map((m) => m.name)}
+        />
         {/* Straight to one part's full history, across scans, active challans
             and completed ones. The filters above narrow this list; this leaves
             it for the component's own ledger. */}

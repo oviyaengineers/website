@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { FilePlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -364,44 +365,103 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             </p>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
-            <Table className="min-w-[640px]">
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>DC</TableHead>
+                  <TableHead>Follow-up DC No.</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Component</TableHead>
+                  <TableHead>Material</TableHead>
                   <TableHead className="text-right">Sent</TableHead>
                   <TableHead className="text-right">Mat. Problem</TableHead>
                   <TableHead className="text-right">Rejection</TableHead>
+                  <TableHead className="text-right">Remaining Balance</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {related.map((row, index) => (
-                  <TableRow key={`${row.dcId}-${index}`}>
+                {related.map((row) => (
+                  <TableRow key={row.itemId}>
                     <TableCell className="font-medium">
-                      <Link href={`/dashboard/dc/${row.dcId}`} className="hover:underline">
+                      <Link
+                        href={`/dashboard/dc/${row.dcId}`}
+                        className="underline-offset-2 hover:underline"
+                      >
                         {row.dcNumber}
                       </Link>
-                      {row.draft && (
-                        <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
-                          Draft
-                        </span>
-                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {row.dcDate ? format(new Date(row.dcDate), "dd MMM yyyy") : "-"}
                     </TableCell>
-                    <TableCell>{row.component}</TableCell>
-                    <TableCell className="text-right">{row.sent}</TableCell>
-                    <TableCell className="text-right">{row.materialProblem}</TableCell>
-                    <TableCell className="text-right">{row.rejection}</TableCell>
+                    <TableCell className="min-w-[200px] whitespace-normal">
+                      {row.component}
+                    </TableCell>
+                    <TableCell>{row.material ?? "-"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.sent}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.materialProblem}</TableCell>
+                    <TableCell className="text-right tabular-nums">{row.rejection}</TableCell>
+                    <TableCell
+                      className={`text-right tabular-nums ${
+                        row.remainingAfter === null
+                          ? "text-muted-foreground"
+                          : row.remainingAfter < 0
+                            ? "font-medium text-destructive"
+                            : row.remainingAfter > 0
+                              ? "text-amber-600"
+                              : "text-muted-foreground"
+                      }`}
+                    >
+                      {row.remainingAfter === null
+                        ? "—"
+                        : row.remainingAfter < 0
+                          ? `${-row.remainingAfter} extra`
+                          : row.remainingAfter}
+                    </TableCell>
+                    <TableCell>
+                      {row.draft ? (
+                        <DcStatusBadge status="draft" />
+                      ) : (
+                        // Pending while anything is left on the original line,
+                        // Completed at exactly zero.
+                        <Badge
+                          variant="outline"
+                          className={`border-transparent ${
+                            row.remainingAfter === 0
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {row.remainingAfter === 0 ? "Completed" : "Pending"}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="space-x-2 text-right whitespace-nowrap">
+                      <Button
+                        render={<Link href={`/dashboard/dc/${row.dcId}`} />}
+                        variant="outline"
+                        size="sm"
+                        className="h-11 sm:h-7"
+                      >
+                        View
+                      </Button>
+                      <Button
+                        render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
+                        variant="outline"
+                        size="sm"
+                        className="h-11 sm:h-7"
+                        aria-label={`Print ${row.dcNumber}`}
+                      >
+                        <Printer className="h-4 w-4" /> Print
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {/* Split, because only confirmed follow-ups reduce the balance
                     above. A draft is listed so it is not forgotten, but it has
                     not gone out yet. */}
                 <TableRow className="border-t-2 font-medium">
-                  <TableCell colSpan={3}>Confirmed against this challan</TableCell>
+                  <TableCell colSpan={4}>Confirmed against this challan</TableCell>
                   <TableCell className="text-right">
                     {related
                       .filter((row) => !row.draft)
@@ -417,10 +477,11 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                       .filter((row) => !row.draft)
                       .reduce((total, row) => total + row.rejection, 0)}
                   </TableCell>
+                  <TableCell colSpan={3} />
                 </TableRow>
                 {related.some((row) => row.draft) && (
                   <TableRow className="text-muted-foreground">
-                    <TableCell colSpan={3}>On drafts, not yet counted</TableCell>
+                    <TableCell colSpan={4}>On drafts, not yet counted</TableCell>
                     <TableCell className="text-right">
                       {related
                         .filter((row) => row.draft)
@@ -436,6 +497,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                         .filter((row) => row.draft)
                         .reduce((total, row) => total + row.rejection, 0)}
                     </TableCell>
+                    <TableCell colSpan={3} />
                   </TableRow>
                 )}
               </TableBody>

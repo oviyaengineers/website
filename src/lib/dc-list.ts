@@ -18,6 +18,10 @@ export type DcListFilters = {
   to?: string;
   status?: string;
   component?: string;
+  /** A customer, by name. */
+  customer?: string;
+  /** A material, by name. */
+  material?: string;
 };
 
 /** Received, outward and balance for part of a list, counted once. */
@@ -280,6 +284,18 @@ export async function fetchDcSummaries(filters: DcListFilters): Promise<DcSummar
     const wanted = filters.component.trim().toLowerCase();
     summaries = summaries.filter((dc) =>
       dc.items.some((item) => item.component.trim().toLowerCase() === wanted)
+    );
+  }
+
+  if (filters.customer) {
+    const wanted = filters.customer.trim().toLowerCase();
+    summaries = summaries.filter((dc) => dc.customerName.trim().toLowerCase() === wanted);
+  }
+
+  if (filters.material) {
+    const wanted = filters.material.trim().toLowerCase();
+    summaries = summaries.filter((dc) =>
+      dc.items.some((item) => (item.material ?? "").trim().toLowerCase() === wanted)
     );
   }
 

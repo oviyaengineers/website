@@ -12,6 +12,8 @@ type Search = {
   to?: string;
   status?: string;
   component?: string;
+  customer?: string;
+  material?: string;
 };
 
 /**
@@ -37,7 +39,9 @@ function describeFilters(filters: Search): string {
       DC_LIFECYCLE_LABELS[filters.status as keyof typeof DC_LIFECYCLE_LABELS] ?? filters.status
     );
   }
+  if (filters.customer) parts.push(filters.customer);
   if (filters.component) parts.push(filters.component);
+  if (filters.material) parts.push(filters.material);
   if (filters.q) parts.push(`matching "${filters.q}"`);
   return parts.length > 0 ? parts.join(" · ") : "All challans";
 }

@@ -86,12 +86,21 @@ export type RelatedDc = {
   dcId: string;
   dcNumber: string;
   dcDate: string;
+  itemId: string;
   component: string;
+  material: string | null;
   sent: number;
   materialProblem: number;
   rejection: number;
-  /** A draft follow-up is listed but does not reduce the balance until confirmed. */
   draft: boolean;
+  /** The original line this follow-up despatches against. */
+  rootItemId: string | null;
+  /**
+   * What was left on the original line once this follow-up and every earlier
+   * confirmed one had gone out, in date and DC-number order. A draft does not
+   * reduce it, so it shows the figure it leaves in place.
+   */
+  remainingAfter: number | null;
 };
 
 /**
@@ -137,26 +146,60 @@ export async function listRelatedDcs(dcId: string): Promise<RelatedDc[]> {
   const children = await descendantsOf(supabase, ids);
   if (children.length === 0) return [];
 
-  const { data: challans } = await supabase
-    .from("delivery_challans")
-    .select("id, dc_number, dc_date, status")
-    .in("id", [...new Set(children.map((row) => row.dc_id))]);
-
+  const [{ data: challans }, chainRows] = await Promise.all([
+    supabase
+      .from("delivery_challans")
+      .select("id, dc_number, dc_date, status")
+      .in("id", [...new Set(children.map((row) => row.dc_id))]),
+    fetchChainRows(supabase),
+  ]);
+  const chain = indexChain(chainRows);
   const byId = new Map((challans ?? []).map((dc) => [dc.id, dc]));
 
-  return children
+  const rows = children
     .map((row) => {
       const dc = byId.get(row.dc_id);
       return {
         dcId: row.dc_id,
         dcNumber: dc?.dc_number ?? "-",
         dcDate: dc?.dc_date ?? "",
+        itemId: row.id,
         component: row.component,
+        material: row.material,
         sent: Number(row.sent_qty) || 0,
         materialProblem: Number(row.material_problem_qty) || 0,
         rejection: Number(row.rejection_qty) || 0,
         draft: normalizeDcStatus(dc?.status) === "draft",
+        rootItemId: chain.rootOf.get(row.id) ?? null,
+        remainingAfter: null as number | null,
       };
     })
-    .sort((a, b) => a.dcDate.localeCompare(b.dcDate) || a.dcNumber.localeCompare(b.dcNumber));
+    .sort(
+      (a, b) =>
+        a.dcDate.localeCompare(b.dcDate) ||
+        a.dcNumber.localeCompare(b.dcNumber, undefined, { numeric: true })
+    );
+
+  // Running balance per original line: its received less its own outward,
+  // then each confirmed follow-up in turn. Read from the chain rows, so it
+  // ends exactly where the balance shown everywhere else ends.
+  const running = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.rootItemId) continue;
+    const root = chain.rows.get(row.rootItemId);
+    if (!root) continue;
+    if (!running.has(row.rootItemId)) {
+      const own =
+        (Number(root.sent_qty) || 0) +
+        (Number(root.material_problem_qty) || 0) +
+        (Number(root.rejection_qty) || 0);
+      running.set(row.rootItemId, (Number(root.received_qty) || 0) - own);
+    }
+    const left = running.get(row.rootItemId) ?? 0;
+    const next = row.draft ? left : left - row.sent - row.materialProblem - row.rejection;
+    running.set(row.rootItemId, next);
+    row.remainingAfter = next;
+  }
+
+  return rows;
 }

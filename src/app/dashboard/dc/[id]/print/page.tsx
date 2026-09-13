@@ -217,22 +217,24 @@ function DcCopy({
                 description down to a two-line wrap. A colgroup is immune to
                 that. */}
             <colgroup>
-              <col style={{ width: "8%" }} />
-              <col style={{ width: "44%" }} />
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "38%" }} />
               <col style={{ width: "11%" }} />
+              <col style={{ width: "9%" }} />
               <col style={{ width: "13%" }} />
-              <col style={{ width: "12%" }} />
+              <col style={{ width: "11%" }} />
               <col style={{ width: "12%" }} />
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={6} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
+                <th colSpan={7} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
                   Material / Component Details
                 </th>
               </tr>
               <tr>
                 <th className={`${CELL} text-center`}>S.No.</th>
                 <th className={`${CELL} text-center`}>Description</th>
+                <th className={`${CELL} text-center`}>Material</th>
                 <th className={`${CELL} text-center`}>Qty</th>
                 <th className={`${CELL} text-center`}>Mat. Problem</th>
                 <th className={`${CELL} text-center`}>Rejection</th>
@@ -244,6 +246,7 @@ function DcCopy({
                 <tr key={item.id}>
                   <td className={`${CELL} text-center`}>{idx + 1}</td>
                   <td className={`${CELL} text-center`}>{item.component}</td>
+                  <td className={`${CELL} text-center`}>{item.material ?? "-"}</td>
                   {/* The "Qty" column on the printed challan is the sent quantity. */}
                   <td className={`${CELL} text-center`}>{item.sent_qty}</td>
                   <td className={`${CELL} text-center`}>{item.material_problem_qty}</td>
@@ -257,6 +260,7 @@ function DcCopy({
                 length: Math.max(0, MIN_TABLE_ROWS - items.length),
               }).map((_, i) => (
                 <tr key={`blank-${i}`}>
+                  <td className={CELL}>&nbsp;</td>
                   <td className={CELL}>&nbsp;</td>
                   <td className={CELL}>&nbsp;</td>
                   <td className={CELL}>&nbsp;</td>

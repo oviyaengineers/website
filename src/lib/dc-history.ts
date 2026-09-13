@@ -267,8 +267,8 @@ function recordsFromChallans(
 export function compareHistory(a: HistoryRecord, b: HistoryRecord): number {
   return (
     a.date.localeCompare(b.date) ||
-    a.createdAt.localeCompare(b.createdAt) ||
     a.sortNumber.localeCompare(b.sortNumber, undefined, { numeric: true }) ||
+    a.createdAt.localeCompare(b.createdAt) ||
     a.lineOrder - b.lineOrder
   );
 }

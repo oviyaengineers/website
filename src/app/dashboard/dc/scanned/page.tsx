@@ -4,7 +4,11 @@ import { ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBox } from "@/components/search-box";
 import { ScannedDcList } from "@/components/scanned-dc-list";
-import { listConvertedScans, listPendingScans } from "@/lib/actions/dc-scan-queue";
+import {
+  listConvertedScans,
+  listDiscardedScans,
+  listPendingScans,
+} from "@/lib/actions/dc-scan-queue";
 import { scannedDcMatches } from "@/lib/dc-search";
 
 export const metadata: Metadata = { title: "Scanned DCs | Oviya Engineers" };
@@ -22,11 +26,16 @@ export default async function ScannedDcsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const [allPending, allConverted] = await Promise.all([listPendingScans(), listConvertedScans()]);
+  const [allPending, allConverted, allDiscarded] = await Promise.all([
+    listPendingScans(),
+    listConvertedScans(),
+    listDiscardedScans(),
+  ]);
   // Searching only narrows what is shown. It never converts, edits or
   // discards anything.
   const pending = q ? allPending.filter((scan) => scannedDcMatches(scan, q)) : allPending;
   const converted = q ? allConverted.filter((scan) => scannedDcMatches(scan, q)) : allConverted;
+  const discarded = q ? allDiscarded.filter((scan) => scannedDcMatches(scan, q)) : allDiscarded;
 
   return (
     <div className="space-y-6">
@@ -50,7 +59,7 @@ export default async function ScannedDcsPage({
 
       <SearchBox placeholder="Customer DC number, customer, component, material or date..." />
 
-      <ScannedDcList pending={pending} converted={converted} searchTerm={q} />
+      <ScannedDcList pending={pending} converted={converted} discarded={discarded} searchTerm={q} />
     </div>
   );
 }

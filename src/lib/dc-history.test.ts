@@ -134,11 +134,11 @@ test("only records dated inside the range are shown, both ends included", () => 
   assert.ok(dates.every((date) => date >= RANGE.from && date <= RANGE.to));
 });
 
-test("records run oldest to newest, same-day records in the order they were made", () => {
+test("records run oldest to newest, same-day records by DC number", () => {
   assert.deepEqual(keys(RANGE), [
-    "scan:s3:0", // 1 Sep, scanned 31 Aug 20:00 UTC
-    "a1", // 1 Sep, made 09:00
-    "scan:s1:0", // 1 Sep, scanned 12:00
+    "a1", // 1 Sep, 26-27-001
+    "scan:s1:0", // 1 Sep, ODC/s1
+    "scan:s3:0", // 1 Sep, ODC/s3 (scanned 31 Aug 20:00 UTC, 1 Sep in India)
     "b1",
     "f1",
     "f2",

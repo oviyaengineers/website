@@ -89,6 +89,8 @@ export type DeliveryChallanRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Set by a save from the form, so a repeated save returns the same challan (0023). */
+  request_key?: string | null;
 };
 export type DeliveryChallanInsert = {
   id?: string;
@@ -374,6 +376,14 @@ export type PendingDcScanRow = {
   converted_at: string | null;
   created_at: string;
   created_by: string | null;
+  /** The original photograph in the private dc-scans bucket (0022). */
+  image_path: string | null;
+  /** The raw text OCR returned (0022). */
+  ocr_text: string | null;
+  /** The values as first read, before any correction (0022). */
+  ocr_result: unknown;
+  /** When the working values were last corrected by hand (0022). */
+  corrected_at: string | null;
 };
 export type PendingDcScanInsert = {
   id?: string;
@@ -386,6 +396,10 @@ export type PendingDcScanInsert = {
   converted_at?: string | null;
   created_at?: string;
   created_by?: string | null;
+  image_path?: string | null;
+  ocr_text?: string | null;
+  ocr_result?: unknown;
+  corrected_at?: string | null;
 };
 export type PendingDcScanUpdate = {
   id?: string;
@@ -398,6 +412,7 @@ export type PendingDcScanUpdate = {
   converted_at?: string | null;
   created_at?: string;
   created_by?: string | null;
+  corrected_at?: string | null;
 };
 
 export type Database = {
@@ -492,6 +507,17 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      /** Creates or edits a challan, its lines and its scans in one transaction (0023). */
+      save_delivery_challan: {
+        Args: {
+          p_dc_id: string | null;
+          p_request_key: string | null;
+          p_header: Record<string, unknown>;
+          p_items: Record<string, unknown>[];
+          p_scan_ids: string[];
+        };
+        Returns: { dc_id: string; dc_number: string; already_saved: boolean }[];
       };
     };
   };

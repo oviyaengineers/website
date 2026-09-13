@@ -4,13 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import type { DcItemInput } from "@/lib/actions/dc";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
 import { ComponentPendingDcs } from "@/components/component-pending-dcs";
@@ -136,6 +130,10 @@ export function DcItemRows({
                 <div className="space-y-1">
                   <Label className="sm:hidden">Description</Label>
                   <input type="hidden" name="item_component" value={row.component} />
+                  {/* The stored line's id when editing, empty on a new row. An
+                      edited line keeps its id, which is what any follow-up DC
+                      raised against it points at. */}
+                  <input type="hidden" name="item_id" value={row.id ?? ""} />
                   {/* Emitted for every row, empty where the row is an original,
                       so the parsed arrays stay aligned with the other fields. */}
                   <input
@@ -143,26 +141,23 @@ export function DcItemRows({
                     name="item_parent_item_id"
                     value={row.parent_item_id ?? ""}
                   />
-                  <Select
+                  {/* Typed into to search, but only a component from Settings
+                      can be chosen. A row that has quantities and no component
+                      is marked, and the form will not save it. */}
+                  <SearchableSelect
+                    options={components}
                     value={row.component || null}
-                    onValueChange={(v) => updateRow(row.key, { component: v ?? "" })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {components.length === 0 && (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          Add components in Settings
-                        </div>
-                      )}
-                      {components.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => updateRow(row.key, { component: v ?? "" })}
+                    searchPlaceholder="Search components..."
+                    emptyText={
+                      components.length === 0
+                        ? "Add components in Settings"
+                        : "No component matches. Add it in Settings first."
+                    }
+                    invalid={!row.component && !isBlankDcItemRow(row)}
+                    ariaLabel="Description"
+                    className="sm:min-h-8"
+                  />
                   {/* Choosing a part is the moment to see what is already
                       outstanding on it elsewhere. */}
                   <ComponentPendingDcs component={row.component} excludeDcId={excludeDcId} />
@@ -170,26 +165,19 @@ export function DcItemRows({
                 <div className="space-y-1">
                   <Label className="sm:hidden">Material</Label>
                   <input type="hidden" name="item_material" value={row.material ?? ""} />
-                  <Select
+                  <SearchableSelect
+                    options={materials}
                     value={row.material || null}
-                    onValueChange={(v) => updateRow(row.key, { material: v })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {materials.length === 0 && (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          Add materials in Settings
-                        </div>
-                      )}
-                      {materials.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => updateRow(row.key, { material: v })}
+                    searchPlaceholder="Search materials..."
+                    emptyText={
+                      materials.length === 0
+                        ? "Add materials in Settings"
+                        : "No material matches. Add it in Settings first."
+                    }
+                    allowClear
+                    ariaLabel="Material"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">

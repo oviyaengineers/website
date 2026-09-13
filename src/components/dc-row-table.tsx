@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
+import { Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -38,6 +40,7 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
               <TableHead className="text-right">Mat. problem</TableHead>
               <TableHead className="text-right">Rejection</TableHead>
               {showPending && <TableHead className="text-right">Pending</TableHead>}
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -78,6 +81,23 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
                     {row.pending}
                   </TableCell>
                 )}
+                <TableCell className="space-x-2 text-right align-top whitespace-nowrap">
+                  <Button
+                    render={<Link href={`/dashboard/dc/${row.dcId}`} />}
+                    variant="outline"
+                    size="sm"
+                  >
+                    View
+                  </Button>
+                  <Button
+                    render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Print ${row.dcNumber}`}
+                  >
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -110,6 +130,25 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
               <Figure label="Rejection" value={row.rejection} />
               {showPending && <Figure label="Pending" value={row.pending} strong />}
             </dl>
+            <div className="mt-3 flex gap-2">
+              <Button
+                render={<Link href={`/dashboard/dc/${row.dcId}`} />}
+                variant="outline"
+                size="sm"
+                className="h-11 flex-1"
+              >
+                View
+              </Button>
+              <Button
+                render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
+                variant="outline"
+                size="sm"
+                className="h-11 w-11"
+                aria-label={`Print ${row.dcNumber}`}
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         ))}
       </div>

@@ -65,6 +65,8 @@ export async function fetchDcRows(): Promise<DcRow[]> {
   const rows = items.flatMap((item) => {
     const dc = dcById.get(item.dc_id);
     if (!dc) return [];
+    // A draft has not been issued, so it is neither stock nor completed work.
+    if (dc.status === "draft") return [];
     if (!isOriginalLine(item)) return [];
     const line = figuresFor(item, chain);
     return [

@@ -92,6 +92,17 @@ export function DcForm({
   );
   /** Ticked to save past a customer reference that is already on file. */
   const [allowDuplicate, setAllowDuplicate] = useState(false);
+  /**
+   * One key for this form, sent with every save. A double click, a resubmit or
+   * a retried request carries the same key, and the database hands back the
+   * challan it already saved instead of creating a second one. Made after
+   * mount, so the server render and the first client render agree.
+   */
+  const [requestKey, setRequestKey] = useState("");
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setRequestKey(crypto.randomUUID()));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   /** Scans this form instance has already folded in, so none is applied twice. */
   const appliedScanIds = useRef<Set<string>>(new Set());
   // Which scan this challan is being raised from, chosen on Scanned DCs. A
@@ -139,6 +150,9 @@ export function DcForm({
   });
   const overContinued = overContinuedLines.length > 0;
   const duplicateRefs = findDuplicateCustomerDcNumbers(dcRefs.map((row) => row.number));
+  // A row with quantities but no component would otherwise be dropped on save
+  // without a word, taking its received quantity with it.
+  const unnamedRows = itemRows.filter((row) => !row.component.trim() && !isBlankDcItemRow(row));
 
   /**
    * Fold a reviewed scan into the form. Only the ticked values arrive here, so
@@ -472,6 +486,7 @@ export function DcForm({
         </div>
       )}
       <input type="hidden" name="allow_duplicate" value={allowDuplicate ? "yes" : "no"} />
+      <input type="hidden" name="request_key" value={requestKey} />
       {/* Only the scans that actually filled this form are cleared when it
           saves. Clearing the whole queue would throw away scans nobody has
           entered yet, which is the entire point of the Scanned DCs screen. */}
@@ -494,12 +509,33 @@ export function DcForm({
         </div>
       )}
 
+      {unnamedRows.length > 0 && (
+        <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            Choose the component
+          </h3>
+          <p className="text-sm text-destructive">
+            {unnamedRows.length} row{unnamedRows.length === 1 ? " has" : "s have"} quantities but no
+            component. Pick it from the list, which holds only the components in Settings, or remove
+            the row.
+          </p>
+        </div>
+      )}
+
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       {/* Full width and a full thumb's height on a phone: this is the one
           control that commits the challan, and it was a 150px target. */}
       <Button
         type="submit"
-        disabled={pending || overDelivered.length > 0 || duplicateRefs.length > 0 || overContinued}
+        disabled={
+          pending ||
+          (!dc && !requestKey) ||
+          unnamedRows.length > 0 ||
+          overDelivered.length > 0 ||
+          duplicateRefs.length > 0 ||
+          overContinued
+        }
         className="h-11 w-full bg-[#10233f] hover:bg-[#10233f]/90 sm:h-8 sm:w-auto"
       >
         {pending ? "Saving..." : dc ? "Save changes" : "Create delivery challan"}

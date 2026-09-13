@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, Printer } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DcRowTable } from "@/components/dc-row-table";
+import { DcFilters } from "@/components/dc-filters";
 import { SearchBox } from "@/components/search-box";
 import { fetchDcRows } from "@/lib/dc-rows";
 import { dcRowMatches } from "@/lib/dc-search";
@@ -20,12 +22,37 @@ export const metadata: Metadata = { title: "Completed DCs | Oviya Engineers" };
 export default async function CompletedChallansPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    from?: string;
+    to?: string;
+    customer?: string;
+    component?: string;
+  }>;
 }) {
-  const { q } = await searchParams;
-  const rows = await fetchDcRows();
+  const filters = await searchParams;
+  const { q } = filters;
+  const supabase = await createClient();
+  const [rows, { data: picklist }, { data: customers }] = await Promise.all([
+    fetchDcRows(),
+    supabase.from("dc_picklist_items").select("name").eq("kind", "component").order("name"),
+    supabase.from("customers").select("name").order("name"),
+  ]);
+  // Completed is exactly zero, from the same chain calculation as every screen.
   const finished = rows.filter((row) => row.received > 0 && row.pending === 0);
-  const completed = q ? finished.filter((row) => dcRowMatches(row, q)) : finished;
+  // Filtering only narrows what is shown. The dates are our DC dates, both
+  // days included.
+  const completed = finished.filter(
+    (row) =>
+      (!q || dcRowMatches(row, q)) &&
+      (!filters.from || row.dcDate >= filters.from) &&
+      (!filters.to || row.dcDate <= filters.to) &&
+      (!filters.customer || row.customerName === filters.customer) &&
+      (!filters.component || row.component === filters.component)
+  );
+  const filtered = Boolean(
+    q || filters.from || filters.to || filters.customer || filters.component
+  );
 
   const totals = completed.reduce(
     (sum, row) => ({
@@ -56,13 +83,21 @@ export default async function CompletedChallansPage({
         </Button>
       </div>
 
-      <SearchBox placeholder="Our DC number, customer DC number, customer, component, material or date..." />
+      <div className="space-y-3">
+        <SearchBox placeholder="Our DC number, customer DC number, customer, component, material or date..." />
+        <DcFilters
+          defaults={filters}
+          components={(picklist ?? []).map((item) => item.name)}
+          customers={(customers ?? []).map((c) => c.name)}
+          showStatus={false}
+        />
+      </div>
 
       {completed.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            {q
-              ? `No completed line matches "${q}".`
+            {filtered
+              ? "No completed line matches these filters."
               : "Nothing is completed yet. A line appears here once its sent, material problem and rejection quantities together match what came in."}
           </CardContent>
         </Card>

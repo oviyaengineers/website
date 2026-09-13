@@ -7,10 +7,12 @@ import { findOverDelivered, outwardTotal } from "@/lib/dc-balance";
 import { bookableOnLine, isContinuationLine, remainingByLine } from "@/lib/dc-chain";
 import { fetchChainRows } from "@/lib/dc-chain-data";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
-import { getScannedDc, markScansConverted } from "@/lib/actions/dc-scan-queue";
 import { storedStatusFor } from "@/lib/dc-lifecycle";
+import { saveErrorMessage } from "@/lib/dc-save-errors";
 
 export type DcItemInput = {
+  /** The stored line, when editing. Kept so follow-ups stay attached to it. */
+  id?: string | null;
   component: string;
   material: string | null;
   received_qty: number;
@@ -34,6 +36,10 @@ export type DcFormValues = {
   items: DcItemInput[];
   /** Set once the operator has seen the duplicate warning and meant it. */
   allow_duplicate: boolean;
+  /** Generated once per form, so a repeated save cannot make a second challan. */
+  request_key: string | null;
+  /** Rows carrying a quantity but no component, which cannot be saved. */
+  unnamed_rows: number;
 };
 
 export type DcFormState = {
@@ -48,6 +54,8 @@ export type DcFormState = {
    */
   duplicateWarning?: string | null;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Challans already on file citing any of these customer references.
@@ -84,10 +92,9 @@ async function findExistingRefs(
 /**
  * Continuation rows despatching more than their line still owes.
  *
- * The remaining balance is read from the database every time. A figure the
- * form carried could be stale by the time the challan is saved, and two
- * people entering despatches against the same lot is exactly when that
- * matters.
+ * An early, friendly answer for the form. The save itself checks the same
+ * thing again inside its transaction, under a lock on the line, which is what
+ * actually stops two despatches saved at once from both getting through.
  */
 async function findOverContinued(
   items: DcItemInput[],
@@ -127,23 +134,6 @@ async function findOverContinued(
   return problems;
 }
 
-/** The challan the continued lines belong to, when they all share one. */
-async function parentChallanFor(items: DcItemInput[]): Promise<string | null> {
-  const parentIds = [...new Set(items.map((item) => item.parent_item_id).filter(Boolean))];
-  if (parentIds.length === 0) return null;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("delivery_challan_items")
-    .select("dc_id")
-    .in("id", parentIds as string[]);
-
-  const challanIds = [...new Set((data ?? []).map((row) => row.dc_id))];
-  // Continuing two different challans at once has no single parent, and the
-  // per-line links still record the truth, so this is left null.
-  return challanIds.length === 1 ? challanIds[0] : null;
-}
-
 function parseDcForm(formData: FormData): DcFormValues {
   const customer_id = String(formData.get("customer_id") ?? "");
   const dc_date = String(formData.get("dc_date") ?? "");
@@ -159,7 +149,9 @@ function parseDcForm(formData: FormData): DcFormValues {
 
   const authorized_by = (formData.get("authorized_by") as string) || null;
   const allow_duplicate = formData.get("allow_duplicate") === "yes";
+  const rawKey = String(formData.get("request_key") ?? "").trim();
 
+  const ids = formData.getAll("item_id") as string[];
   const components = formData.getAll("item_component") as string[];
   const materials = formData.getAll("item_material") as string[];
   const receivedQtys = formData.getAll("item_received_qty") as string[];
@@ -168,17 +160,22 @@ function parseDcForm(formData: FormData): DcFormValues {
   const rejectionQtys = formData.getAll("item_rejection_qty") as string[];
   const parentItemIds = formData.getAll("item_parent_item_id") as string[];
 
-  const items: DcItemInput[] = components
-    .map((component, i) => ({
-      component: component?.trim() ?? "",
-      material: materials[i]?.trim() || null,
-      received_qty: Number(receivedQtys[i] ?? 0) || 0,
-      sent_qty: Number(sentQtys[i] ?? 0) || 0,
-      material_problem_qty: Number(materialProblemQtys[i] ?? 0) || 0,
-      rejection_qty: Number(rejectionQtys[i] ?? 0) || 0,
-      parent_item_id: parentItemIds[i]?.trim() || null,
-    }))
-    .filter((item) => item.component.length > 0);
+  const allRows = components.map((component, i) => ({
+    id: UUID.test(ids[i]?.trim() ?? "") ? ids[i].trim() : null,
+    component: component?.trim() ?? "",
+    material: materials[i]?.trim() || null,
+    received_qty: Number(receivedQtys[i] ?? 0) || 0,
+    sent_qty: Number(sentQtys[i] ?? 0) || 0,
+    material_problem_qty: Number(materialProblemQtys[i] ?? 0) || 0,
+    rejection_qty: Number(rejectionQtys[i] ?? 0) || 0,
+    parent_item_id: parentItemIds[i]?.trim() || null,
+  }));
+  const items: DcItemInput[] = allRows.filter((item) => item.component.length > 0);
+  const unnamed_rows = allRows.filter(
+    (item) =>
+      item.component.length === 0 &&
+      item.received_qty + item.sent_qty + item.material_problem_qty + item.rejection_qty > 0
+  ).length;
 
   return {
     customer_id,
@@ -188,66 +185,102 @@ function parseDcForm(formData: FormData): DcFormValues {
     authorized_by,
     items,
     allow_duplicate,
+    request_key: UUID.test(rawKey) ? rawKey : null,
+    unnamed_rows,
   };
 }
 
-/** PostgREST's code for "that column is not in my schema". */
-const UNKNOWN_COLUMN = "PGRST204";
+/** Checks that need nothing but the form, shared by create and edit. */
+function formProblems(values: DcFormValues): string | null {
+  if (!values.customer_id) return "Please select a customer.";
+  if (values.unnamed_rows > 0) {
+    return `${values.unnamed_rows} row${values.unnamed_rows === 1 ? " has" : "s have"} quantities but no component. Choose the component from Settings, or remove the row.`;
+  }
+  if (values.items.length === 0) return "Add at least one item.";
 
-/**
- * The component master list, keyed by name for looking up a part's id.
- *
- * Matched without regard to case or surrounding space, the same way the
- * backfill in migration 0018 matched.
- */
-async function componentIdsByName(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<Map<string, string>> {
-  const { data } = await supabase
-    .from("dc_picklist_items")
-    .select("id, name")
-    .eq("kind", "component");
-  return new Map((data ?? []).map((row) => [row.name.trim().toLowerCase(), row.id]));
+  const negative = values.items.find(
+    (item) =>
+      item.received_qty < 0 ||
+      item.sent_qty < 0 ||
+      item.material_problem_qty < 0 ||
+      item.rejection_qty < 0
+  );
+  if (negative) return `Quantities cannot be negative (${negative.component}).`;
+
+  const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
+  if (duplicateRefs.length > 0) {
+    return `The same customer DC number appears more than once: ${duplicateRefs.join(
+      ", "
+    )}. Each reference may only be listed once.`;
+  }
+
+  // Only original lines are judged this way. A continuation has no received
+  // quantity, so this rule would refuse every one of them.
+  const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
+  if (overDelivered.length > 0) {
+    return `More pieces go out than came in on: ${overDelivered
+      .map((row) => `${row.component} (${row.extra} extra)`)
+      .join("; ")}.`;
+  }
+  return null;
 }
 
 /**
- * Writes the item rows for a challan, with and then without component_id.
- *
- * The id is what makes a part stable under renaming, but migration 0018 adds
- * the column and migrations in this project have a history of reporting
- * success without landing. Saving a challan must not depend on one having
- * been applied, so a rejection naming the unknown column is retried with the
- * name alone. Any other error is the caller's to report.
+ * Save through the database function, which writes the challan, its lines and
+ * the scans it came from in one transaction. Either all of it is saved or none
+ * of it is, and a failed save uses no DC number.
  */
-async function insertDcItems(
+async function saveChallan(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  dcId: string,
-  items: DcItemInput[]
-): Promise<{ error: string | null }> {
-  const idByName = await componentIdsByName(supabase);
-  const rows = items.map((item, index) => ({
-    dc_id: dcId,
-    parent_item_id: item.parent_item_id ?? null,
-    component: item.component,
-    material: item.material,
-    received_qty: item.received_qty,
-    sent_qty: item.sent_qty,
-    material_problem_qty: item.material_problem_qty,
-    rejection_qty: item.rejection_qty,
-    sort_order: index,
-  }));
+  dcId: string | null,
+  values: DcFormValues,
+  scanIds: string[]
+): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("save_delivery_challan", {
+    p_dc_id: dcId,
+    p_request_key: dcId ? null : values.request_key,
+    p_header: {
+      customer_id: values.customer_id,
+      dc_date: values.dc_date,
+      customer_dc_number: values.customer_dc_number ?? [],
+      customer_dc_date: (values.customer_dc_date ?? []).map((date) => date ?? ""),
+      authorized_by: values.authorized_by ?? "",
+    },
+    p_items: values.items.map((item) => ({
+      id: item.id ?? null,
+      parent_item_id: item.parent_item_id ?? null,
+      component: item.component,
+      material: item.material,
+      received_qty: item.received_qty,
+      sent_qty: item.sent_qty,
+      material_problem_qty: item.material_problem_qty,
+      rejection_qty: item.rejection_qty,
+    })),
+    p_scan_ids: scanIds,
+  });
 
-  const withIds = rows.map((row) => ({
-    ...row,
-    component_id: idByName.get(row.component.trim().toLowerCase()) ?? null,
-  }));
+  if (error) return { id: null, error: saveErrorMessage(error.message, error.code) };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.dc_id) {
+    return { id: null, error: saveErrorMessage("The save returned no challan.") };
+  }
+  return { id: row.dc_id, error: null };
+}
 
-  const { error } = await supabase.from("delivery_challan_items").insert(withIds);
-  if (!error) return { error: null };
-  if (error.code !== UNKNOWN_COLUMN) return { error: error.message };
-
-  const retry = await supabase.from("delivery_challan_items").insert(rows);
-  return { error: retry.error?.message ?? null };
+/** Every screen that lists challans or scans reads what a save changes. */
+function revalidateDcScreens(dcId?: string) {
+  for (const path of [
+    "/dashboard/dc",
+    "/dashboard/dc/dispatched",
+    "/dashboard/dc/scanned",
+    "/dashboard/dc/history",
+    "/dashboard/stock",
+    "/dashboard/completed",
+    "/dashboard",
+  ]) {
+    revalidatePath(path);
+  }
+  if (dcId) revalidatePath(`/dashboard/dc/${dcId}`);
 }
 
 export async function createDcAction(
@@ -256,28 +289,8 @@ export async function createDcAction(
 ): Promise<DcFormState> {
   const values = parseDcForm(formData);
 
-  if (!values.customer_id) return { error: "Please select a customer." };
-  if (values.items.length === 0) return { error: "Add at least one item." };
-
-  const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
-  if (duplicateRefs.length > 0) {
-    return {
-      error: `The same customer DC number appears more than once: ${duplicateRefs.join(
-        ", "
-      )}. Each reference may only be listed once.`,
-    };
-  }
-
-  // Only original lines are judged this way. A continuation has no received
-  // quantity, so this rule would refuse every one of them.
-  const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
-  if (overDelivered.length > 0) {
-    return {
-      error: `More pieces go out than came in on: ${overDelivered
-        .map((row) => `${row.component} (${row.extra} extra)`)
-        .join("; ")}.`,
-    };
-  }
+  const problem = formProblems(values);
+  if (problem) return { error: problem };
 
   // A continuation row legitimately sends more than it received, because it
   // received nothing: the pieces came in on the line it continues. So it is
@@ -291,27 +304,13 @@ export async function createDcAction(
   }
 
   const supabase = await createClient();
-
-  // A scan converts exactly once. Two clicks on Create delivery challan, a
-  // resubmitted form, or the back button would otherwise each raise a
-  // challan for the same customer DC, and only the arithmetic would say so.
-  const scanIds = (formData.getAll("used_scan_id") as string[]).filter(Boolean);
-  for (const scanId of scanIds) {
-    const scan = await getScannedDc(scanId);
-    if (scan?.status === "converted") {
-      return {
-        error:
-          `A delivery challan has already been created from this scanned customer DC` +
-          `${scan.dcNumber ? " (" + scan.dcNumber + ")" : ""}. Open it from Scanned DCs rather than creating another.`,
-      };
-    }
-  }
+  const scanIds = (formData.getAll("used_scan_id") as string[]).filter((id) => UUID.test(id));
 
   // A continuation cites the same customer reference as the challan it
   // continues, because it is the same inward lot. Warning about that would
   // fire on every one of them and teach the operator to tick past it, which
   // would then hide a real duplicate. What protects this path instead is the
-  // remaining-balance check above.
+  // remaining-balance check.
   const isContinuation = values.items.some((item) => item.parent_item_id);
 
   if (!values.allow_duplicate && !isContinuation) {
@@ -325,57 +324,14 @@ export async function createDcAction(
     }
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Saving issues the challan: it is created Active, so it appears under
+  // Dispatched straight away. The scans that filled the form are converted in
+  // the same transaction, and only if they are still pending.
+  const { id, error } = await saveChallan(supabase, null, values, scanIds);
+  if (error || !id) return { error: error ?? saveErrorMessage(null) };
 
-  // Where every row continues the same challan, the new one records it, so the
-  // chain is walkable from either end.
-  const parentDcId = await parentChallanFor(values.items);
-
-  const { data: dc, error: dcError } = await supabase
-    .from("delivery_challans")
-    .insert({
-      parent_dc_id: parentDcId,
-      customer_id: values.customer_id,
-      dc_date: values.dc_date || undefined,
-      customer_dc_number: values.customer_dc_number,
-      customer_dc_date: values.customer_dc_date,
-      authorized_by: values.authorized_by,
-      created_by: user?.id ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (dcError || !dc) {
-    return { error: dcError?.message ?? "Failed to create delivery challan." };
-  }
-
-  const { error: itemsError } = await insertDcItems(supabase, dc.id, values.items);
-
-  if (itemsError) {
-    // Partial failure: remove the orphaned DC header so we don't leave a
-    // delivery challan with no items behind.
-    await supabase.from("delivery_challans").delete().eq("id", dc.id);
-    return { error: itemsError };
-  }
-
-  // The scans that fed this challan have done their job. Cleared here rather
-  // than in the browser because saving redirects, so no client code runs
-  // afterwards, and the queue is shared across devices.
-  //
-  // Only the scans that actually filled this form: the rest are still waiting
-  // on Scanned DCs for somebody to enter them, and clearing the whole queue
-  // would silently throw those away.
-  // The scanned customer DC is the input this challan came from, so it is
-  // kept and linked rather than deleted. Losing it would lose the trail from
-  // the customer's paper to our challan.
-  if (scanIds.length > 0) {
-    await markScansConverted(scanIds, dc.id);
-  }
-
-  revalidatePath("/dashboard/dc");
-  redirect(`/dashboard/dc/${dc.id}`);
+  revalidateDcScreens(id);
+  redirect(`/dashboard/dc/${id}`);
 }
 
 export async function updateDcAction(
@@ -385,30 +341,8 @@ export async function updateDcAction(
 ): Promise<DcFormState> {
   const values = parseDcForm(formData);
 
-  if (!values.customer_id) return { error: "Please select a customer." };
-  if (values.items.length === 0) return { error: "Add at least one item." };
-
-  const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
-  if (duplicateRefs.length > 0) {
-    return {
-      error: `The same customer DC number appears more than once: ${duplicateRefs.join(
-        ", "
-      )}. Each reference may only be listed once.`,
-    };
-  }
-
-  // Same two rules as creating one. Only original lines are judged by
-  // came-in-versus-went-out, because a follow-up received nothing and that rule
-  // would refuse every one. Follow-up rows are held to what their line can
-  // still take, with this challan's own old rows left out of the count.
-  const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
-  if (overDelivered.length > 0) {
-    return {
-      error: `More pieces go out than came in on: ${overDelivered
-        .map((row) => `${row.component} (${row.extra} extra)`)
-        .join("; ")}.`,
-    };
-  }
+  const problem = formProblems(values);
+  if (problem) return { error: problem };
 
   const tooMuch = await findOverContinued(values.items, id);
   if (tooMuch.length > 0) {
@@ -419,7 +353,7 @@ export async function updateDcAction(
 
   const supabase = await createClient();
 
-  if (!values.allow_duplicate) {
+  if (!values.allow_duplicate && !values.items.some((item) => item.parent_item_id)) {
     const clashes = await findExistingRefs(
       supabase,
       values.customer_id,
@@ -435,41 +369,23 @@ export async function updateDcAction(
     }
   }
 
-  const { error: dcError } = await supabase
-    .from("delivery_challans")
-    .update({
-      customer_id: values.customer_id,
-      dc_date: values.dc_date || undefined,
-      customer_dc_number: values.customer_dc_number,
-      customer_dc_date: values.customer_dc_date,
-      authorized_by: values.authorized_by,
-    })
-    .eq("id", id);
+  // Lines keep their ids, so follow-ups raised against them stay attached. The
+  // DC number and status are never touched by an edit.
+  const { error } = await saveChallan(supabase, id, values, []);
+  if (error) return { error };
 
-  if (dcError) return { error: dcError.message };
-
-  const { error: deleteError } = await supabase
-    .from("delivery_challan_items")
-    .delete()
-    .eq("dc_id", id);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const { error: itemsError } = await insertDcItems(supabase, id, values.items);
-
-  if (itemsError) return { error: itemsError };
-
-  revalidatePath("/dashboard/dc");
-  revalidatePath(`/dashboard/dc/${id}`);
+  revalidateDcScreens(id);
   redirect(`/dashboard/dc/${id}`);
 }
 
 /**
  * Move a challan between Draft and Active.
  *
- * Completed is not offered: it is read off the item rows, not stored. The
- * caller names the lifecycle and storedStatusFor decides the spelling, so the
- * one place that knows about the old status names stays in dc-lifecycle.
+ * New challans are saved Active, so this is for drafts saved before that, and
+ * for reopening one. Completed is not offered: it is read off the item rows,
+ * not stored. The caller names the lifecycle and storedStatusFor decides the
+ * spelling, so the one place that knows about the old status names stays in
+ * dc-lifecycle.
  */
 export async function updateDcStatusAction(id: string, lifecycle: "draft" | "active") {
   const supabase = await createClient();
@@ -502,13 +418,12 @@ export async function updateDcStatusAction(id: string, lifecycle: "draft" | "act
   const status = storedStatusFor(lifecycle);
   const { error } = await supabase.from("delivery_challans").update({ status }).eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath(`/dashboard/dc/${id}`);
-  revalidatePath("/dashboard/dc");
+  revalidateDcScreens(id);
 }
 
 export async function deleteDcAction(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("delivery_challans").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  revalidatePath("/dashboard/dc");
+  revalidateDcScreens();
 }

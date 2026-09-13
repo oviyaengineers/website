@@ -89,6 +89,8 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
         customers={customers ?? []}
         dc={dc}
         items={(items ?? []).map((i) => ({
+          // Kept, so saving updates this line rather than replacing it.
+          id: i.id,
           // The current name, so the form's dropdown finds the part rather
           // than showing an empty select for a row written before a rename.
           component: componentNameOf(i, componentNameIndex(picklistItems ?? [])),
