@@ -27,3 +27,28 @@ test("removing a line with follow-ups is explained", () => {
 test("anything else still says nothing was kept", () => {
   assert.match(saveErrorMessage("network down"), /nothing was kept.*network down/);
 });
+
+test("billed quantity protects a DC line", () => {
+  assert.match(saveErrorMessage("BELOW_BILLED:WCB Casting|250.00"), /250 is already billed/);
+  assert.match(
+    saveErrorMessage("BILLED_LINE_REMOVED:WCB Casting"),
+    /billed on an invoice, so it cannot be removed/
+  );
+  assert.match(
+    saveErrorMessage("DC_BILLED_CANNOT_REOPEN: 26-27-001 is billed"),
+    /cannot be reopened/
+  );
+});
+
+test("a billed DC keeps its month and customer", () => {
+  assert.match(
+    saveErrorMessage(
+      "DC_BILLED_MONTH_LOCKED: 26-27-001 is billed for September 2026, so its date cannot move"
+    ),
+    /26-27-001 is billed for September 2026/
+  );
+  assert.match(
+    saveErrorMessage("DC_BILLED_CUSTOMER_LOCKED: 26-27-001 is billed"),
+    /customer cannot change/
+  );
+});

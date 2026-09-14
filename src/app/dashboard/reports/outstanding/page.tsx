@@ -24,7 +24,12 @@ export default async function OutstandingReportPage() {
 
   const supabase = await createClient();
   const [{ data: invoices }, { data: customersData }] = await Promise.all([
-    supabase.from("invoices").select("*").neq("payment_status", "paid").order("due_date"),
+    supabase
+      .from("invoices")
+      .select("*")
+      .eq("status", "issued")
+      .neq("payment_status", "paid")
+      .order("due_date"),
     supabase.from("customers").select("id, name"),
   ]);
   const customerMap = new Map((customersData ?? []).map((c) => [c.id, c.name]));

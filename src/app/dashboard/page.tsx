@@ -36,6 +36,7 @@ export default async function DashboardHomePage({
       supabase
         .from("invoices")
         .select("grand_total, amount_paid, payment_status")
+        .eq("status", "issued")
         .neq("payment_status", "paid"),
     ]);
 
@@ -46,7 +47,10 @@ export default async function DashboardHomePage({
 
   let revenueVsCost: { month: string; revenue: number; cost: number }[] = [];
   if (isAdmin) {
-    const { data: invoices } = await supabase.from("invoices").select("grand_total, invoice_date");
+    const { data: invoices } = await supabase
+      .from("invoices")
+      .select("grand_total, invoice_date")
+      .eq("status", "issued");
     const { data: jobCosts } = await supabase.from("job_costs").select("total_cost, created_at");
     const monthMap = new Map<string, { revenue: number; cost: number }>();
     for (const inv of invoices ?? []) {

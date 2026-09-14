@@ -1,135 +1,221 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { createClient } from "@/lib/supabase/server";
-import { InvoicePrintActions } from "@/components/invoice-print-actions";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PrintNowButton } from "@/components/print-now-button";
+import { fetchInvoiceDetail } from "@/lib/billing-data";
+import { amountInWords, formatBillingMonth, formatRupees } from "@/lib/billing";
 
+const day = (value: string | null) =>
+  value ? format(new Date(`${value.slice(0, 10)}T00:00:00`), "dd MMM yyyy") : "-";
+
+const CELL = "border border-[#222] px-1.5 py-1";
+
+/**
+ * The customer-facing tax invoice, one A4 page.
+ *
+ * Seller and buyer come from the snapshots taken when the invoice was issued,
+ * so a reprint matches the original even after Settings or the customer change.
+ * Lines are the grouped invoice lines; the DCs they came from are listed once
+ * below the table. No internal DC balance appears here.
+ */
 export default async function InvoicePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: invoice } = await supabase.from("invoices").select("*").eq("id", id).single();
-  if (!invoice) notFound();
-
-  const [{ data: items }, { data: customer }] = await Promise.all([
-    supabase.from("invoice_items").select("*").eq("invoice_id", id).order("sort_order"),
-    supabase.from("customers").select("*").eq("id", invoice.customer_id).single(),
-  ]);
-
-  const pdfData = {
-    invoice_number: invoice.invoice_number,
-    invoice_date: invoice.invoice_date,
-    due_date: invoice.due_date,
-    subtotal: Number(invoice.subtotal),
-    gst_rate: Number(invoice.gst_rate),
-    gst_amount: Number(invoice.gst_amount),
-    discount: Number(invoice.discount),
-    grand_total: Number(invoice.grand_total),
-    notes: invoice.notes,
-    customer,
-    items: (items ?? []).map((i) => ({
-      description: i.description,
-      quantity: i.quantity,
-      unit: i.unit,
-      unit_price: Number(i.unit_price),
-      amount: Number(i.amount),
-    })),
-  };
+  const detail = await fetchInvoiceDetail(id);
+  if (!detail) notFound();
+  const { invoice, workLines, chargeLines, dcs } = detail;
+  const seller = invoice.seller_snapshot;
+  const buyer = invoice.buyer_snapshot;
+  const intra = invoice.tax_type !== "inter";
+  const cancelled = invoice.status === "cancelled";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white text-black print:static print:overflow-visible">
-      <div className="mx-auto flex max-w-3xl justify-end gap-2 p-4 print:hidden">
-        <InvoicePrintActions invoice={pdfData} />
+    <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
+        <Button render={<Link href={`/dashboard/invoices/${invoice.id}`} />} variant="outline">
+          <X className="h-4 w-4" /> Close
+        </Button>
+        <PrintNowButton label="Print invoice" />
       </div>
 
-      <div className="mx-auto max-w-3xl bg-white p-8 print:p-0 dc-print-sheet">
-        <div className="mb-6 flex items-start justify-between border-b pb-4">
-          <div>
-            <h1 className="text-xl font-bold">Oviya Engineers</h1>
-            <p className="text-sm text-gray-600">Precision Engineering &amp; Fabrication</p>
-          </div>
-          <div className="text-right text-sm">
-            <p>
-              <span className="font-semibold">Invoice No:</span> {invoice.invoice_number}
-            </p>
-            <p>
-              <span className="font-semibold">Date:</span>{" "}
-              {format(new Date(invoice.invoice_date), "dd MMM yyyy")}
-            </p>
-            {invoice.due_date && (
+      <div className="invoice-print-stage">
+        <div className="invoice-print-page">
+          {cancelled ? <div className="invoice-cancelled-mark">CANCELLED</div> : null}
+
+          <div className="border border-[#222]">
+            <div className="border-b border-[#222] px-3 py-1 text-center text-base font-bold tracking-wide">
+              TAX INVOICE
+            </div>
+            <div className="grid grid-cols-[1.4fr_1fr] text-[10.5px]">
+              <div className="border-r border-[#222] p-2">
+                <p className="text-sm font-bold">{seller?.legal_name ?? ""}</p>
+                {seller?.address ? <p className="whitespace-pre-line">{seller.address}</p> : null}
+                <p>State: {seller?.state ?? ""}</p>
+                <p>GSTIN: {seller?.gstin ?? ""}</p>
+                {seller?.phone || seller?.email ? (
+                  <p>{[seller?.phone, seller?.email].filter(Boolean).join(" · ")}</p>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-[auto_1fr] content-start gap-x-2 p-2">
+                <span className="font-semibold">Invoice No.</span>
+                <span className="font-bold">{invoice.invoice_number}</span>
+                <span className="font-semibold">Invoice Date</span>
+                <span>{day(invoice.invoice_date)}</span>
+                <span className="font-semibold">Billing Month</span>
+                <span>{formatBillingMonth(invoice.billing_month)}</span>
+                <span className="font-semibold">Due Date</span>
+                <span>{day(invoice.due_date)}</span>
+                <span className="font-semibold">Place of Supply</span>
+                <span>{invoice.place_of_supply ?? "-"}</span>
+              </div>
+            </div>
+            <div className="border-t border-[#222] p-2 text-[10.5px]">
+              <p className="font-semibold">Bill To</p>
+              <p className="text-sm font-bold">{buyer?.name ?? detail.customerName}</p>
+              {buyer?.address ? <p className="whitespace-pre-line">{buyer.address}</p> : null}
               <p>
-                <span className="font-semibold">Due:</span>{" "}
-                {format(new Date(invoice.due_date), "dd MMM yyyy")}
+                State: {buyer?.state ?? "-"} · GSTIN: {buyer?.gstin ?? "Unregistered"}
               </p>
-            )}
+            </div>
           </div>
-        </div>
 
-        <h2 className="mb-4 text-center text-lg font-bold tracking-wide">TAX INVOICE</h2>
-
-        <div className="mb-6 text-sm">
-          <p className="font-semibold">Bill To</p>
-          <p>{customer?.name ?? "-"}</p>
-          <p className="text-gray-600">{customer?.address ?? ""}</p>
-          <p className="text-gray-600">{customer?.phone ?? ""}</p>
-          {customer?.gst_number && <p className="text-gray-600">GST: {customer.gst_number}</p>}
-        </div>
-
-        <table className="mb-6 w-full border-collapse border border-gray-300 text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 p-2 text-left">Description</th>
-              <th className="border border-gray-300 p-2 text-left">Qty</th>
-              <th className="border border-gray-300 p-2 text-left">Unit</th>
-              <th className="border border-gray-300 p-2 text-right">Unit Price</th>
-              <th className="border border-gray-300 p-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(items ?? []).map((item) => (
-              <tr key={item.id}>
-                <td className="border border-gray-300 p-2">{item.description}</td>
-                <td className="border border-gray-300 p-2">{item.quantity}</td>
-                <td className="border border-gray-300 p-2">{item.unit}</td>
-                <td className="border border-gray-300 p-2 text-right">
-                  {Number(item.unit_price).toFixed(2)}
-                </td>
-                <td className="border border-gray-300 p-2 text-right">
-                  {Number(item.amount).toFixed(2)}
-                </td>
+          <table className="mt-2 w-full border-collapse text-[10px]">
+            <colgroup>
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "39%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "16%" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                {["S.No", "Description", "Material", "HSN/SAC", "Qty", "Rate", "Amount"].map(
+                  (h) => (
+                    <th key={h} className={`${CELL} text-center font-semibold`}>
+                      {h}
+                    </th>
+                  )
+                )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {workLines.map((line, index) => {
+                return (
+                  <tr key={line.id}>
+                    <td className={`${CELL} text-center`}>{index + 1}</td>
+                    <td className={CELL}>{line.description}</td>
+                    <td className={`${CELL} text-center`}>{line.material ?? "-"}</td>
+                    <td className={`${CELL} text-center`}>{line.hsn_sac ?? "-"}</td>
+                    <td className={`${CELL} text-right`}>{Number(line.quantity)}</td>
+                    <td className={`${CELL} text-right`}>
+                      {formatRupees(Number(line.unit_price))}
+                    </td>
+                    <td className={`${CELL} text-right`}>{formatRupees(Number(line.amount))}</td>
+                  </tr>
+                );
+              })}
+              {chargeLines.map((charge, index) => {
+                return (
+                  <tr key={charge.id}>
+                    <td className={`${CELL} text-center`}>{workLines.length + index + 1}</td>
+                    <td className={CELL}>{charge.description}</td>
+                    <td className={`${CELL} text-center`}>-</td>
+                    <td className={`${CELL} text-center`}>{charge.hsn_sac ?? "-"}</td>
+                    <td className={`${CELL} text-right`}>-</td>
+                    <td className={`${CELL} text-right`}>-</td>
+                    <td className={`${CELL} text-right`}>{formatRupees(Number(charge.amount))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-        <div className="ml-auto mb-6 w-64 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal</span>
-            <span>₹{Number(invoice.subtotal).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>GST ({invoice.gst_rate}%)</span>
-            <span>₹{Number(invoice.gst_amount).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Discount</span>
-            <span>-₹{Number(invoice.discount).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between border-t border-black pt-1 font-semibold">
-            <span>Grand Total</span>
-            <span>₹{Number(invoice.grand_total).toFixed(2)}</span>
-          </div>
-        </div>
+          {dcs.length > 0 ? (
+            <div className="mt-2 border border-[#222] px-2 py-1 text-[9px] leading-snug">
+              <span className="font-semibold">
+                DCs covered, {formatBillingMonth(invoice.billing_month)} (our DC, date, your
+                DC):{" "}
+              </span>
+              {dcs
+                .map((dc) =>
+                  [
+                    dc.dcNumber,
+                    dc.dcDate ? format(new Date(`${dc.dcDate}T00:00:00`), "dd MMM") : null,
+                    dc.customerDcNumbers.join(", ") || null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                )
+                .join("; ")}
+            </div>
+          ) : null}
 
-        {invoice.notes && (
-          <div className="mb-6 text-sm">
-            <p className="font-semibold">Notes</p>
-            <p>{invoice.notes}</p>
+          <div className="mt-2 grid grid-cols-[1.3fr_1fr] gap-2 text-[10.5px]">
+            <div className="space-y-2">
+              <div className="border border-[#222] p-2">
+                <p className="font-semibold">Amount in words</p>
+                <p>{amountInWords(Number(invoice.grand_total))}</p>
+              </div>
+              <div className="border border-[#222] p-2">
+                <p className="font-semibold">Bank details</p>
+                <p>Bank: {seller?.bank_name ?? "-"}</p>
+                <p>Account name: {seller?.bank_account_name ?? "-"}</p>
+                <p>Account no.: {seller?.bank_account_number ?? "-"}</p>
+                <p>
+                  IFSC: {seller?.bank_ifsc ?? "-"}
+                  {seller?.bank_branch ? ` · Branch: ${seller.bank_branch}` : ""}
+                </p>
+              </div>
+              {seller?.payment_terms || invoice.notes ? (
+                <div className="border border-[#222] p-2">
+                  <p className="font-semibold">Payment / terms</p>
+                  {seller?.payment_terms ? (
+                    <p className="whitespace-pre-line">{seller.payment_terms}</p>
+                  ) : null}
+                  {invoice.notes ? <p className="whitespace-pre-line">{invoice.notes}</p> : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <table className="w-full border-collapse">
+                <tbody>
+                  {[
+                    ["Subtotal", Number(invoice.subtotal)],
+                    ["Other charges (included above)", Number(invoice.other_charges)],
+                    ["Discount", -Number(invoice.discount)],
+                    ["Taxable value", Number(invoice.taxable_value)],
+                    ...(intra
+                      ? [
+                          [`CGST @ ${Number(invoice.cgst_rate)}%`, Number(invoice.cgst_amount)],
+                          [`SGST @ ${Number(invoice.sgst_rate)}%`, Number(invoice.sgst_amount)],
+                        ]
+                      : [[`IGST @ ${Number(invoice.igst_rate)}%`, Number(invoice.igst_amount)]]),
+                  ].map(([label, value]) => (
+                    <tr key={label as string}>
+                      <td className={CELL}>{label}</td>
+                      <td className={`${CELL} text-right`}>{formatRupees(value as number)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td className={`${CELL} text-sm font-bold`}>Grand Total (₹)</td>
+                    <td className={`${CELL} text-right text-sm font-bold`}>
+                      {formatRupees(Number(invoice.grand_total))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="flex h-24 flex-col justify-between border border-[#222] p-2 text-center">
+                <p className="font-semibold">For {seller?.legal_name ?? ""}</p>
+                <div>
+                  {seller?.authorized_signatory ? <p>{seller.authorized_signatory}</p> : null}
+                  <p className="font-semibold">Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-
-        <div className="mt-16 flex justify-between text-sm">
-          <div className="w-2/5 border-t border-black pt-2 text-center">Customer Signature</div>
-          <div className="w-2/5 border-t border-black pt-2 text-center">Authorized Signatory</div>
         </div>
       </div>
     </div>

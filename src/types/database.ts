@@ -46,6 +46,8 @@ export type CustomerRow = {
   email: string | null;
   address: string | null;
   gst_number: string | null;
+  /** Decides CGST+SGST or IGST on an invoice (0025). */
+  state: string | null;
   created_at: string;
   created_by: string | null;
 };
@@ -57,6 +59,7 @@ export type CustomerInsert = {
   email?: string | null;
   address?: string | null;
   gst_number?: string | null;
+  state?: string | null;
   created_at?: string;
   created_by?: string | null;
 };
@@ -68,6 +71,7 @@ export type CustomerUpdate = {
   email?: string | null;
   address?: string | null;
   gst_number?: string | null;
+  state?: string | null;
   created_at?: string;
   created_by?: string | null;
 };
@@ -206,6 +210,26 @@ export type InvoiceRow = {
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  /** The calendar month billed, always its first day (0026). */
+  billing_month: string;
+  /** issued or cancelled (0025). A cancelled invoice keeps its number. */
+  status: InvoiceStatus;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  request_key: string | null;
+  tax_type: "intra" | "inter" | null;
+  place_of_supply: string | null;
+  taxable_value: number;
+  other_charges: number;
+  cgst_rate: number;
+  sgst_rate: number;
+  igst_rate: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  seller_snapshot: CompanyBillingSnapshot | null;
+  buyer_snapshot: BuyerSnapshot | null;
 };
 export type InvoiceInsert = {
   id?: string;
@@ -253,6 +277,100 @@ export type InvoiceItemRow = {
   unit_price: number;
   amount: number;
   sort_order: number;
+  /** dc_work bills a DC line; charge is transport, packing or other (0025). */
+  line_type: "dc_work" | "charge";
+  component_id: string | null;
+  material: string | null;
+  hsn_sac: string | null;
+  /** The Rate List rate when the invoice was issued, to show an override. */
+  list_rate: number | null;
+};
+
+export type InvoiceStatus = "issued" | "cancelled";
+
+/** Seller details copied onto an invoice when it is issued (0025). */
+export type CompanyBillingSnapshot = {
+  legal_name: string | null;
+  address: string | null;
+  state: string | null;
+  gstin: string | null;
+  phone: string | null;
+  email: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  bank_ifsc: string | null;
+  bank_branch: string | null;
+  default_hsn_sac: string | null;
+  default_gst_rate: number | null;
+  payment_terms: string | null;
+  authorized_signatory: string | null;
+};
+
+export type CompanyBillingSettingsRow = CompanyBillingSnapshot & {
+  id: boolean;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+export type BuyerSnapshot = {
+  name: string;
+  address: string | null;
+  state: string | null;
+  gstin: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
+export type ComponentRateRow = {
+  id: string;
+  component_id: string;
+  material: string;
+  rate: number;
+  hsn_sac: string | null;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+export type InvoiceNumberSeriesRow = {
+  id: boolean;
+  prefix: string;
+  fy_label: string;
+  padding: number;
+  next_serial: number;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+/** The exact quantity one DC line contributes to one grouped invoice line (0026). */
+export type InvoiceItemSourceRow = {
+  id: string;
+  invoice_id: string;
+  invoice_item_id: string;
+  dc_item_id: string;
+  quantity: number;
+};
+
+export type CustomerMonthBillingRow = {
+  customer_id: string;
+  billing_month: string;
+  sent_qty: number;
+  billed_qty: number;
+  unbilled_qty: number;
+  issued_invoices: number;
+  cancelled_invoices: number;
+  issued_total: number;
+  paid_total: number;
+};
+
+export type DcLineBillingRow = {
+  dc_item_id: string;
+  dc_id: string;
+  customer_id: string;
+  billing_month: string;
+  billable_qty: number;
+  billed_qty: number;
+  unbilled_qty: number;
 };
 export type InvoiceItemInsert = {
   id?: string;
@@ -478,8 +596,45 @@ export type Database = {
         Update: PendingDcScanUpdate;
         Relationships: [];
       };
+      company_billing_settings: {
+        Row: CompanyBillingSettingsRow;
+        Insert: Partial<CompanyBillingSettingsRow>;
+        Update: Partial<CompanyBillingSettingsRow>;
+        Relationships: [];
+      };
+      component_rates: {
+        Row: ComponentRateRow;
+        Insert: Omit<ComponentRateRow, "id" | "updated_at" | "updated_by"> & {
+          id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: Partial<ComponentRateRow>;
+        Relationships: [];
+      };
+      invoice_item_sources: {
+        Row: InvoiceItemSourceRow;
+        Insert: Omit<InvoiceItemSourceRow, "id"> & { id?: string };
+        Update: Partial<InvoiceItemSourceRow>;
+        Relationships: [];
+      };
+      invoice_number_series: {
+        Row: InvoiceNumberSeriesRow;
+        Insert: Partial<InvoiceNumberSeriesRow> & { fy_label: string };
+        Update: Partial<InvoiceNumberSeriesRow>;
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      dc_line_billing: {
+        Row: DcLineBillingRow;
+        Relationships: [];
+      };
+      customer_month_billing: {
+        Row: CustomerMonthBillingRow;
+        Relationships: [];
+      };
+    };
     Functions: {
       generate_dc_number: {
         Args: Record<PropertyKey, never>;
@@ -507,6 +662,23 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      /** Creates one invoice for a customer and billing month, with its allocations (0026). */
+      create_invoice: {
+        Args: {
+          p_request_key: string | null;
+          p_customer_id: string;
+          p_billing_month: string;
+          p_header: Record<string, unknown>;
+          p_lines: Record<string, unknown>[];
+          p_charges: Record<string, unknown>[];
+        };
+        Returns: { invoice_id: string; invoice_number: string; already_saved: boolean }[];
+      };
+      /** Cancels an issued invoice, keeping its number and freeing its quantity (0025). */
+      cancel_invoice: {
+        Args: { p_invoice_id: string; p_reason: string };
+        Returns: { invoice_id: string; invoice_number: string }[];
       };
       /** Creates or edits a challan, its lines and its scans in one transaction (0023). */
       save_delivery_challan: {

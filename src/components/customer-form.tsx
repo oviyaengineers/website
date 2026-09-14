@@ -43,9 +43,22 @@ export function CustomerForm({
           <Input id="email" name="email" type="email" defaultValue={customer?.email ?? ""} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="gst_number">GST Number</Label>
+          <Label htmlFor="gst_number">GSTIN</Label>
           <Input id="gst_number" name="gst_number" defaultValue={customer?.gst_number ?? ""} />
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="state">State</Label>
+        <Input
+          id="state"
+          name="state"
+          defaultValue={customer?.state ?? ""}
+          placeholder="For example Tamil Nadu"
+        />
+        <p className="text-xs text-muted-foreground">
+          Decides the tax on invoices: the same state as your company is CGST + SGST, any other
+          state is IGST.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="address">Address</Label>

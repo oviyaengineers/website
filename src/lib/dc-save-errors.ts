@@ -33,6 +33,31 @@ export function saveErrorMessage(message: string | null | undefined, code?: stri
     )}, so the received quantity cannot be reduced below that. Nothing was saved.`;
   }
 
+  const belowBilled = text.match(/BELOW_BILLED:(.*)\|([-\d.]+)/);
+  if (belowBilled) {
+    return `${belowBilled[1]}: ${Number(
+      belowBilled[2]
+    )} is already billed on issued invoices, so Sent cannot be reduced below that. Cancel the invoice first if it is wrong. Nothing was saved.`;
+  }
+
+  const billedRemoved = text.match(/BILLED_LINE_REMOVED:(.*)/);
+  if (billedRemoved) {
+    return `${billedRemoved[1].trim()} is billed on an invoice, so it cannot be removed from this DC. Nothing was saved.`;
+  }
+
+  const monthLocked = text.match(/DC_BILLED_MONTH_LOCKED: (\S+) is billed for ([^,]+),/);
+  if (monthLocked) {
+    return `${monthLocked[1]} is billed for ${monthLocked[2]}, so its date cannot move to another month. Cancel the invoice first if the date is wrong. Nothing was saved.`;
+  }
+
+  if (text.includes("DC_BILLED_CUSTOMER_LOCKED")) {
+    return "This DC is billed on an issued invoice, so its customer cannot change. Cancel the invoice first. Nothing was saved.";
+  }
+
+  if (text.includes("DC_BILLED_CANNOT_REOPEN")) {
+    return "This DC is billed on an issued invoice, so it cannot be reopened. Cancel the invoice first.";
+  }
+
   if (text.includes("PARENT_LINE_MISSING")) {
     return "The line this follow-up continues no longer exists. Nothing was saved.";
   }

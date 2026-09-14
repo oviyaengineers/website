@@ -21,6 +21,9 @@ import { challanSettledIn, figuresFor, indexChain } from "@/lib/dc-chain";
 import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
+import { fetchDcBilling } from "@/lib/billing-data";
+import { formatBillingMonth } from "@/lib/billing";
+import { BillingStatusBadge } from "@/components/billing-badges";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
 import { DeleteDcButton } from "@/components/delete-dc-button";
@@ -54,7 +57,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   const chain = indexChain(chainRows);
   const figures = new Map((items ?? []).map((item) => [item.id, figuresFor(item, chain)]));
 
-  const related = await listRelatedDcs(id);
+  const [related, billing] = await Promise.all([listRelatedDcs(id), fetchDcBilling(id)]);
   // A balance error is any line with more out than in once confirmed
   // follow-ups are counted, so it is judged from the figures, not the row.
   const overDelivered = (items ?? []).flatMap((item, index) => {
@@ -353,6 +356,90 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           </Table>
         </CardContent>
       </Card>
+
+      {/* Billing reads the DC lines through dc_line_billing: billable is Sent
+          once the DC is issued, billed is what issued invoices hold. */}
+      {billing.size > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base text-[#10233f]">Billing</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Billing month {formatBillingMonth([...billing.values()][0].billingMonth)}
+              </p>
+            </div>
+            {[...billing.values()].some((line) => line.unbilled > 0) ? (
+              <Button
+                render={
+                  <Link
+                    href={`/dashboard/invoices/new?customer=${dc.customer_id}&month=${[...billing.values()][0].billingMonth.slice(0, 7)}&dc=${dc.id}`}
+                  />
+                }
+                variant="outline"
+                size="sm"
+                className="h-11 sm:h-8"
+              >
+                <FilePlus2 className="h-4 w-4" /> Bill this DC
+              </Button>
+            ) : null}
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Component / Material</TableHead>
+                  <TableHead className="text-right">Sent (billable)</TableHead>
+                  <TableHead className="text-right">Billed</TableHead>
+                  <TableHead className="text-right">Unbilled</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Invoices</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(items ?? []).map((item) => {
+                  const line = billing.get(item.id);
+                  if (!line) return null;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="whitespace-normal">
+                        {componentNameOf(item, componentNames)}
+                        <span className="block text-xs text-muted-foreground">
+                          {item.material ?? "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{line.sent}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.billed}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.unbilled}</TableCell>
+                      <TableCell>
+                        <BillingStatusBadge status={line.status} />
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        {line.invoices.length === 0
+                          ? "-"
+                          : line.invoices.map((inv) => (
+                              <span key={inv.id} className="block">
+                                <Link
+                                  href={`/dashboard/invoices/${inv.id}`}
+                                  className="font-medium hover:underline"
+                                >
+                                  {inv.invoiceNumber}
+                                </Link>
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  · {inv.quantity}
+                                  {inv.status === "cancelled" ? " · cancelled" : ""}
+                                </span>
+                              </span>
+                            ))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {related.length > 0 && (
         <Card>

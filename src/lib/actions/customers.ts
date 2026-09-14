@@ -13,7 +13,11 @@ function extractCustomer(formData: FormData) {
     phone: (formData.get("phone") as string) || null,
     email: (formData.get("email") as string) || null,
     address: (formData.get("address") as string) || null,
-    gst_number: (formData.get("gst_number") as string) || null,
+    gst_number:
+      String(formData.get("gst_number") ?? "")
+        .trim()
+        .toUpperCase() || null,
+    state: String(formData.get("state") ?? "").trim() || null,
   };
 }
 
