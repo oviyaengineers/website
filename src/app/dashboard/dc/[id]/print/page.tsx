@@ -7,6 +7,7 @@ import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
 import { LogoMark } from "@/components/marketing/logo";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
+import { dcQrCode } from "@/lib/dc-public-link";
 import { formatDate } from "@/lib/i18n/dates";
 import { getTranslator } from "@/lib/i18n/server";
 import type { Lang } from "@/lib/i18n/config";
@@ -33,12 +34,16 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
 
-  const [{ data: items }, { data: customer }, { data: picklist }, { lang, t }] = await Promise.all([
-    supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
-    supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
-    supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
-    getTranslator(),
-  ]);
+  const [{ data: items }, { data: customer }, { data: picklist }, { lang, t }, qr] =
+    await Promise.all([
+      supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
+      supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
+      supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+      getTranslator(),
+      // The QR opens a public, read-only copy of this challan. Printing
+      // still works without it if the link cannot be made.
+      dcQrCode(supabase, id),
+    ]);
   // The printed challan is the document the customer signs, so it must carry
   // the part's current name rather than the spelling stored at entry.
   const componentNames = componentNameIndex(picklist ?? []);
@@ -71,6 +76,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     authorized_by: dc.authorized_by,
     customer,
     items: printItems,
+    qr_png: qr?.png ?? null,
   };
 
   return (
@@ -97,6 +103,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
             dc={dc}
             customer={customer}
             items={printItems}
+            qrSvg={qr?.svg ?? null}
             lang={lang}
             t={t}
           />
@@ -108,6 +115,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
             dc={dc}
             customer={customer}
             items={printItems}
+            qrSvg={qr?.svg ?? null}
             lang={lang}
             t={t}
           />
@@ -154,6 +162,7 @@ function DcCopy({
   dc,
   customer,
   items,
+  qrSvg,
   lang,
   t,
 }: {
@@ -161,6 +170,8 @@ function DcCopy({
   dc: DeliveryChallanRow;
   customer: CustomerRow | null;
   items: PrintItem[];
+  /** SVG markup made by the qrcode library from this challan's public link. */
+  qrSvg: string | null;
   lang: Lang;
   t: Translate;
 }) {
@@ -170,6 +181,18 @@ function DcCopy({
           name and no tinted table headings, so the heading reads as one more
           box of the same form. */}
       <header className="relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033] print:py-2">
+        {/* Top left, balancing the copy label on the right, and absolutely
+            placed so the header keeps its height and the page stays one A4. */}
+        {qrSvg && (
+          <div className="dc-print-qr absolute left-4 top-2 flex flex-col items-center">
+            <div
+              className="dc-print-qr-code"
+              // Generated on the server by the qrcode library, never user input.
+              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            />
+            <p className="dc-print-qr-caption">{t("dcPublic.scanToView")}</p>
+          </div>
+        )}
         <div className="absolute right-4 top-4 text-xs">
           <p className="dc-print-copy-label border border-[#222] px-3 py-1 font-semibold tracking-wide">
             {label}

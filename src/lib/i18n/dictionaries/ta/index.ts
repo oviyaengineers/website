@@ -11,6 +11,7 @@ import {
 import { dcViews } from "@/lib/i18n/dictionaries/ta/dcViews";
 import { dcErrors, dcForm } from "@/lib/i18n/dictionaries/ta/dcForm";
 import { dcPrint, dcScan } from "@/lib/i18n/dictionaries/ta/dcScan";
+import { dcPublic } from "@/lib/i18n/dictionaries/ta/dcPublic";
 
 /** தமிழ் அகராதி: ஆங்கில அகராதியின் அதே விசைகள். */
 export const ta: Dictionary = {
@@ -30,4 +31,5 @@ export const ta: Dictionary = {
   dcErrors,
   dcScan,
   dcPrint,
+  dcPublic,
 };

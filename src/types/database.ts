@@ -641,6 +641,16 @@ export type Database = {
       };
     };
     Functions: {
+      /** The public link token for a challan, made on first use. Staff only (0028). */
+      ensure_dc_public_link: {
+        Args: { p_dc_id: string };
+        Returns: string;
+      };
+      /** The read-only public view of one challan by token, or null (0028). */
+      get_public_dc: {
+        Args: { p_token: string };
+        Returns: unknown;
+      };
       generate_dc_number: {
         Args: Record<PropertyKey, never>;
         Returns: string;

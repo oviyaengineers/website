@@ -158,6 +158,8 @@ export type DcPdfData = {
     rejection_qty: number;
     total_qty: number;
   }[];
+  /** PNG data URL of the QR code for the challan's public page, when there is one. */
+  qr_png?: string | null;
 };
 
 /** Rows the table is padded to, so a short challan keeps the same shape. */
@@ -199,6 +201,15 @@ function DcCopy({ label, dc }: { label: string; dc: DcPdfData }) {
     <View style={styles.copy}>
       <View style={styles.header}>
         <Text style={styles.copyLabel}>{label}</Text>
+        {/* The QR for the public, read-only page, top left. Its white margin
+            keeps it scannable against the navy band. */}
+        {dc.qr_png ? (
+          // eslint-disable-next-line jsx-a11y/alt-text
+          <Image
+            src={dc.qr_png}
+            style={{ position: "absolute", top: 4, left: 8, width: 36, height: 36 }}
+          />
+        ) : null}
         {/* A 220px copy of the logo rather than the 1280px original. It is
             drawn at 34 points and embedded twice, once per copy, and the full
             size put 394KB of it into every challan. */}
