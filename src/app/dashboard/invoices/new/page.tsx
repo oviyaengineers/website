@@ -21,7 +21,10 @@ export default async function NewInvoicePage({
   const params = await searchParams;
   const supabase = await createClient();
   const [{ data: customers }, settings, { data: nextGst }, { data: nextBill }] = await Promise.all([
-    supabase.from("customers").select("id, name, state, gst_number").order("name"),
+    supabase
+      .from("customers")
+      .select("id, name, state, gst_number, address, phone, email")
+      .order("name"),
     fetchCompanySettings(supabase),
     supabase.rpc("peek_bill_number", { p_gst_bill: true }),
     supabase.rpc("peek_bill_number", { p_gst_bill: false }),
@@ -100,6 +103,7 @@ export default async function NewInvoicePage({
         nextInvoiceNumber={typeof nextGst === "string" ? nextGst : null}
         nextBillNumber={typeof nextBill === "string" ? nextBill : null}
         preselectDcId={preselectDcId}
+        seller={settings}
       />
     </div>
   );

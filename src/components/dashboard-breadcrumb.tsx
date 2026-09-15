@@ -39,6 +39,13 @@ const SEGMENT_LABELS: Record<string, string> = {
   print: "Print",
 };
 
+/** The label for a "new" page, by the section it sits in. */
+const NEW_LABELS: Record<string, string> = {
+  dc: "New DC - Manual",
+  invoices: "New Invoice",
+  customers: "New Customer",
+};
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function labelFor(segment: string): string {
@@ -73,8 +80,10 @@ export function buildCrumbs(pathname: string): Crumb[] {
     if (isRecord) recordSeen = true;
 
     const href = `/${segments.slice(0, i + 1).join("/")}`;
+    // "new" means a different form in each section, so the parent decides it.
+    const newLabel = segment === "new" ? NEW_LABELS[segments[i - 1] ?? ""] : undefined;
     return {
-      label: labelFor(segment),
+      label: newLabel ?? labelFor(segment),
       href: NO_PAGE.some((pattern) => pattern.test(href)) ? null : href,
       isRecord,
     };

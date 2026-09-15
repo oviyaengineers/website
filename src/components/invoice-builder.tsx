@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { CustomerCombobox } from "@/components/customer-combobox";
 import { DatePicker } from "@/components/date-picker";
 import { BillingStatusBadge } from "@/components/billing-badges";
+import { InvoiceDocument, type InvoiceDocumentData } from "@/components/invoice-document";
 import {
-  amountInWords,
   computeInvoiceTotals,
   defaultInvoiceDate,
   formatBillingMonth,
@@ -23,12 +23,17 @@ import {
 } from "@/lib/billing";
 import { issueInvoiceAction, type IssueInvoicePayload } from "@/lib/actions/billing";
 import type { BillableLine } from "@/lib/billing-data";
+import type { CompanyBillingSnapshot } from "@/types/database";
 
 export type BuilderCustomer = {
   id: string;
   name: string;
   state: string | null;
   gst_number: string | null;
+  /** Shown on the A4 preview. */
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 export type BuilderMonth = { month: string; unbilled: number; lines: number };
@@ -64,6 +69,7 @@ export function InvoiceBuilder({
   nextInvoiceNumber,
   nextBillNumber,
   preselectDcId,
+  seller,
 }: {
   customers: BuilderCustomer[];
   customerId: string | null;
@@ -84,6 +90,8 @@ export function InvoiceBuilder({
   /** Next normal bill number (BILL/ series), not yet consumed. */
   nextBillNumber: string | null;
   preselectDcId: string | null;
+  /** Company details as they would print now, for the A4 preview. */
+  seller: CompanyBillingSnapshot | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(issueInvoiceAction, { error: null });
@@ -271,17 +279,82 @@ export function InvoiceBuilder({
     ])
   );
 
+  // The A4 page as it will print, built from the form. The database still
+  // assigns the number and recalculates every figure when it is issued.
+  const preview: InvoiceDocumentData = {
+    gst: gstBill,
+    number: (gstBill ? nextInvoiceNumber : nextBillNumber) ?? "Assigned on issue",
+    invoiceDate: invoiceDate || null,
+    dueDate: dueDate || null,
+    billingMonth,
+    placeOfSupply: gstBill ? (customer?.state ?? null) : null,
+    intra,
+    seller,
+    buyer: customer
+      ? {
+          name: customer.name,
+          address: customer.address ?? null,
+          state: customer.state,
+          gstin: customer.gst_number,
+          phone: customer.phone ?? null,
+          email: customer.email ?? null,
+        }
+      : null,
+    lines: groups.map((group) => ({
+      key: group.key,
+      description: group.component,
+      material: group.material,
+      hsn: group.hsn || null,
+      quantity: group.quantity,
+      rate: group.rate,
+      amount: group.amount,
+    })),
+    charges: charges.map((charge) => ({
+      key: String(charge.key),
+      description: charge.description.trim() || "Other charge",
+      hsn: charge.hsn.trim() || null,
+      amount: num(charge.amount) || 0,
+    })),
+    dcs: [
+      ...new Map(
+        chosen.map((c) => [
+          c.line.dcId,
+          {
+            dcNumber: c.line.dcNumber,
+            dcDate: c.line.dcDate,
+            customerDcNumbers: c.line.customerDcNumbers,
+          },
+        ])
+      ).values(),
+    ].sort((a, b) => a.dcNumber.localeCompare(b.dcNumber, undefined, { numeric: true })),
+    totals,
+    notes: notes.trim() || null,
+    watermark: "PREVIEW",
+  };
+
   if (reviewing) {
     return (
       <form action={formAction} className="space-y-6">
         <input type="hidden" name="payload" value={JSON.stringify(payload)} />
         <input type="hidden" name="request_key" value={requestKey} />
         <Card className="border-t-4 border-t-[#10233f]">
-          <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">Review before issuing</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Nothing is saved yet. This review is not a draft; leaving the page discards it.
-            </p>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="text-base text-[#10233f]">A4 preview before issuing</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                This is the page as it will print. Nothing is saved yet: it is not a draft, and
+                leaving the page discards it. Use Edit to change anything.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 sm:h-8"
+              onClick={() => setReviewing(false)}
+              disabled={pending}
+            >
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <GstBillSwitch
@@ -290,94 +363,38 @@ export function InvoiceBuilder({
               disabled={pending}
               detail={gstBill ? `Tax: ${taxLabel}.` : "Grand total is the bill value only."}
             />
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <p>
-                <span className="text-muted-foreground">
-                  {gstBill ? "Invoice number " : "Bill number "}
-                </span>
-                <span className="font-medium">
-                  {(gstBill ? nextInvoiceNumber : nextBillNumber) ?? "Assigned on issue"}
-                </span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Customer </span>
-                <span className="font-medium">{customer?.name}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Billing month </span>
-                <span className="font-medium">{formatBillingMonth(billingMonth)}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Invoice date </span>
-                <span className="font-medium">{invoiceDate}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Due date </span>
-                <span className="font-medium">{dueDate || "-"}</span>
-              </p>
-            </div>
             <p className="text-xs text-muted-foreground">
-              The number shown is the next free one; the database assigns it when the invoice is
-              issued.
+              {gstBill ? "Invoice" : "Bill"} for {customer?.name} ·{" "}
+              {formatBillingMonth(billingMonth)}. The number shown is the next free one; the
+              database assigns it when you issue.
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead>
-                  <tr className="border-b text-xs text-muted-foreground">
-                    <th className="p-2 text-left font-medium">#</th>
-                    <th className="p-2 text-left font-medium">Component / Material</th>
-                    <th className="p-2 text-left font-medium">HSN/SAC</th>
-                    <th className="p-2 text-right font-medium">Qty</th>
-                    <th className="p-2 text-right font-medium">Rate</th>
-                    <th className="p-2 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((group, index) => (
-                    <Fragment key={group.key}>
-                      <tr className="border-t align-top">
-                        <td className="p-2">{index + 1}</td>
-                        <td className="p-2">
-                          {group.component}
-                          <span className="block text-xs text-muted-foreground">
-                            {group.material ?? "-"}
-                          </span>
-                        </td>
-                        <td className="p-2">{group.hsn || "-"}</td>
-                        <td className="p-2 text-right tabular-nums">{group.quantity}</td>
-                        <td className="p-2 text-right tabular-nums">{formatRupees(group.rate)}</td>
-                        <td className="p-2 text-right tabular-nums">
-                          {formatRupees(group.amount)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td />
-                        <td colSpan={5} className="px-2 pb-2 text-xs text-muted-foreground">
-                          From{" "}
-                          {group.sources
-                            .map((s) => `${dcLabel.get(s.dcItemId) ?? s.dcNumber}: ${s.quantity}`)
-                            .join(" · ")}
-                        </td>
-                      </tr>
-                    </Fragment>
-                  ))}
-                  {charges.map((c) => (
-                    <tr key={c.key} className="border-t">
-                      <td className="p-2" />
-                      <td className="p-2 text-muted-foreground">Other charge: {c.description}</td>
-                      <td className="p-2">{c.hsn || "-"}</td>
-                      <td className="p-2" colSpan={2} />
-                      <td className="p-2 text-right tabular-nums">{formatRupees(num(c.amount))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* The real A4 width; on a narrow screen it scrolls sideways
+                rather than reflowing, so the preview stays true to print. */}
+            <div className="overflow-x-auto rounded-lg border bg-[#f4f6f9] p-3">
+              <div className="mx-auto w-max">
+                <InvoiceDocument data={preview} />
+              </div>
             </div>
-            <Totals totals={totals} taxLabel={taxLabel} intra={intra} gstBill={gstBill} />
-            <p className="text-sm">
-              <span className="text-muted-foreground">Amount in words: </span>
-              {amountInWords(totals.grandTotal)}
-            </p>
+            {groups.length > 0 ? (
+              <details className="rounded-lg border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Which DC lines each invoice line bills (not printed)
+                </summary>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {groups.map((group, index) => (
+                    <li key={group.key}>
+                      <span className="font-medium text-foreground">
+                        {index + 1}. {group.component}
+                      </span>{" "}
+                      ({group.quantity} @ {formatRupees(group.rate)}):{" "}
+                      {group.sources
+                        .map((s) => `${dcLabel.get(s.dcItemId) ?? s.dcNumber}: ${s.quantity}`)
+                        .join(" · ")}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Once issued, quantities, rates and tax cannot be edited. A correction is made by
               cancelling the invoice and issuing a new one; the cancelled invoice and its number are

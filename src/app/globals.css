@@ -578,6 +578,8 @@
   .invoice-print-page {
     width: 100%;
     min-height: auto;
+    /* A little tighter than on screen, so a busy GST invoice stays on one A4. */
+    padding: 8mm 9mm;
     box-shadow: none !important;
   }
 
@@ -604,4 +606,11 @@
 }
 .sidebar-scroll::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* The watermark on the preview shown before issuing: grey, not the red of a
+   cancelled invoice, and never printed because a preview is never printed. */
+.invoice-preview-mark {
+  border-color: rgba(100, 116, 139, 0.18);
+  color: rgba(100, 116, 139, 0.18);
 }
