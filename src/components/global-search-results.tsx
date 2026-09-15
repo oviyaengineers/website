@@ -1,9 +1,7 @@
-"use client";
-
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { useI18n } from "@/components/i18n-provider";
+import { getTranslator } from "@/lib/i18n/server";
 import { GROUP_LABEL_KEYS, type GlobalHit, type GlobalHitGroup } from "@/lib/global-search";
 
 const ORDER: GlobalHitGroup[] = ["component", "challan", "scan", "customer"];
@@ -14,10 +12,13 @@ const ORDER: GlobalHitGroup[] = ["component", "challan", "scan", "customer"];
  * The group tells the operator which part of the app a result belongs to,
  * because the same text can be a component on one screen and a challan on
  * another. Every row is a link to that record and nothing else.
+ *
+ * A server component: global-search reads the database, so it cannot be
+ * pulled into a browser bundle.
  */
-export function GlobalSearchResults({ term, hits }: { term: string; hits: GlobalHit[] }) {
-  const { t } = useI18n();
+export async function GlobalSearchResults({ term, hits }: { term: string; hits: GlobalHit[] }) {
   if (!term.trim()) return null;
+  const { t } = await getTranslator();
 
   if (term.trim().length < 2) {
     return (
