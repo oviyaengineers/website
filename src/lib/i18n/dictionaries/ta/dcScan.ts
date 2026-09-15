@@ -172,6 +172,11 @@ export const dcPrint: Dictionary["dcPrint"] = {
   cutHere: "✂ இங்கே வெட்டவும்",
   title: "டெலிவரி சலான்",
   ourDcNumber: "எங்கள் DC எண்",
+  ourDcNumbers: "எங்கள் DC எண்(கள்)",
+  ourDc: "எங்கள் DC",
+  printTogether: "{dcs} உடன் சேர்த்து அச்சிடு",
+  togetherInvalid:
+    "இந்தச் சலான்களைச் சேர்த்து அச்சிட முடியாது. ஒரு தாளில் அதிகபட்சம் {max} சலான்கள் வரலாம், அவை ஒரே வாடிக்கையாளர் மற்றும் ஒரே தேதிக்கானவையாக இருக்க வேண்டும்.",
   date: "தேதி",
   customerDcNumbers: "வாடிக்கையாளர் DC எண்(கள்)",
   customerName: "வாடிக்கையாளர் பெயர்",

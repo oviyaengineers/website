@@ -163,6 +163,11 @@ export const dcPrint = {
   cutHere: "✂ cut here",
   title: "Delivery Challan",
   ourDcNumber: "Our DC Number",
+  ourDcNumbers: "Our DC Number(s)",
+  ourDc: "Our DC",
+  printTogether: "Print together with {dcs}",
+  togetherInvalid:
+    "These challans cannot be printed together. Up to {max} challans can share a sheet, and they must be for the same customer and the same date.",
   date: "Date",
   customerDcNumbers: "Customer DC Number(s)",
   customerName: "Customer Name",

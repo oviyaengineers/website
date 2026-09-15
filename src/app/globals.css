@@ -640,3 +640,13 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   line-height: 1;
   white-space: nowrap;
 }
+/* Three challans printed together get smaller codes so they still fit. */
+.dc-print-qr-code-sm {
+  width: 44px;
+  height: 44px;
+}
+.dc-print-qr-code-sm svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
