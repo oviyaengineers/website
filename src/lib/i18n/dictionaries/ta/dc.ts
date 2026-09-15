@@ -1,0 +1,68 @@
+import type { Dictionary } from "../../types";
+
+/** டெலிவரி சலான் திரைகள்: பட்டியல்கள், நிலைகள், அளவுகள், செயல்கள். */
+
+export const dc: Dictionary["dc"] = {
+  lifecycle: {
+    draft: "வரைவு",
+    active: "செயலில்",
+    completed: "முடிந்தது",
+  },
+  qty: {
+    received: "பெற்றது",
+    recd: "பெற்றது",
+    sent: "அனுப்பியது",
+    matProblem: "பொருள் குறை",
+    materialProblem: "பொருள் குறைபாடு",
+    rejection: "நிராகரிப்பு",
+    balance: "மீதம்",
+    pending: "நிலுவை",
+    total: "மொத்தம்",
+    qty: "அளவு",
+  },
+  cols: {
+    dcNo: "DC எண்",
+    ourDc: "எங்கள் DC",
+    customerDc: "வாடிக்கையாளர் DC",
+    theirDcNo: "அவர்களின் DC எண்",
+    description: "விவரம்",
+  },
+  list: {
+    title: "அனைத்து DCகள்",
+    countOne: "1 சலான்",
+    count: "{count} சலான்கள்",
+    printList: "பட்டியலை அச்சிடு",
+    newDc: "புதிய DC",
+    searchPlaceholder: "DC எண், வாடிக்கையாளர், அவர்களின் DC எண், உதிரிபாகம் அல்லது பொருள்...",
+    continuesEarlier: "முந்தைய சலானின் தொடர்ச்சி",
+    continuesEarlierSentence: "முந்தைய சலானின் தொடர்ச்சி",
+    pendingOn: "{dc} இல் நிலுவை",
+    onDc: "{dc} இல்",
+    onThisDc: "இந்த DC இல் {count}",
+    onDraft: "வரைவில் {count}",
+    leftOn: "{dc} இல் மீதம்",
+    leftOnOnceConfirmed: "உறுதிசெய்த பின் {dc} இல் மீதம்",
+    extra: "{count} கூடுதல்",
+    pendingCount: "{count} நிலுவையில்",
+    followUp: "தொடர்ச்சி",
+    createFollowUp: "தொடர்ச்சி DC உருவாக்கு",
+    empty: "இந்த வடிகட்டிகளுக்குப் பொருந்தும் டெலிவரி சலான்கள் இல்லை.",
+    theirDcLabel: "அவர்களின் DC எண்: {refs}",
+    printDc: "{dc} அச்சிடு",
+  },
+  statusActions: {
+    nowActive: "சலான் இப்போது செயலில் உள்ளது.",
+    couldNotChange: "நிலையை மாற்ற முடியவில்லை.",
+    working: "செயலாக்குகிறது...",
+    confirm: "சலானை உறுதிசெய்",
+    reconciled: "முழுமையாகச் சரிபார்க்கப்பட்டது",
+    reopened: "வரைவாக மீண்டும் திறக்கப்பட்டது. திருத்தி, மீண்டும் உறுதிசெய்யவும்.",
+    reopen: "மீண்டும் திற",
+  },
+  delete: {
+    title: "டெலிவரி சலானை நீக்கு",
+    confirm: "“{dc}” ஐ நீக்க வேண்டுமா? இதைத் திரும்பப் பெற முடியாது.",
+    deleted: "டெலிவரி சலான் நீக்கப்பட்டது",
+    failed: "நீக்க முடியவில்லை",
+  },
+};

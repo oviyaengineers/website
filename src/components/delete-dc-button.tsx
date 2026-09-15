@@ -14,10 +14,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useI18n } from "@/components/i18n-provider";
 import { deleteDcAction } from "@/lib/actions/dc";
 import { Trash2 } from "lucide-react";
 
 export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string }) {
+  const { t } = useI18n();
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
@@ -28,18 +30,18 @@ export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string 
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="destructive" size="sm" />}>
+      <DialogTrigger
+        render={<Button variant="destructive" size="sm" aria-label={t("dc.delete.title")} />}
+      >
         <Trash2 className="h-4 w-4" />
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent closeLabel={t("common.close")}>
         <DialogHeader>
-          <DialogTitle>Delete delivery challan</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete &quot;{dcNumber}&quot;? This cannot be undone.
-          </DialogDescription>
+          <DialogTitle>{t("dc.delete.title")}</DialogTitle>
+          <DialogDescription>{t("dc.delete.confirm", { dc: dcNumber })}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t("common.cancel")}</DialogClose>
           <Button
             variant="destructive"
             disabled={pending}
@@ -47,17 +49,17 @@ export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string 
               startTransition(async () => {
                 try {
                   await deleteDcAction(id);
-                  toast.success("Delivery challan deleted");
+                  toast.success(t("dc.delete.deleted"));
                   // replace, not push: the deleted challan must not be sitting
                   // in history for the back button to return to.
                   if (onItsOwnPage) router.replace("/dashboard/dc");
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to delete");
+                  toast.error(e instanceof Error ? e.message : t("dc.delete.failed"));
                 }
               })
             }
           >
-            Delete
+            {t("common.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

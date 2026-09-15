@@ -1,10 +1,16 @@
-import { format } from "date-fns";
 import type { Metadata } from "next";
-import { DC_LIFECYCLE_LABELS } from "@/lib/dc-lifecycle";
+import { DC_LIFECYCLE_KEYS, type DcLifecycle } from "@/lib/dc-lifecycle";
 import { fetchDcSummaries, totalDcSummaries } from "@/lib/dc-list";
 import { PrintNowButton } from "@/components/print-now-button";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
+import type { Lang } from "@/lib/i18n/config";
+import type { Translate } from "@/lib/i18n/types";
 
-export const metadata: Metadata = { title: "Print DC List | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcPrintList.pageTitle")} | Oviya Engineers` };
+}
 
 type Search = {
   q?: string;
@@ -23,32 +29,33 @@ type Search = {
  * a week later, so the criteria are printed with it rather than only living
  * in the URL that produced it.
  */
-function describeFilters(filters: Search): string {
+function describeFilters(filters: Search, t: Translate, lang: Lang): string {
+  const day = (value: string) => formatDate(value, "dd MMM yyyy", lang);
   const parts: string[] = [];
   if (filters.from && filters.to) {
-    parts.push(
-      `${format(new Date(filters.from), "dd MMM yyyy")} to ${format(new Date(filters.to), "dd MMM yyyy")}`
-    );
+    parts.push(t("dcPrintList.range", { from: day(filters.from), to: day(filters.to) }));
   } else if (filters.from) {
-    parts.push(`from ${format(new Date(filters.from), "dd MMM yyyy")}`);
+    parts.push(t("dcPrintList.fromOnly", { from: day(filters.from) }));
   } else if (filters.to) {
-    parts.push(`up to ${format(new Date(filters.to), "dd MMM yyyy")}`);
+    parts.push(t("dcPrintList.upTo", { to: day(filters.to) }));
   }
   if (filters.status) {
     parts.push(
-      DC_LIFECYCLE_LABELS[filters.status as keyof typeof DC_LIFECYCLE_LABELS] ?? filters.status
+      filters.status in DC_LIFECYCLE_KEYS
+        ? t(DC_LIFECYCLE_KEYS[filters.status as DcLifecycle])
+        : filters.status
     );
   }
   if (filters.customer) parts.push(filters.customer);
   if (filters.component) parts.push(filters.component);
   if (filters.material) parts.push(filters.material);
-  if (filters.q) parts.push(`matching "${filters.q}"`);
-  return parts.length > 0 ? parts.join(" · ") : "All challans";
+  if (filters.q) parts.push(t("dcPrintList.matching", { q: filters.q }));
+  return parts.length > 0 ? parts.join(" · ") : t("dcPrintList.allChallans");
 }
 
 export default async function DcPrintListPage({ searchParams }: { searchParams: Promise<Search> }) {
   const filters = await searchParams;
-  const summaries = await fetchDcSummaries(filters);
+  const [summaries, { t, lang }] = await Promise.all([fetchDcSummaries(filters), getTranslator()]);
   const totals = totalDcSummaries(summaries);
 
   return (
@@ -56,13 +63,17 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-[#10233f]">Oviya Engineers</h1>
-          <p className="text-sm font-medium">Delivery Challan List</p>
-          <p className="text-xs text-neutral-600">{describeFilters(filters)}</p>
+          <p className="text-sm font-medium">{t("dcPrintList.title")}</p>
+          <p className="text-xs text-neutral-600">{describeFilters(filters, t, lang)}</p>
         </div>
         <div className="text-right text-xs text-neutral-600">
-          <p>Printed {format(new Date(), "dd MMM yyyy HH:mm")}</p>
           <p>
-            {summaries.length} challan{summaries.length === 1 ? "" : "s"}
+            {t("dcPrintList.printed", { when: formatDate(new Date(), "dd MMM yyyy HH:mm", lang) })}
+          </p>
+          <p>
+            {summaries.length === 1
+              ? t("dc.list.countOne")
+              : t("dc.list.count", { count: summaries.length })}
           </p>
         </div>
       </div>
@@ -73,18 +84,18 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th>DC #</th>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Their DC #</th>
-              <th>Description</th>
-              <th>Material</th>
-              <th className="text-right">Received</th>
-              <th className="text-right">Sent</th>
-              <th className="text-right">Mat. Problem</th>
-              <th className="text-right">Rejection</th>
-              <th className="text-right">Balance</th>
-              <th>Status</th>
+              <th>{t("dc.cols.dcNo")}</th>
+              <th>{t("common.date")}</th>
+              <th>{t("common.customer")}</th>
+              <th>{t("dc.cols.theirDcNo")}</th>
+              <th>{t("dc.cols.description")}</th>
+              <th>{t("common.material")}</th>
+              <th className="text-right">{t("dc.qty.received")}</th>
+              <th className="text-right">{t("dc.qty.sent")}</th>
+              <th className="text-right">{t("dc.qty.matProblem")}</th>
+              <th className="text-right">{t("dc.qty.rejection")}</th>
+              <th className="text-right">{t("dc.qty.balance")}</th>
+              <th>{t("common.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -100,7 +111,7 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
                       <td rowSpan={rows.length} className="font-medium">
                         {dc.dcNumber}
                       </td>
-                      <td rowSpan={rows.length}>{format(new Date(dc.dcDate), "dd MMM yyyy")}</td>
+                      <td rowSpan={rows.length}>{formatDate(dc.dcDate, "dd MMM yyyy", lang)}</td>
                       <td rowSpan={rows.length}>{dc.customerName}</td>
                       <td rowSpan={rows.length}>
                         {dc.customerDcNumbers.length > 0 ? dc.customerDcNumbers.join(", ") : "-"}
@@ -118,7 +129,7 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
                   <td className="text-right">{item ? dc.lines[index].rejection : 0}</td>
                   <td className="text-right">{item ? (dc.lines[index].balance ?? "—") : 0}</td>
                   {index === 0 ? (
-                    <td rowSpan={rows.length}>{DC_LIFECYCLE_LABELS[dc.lifecycle]}</td>
+                    <td rowSpan={rows.length}>{t(DC_LIFECYCLE_KEYS[dc.lifecycle])}</td>
                   ) : null}
                 </tr>
               ));
@@ -126,13 +137,13 @@ export default async function DcPrintListPage({ searchParams }: { searchParams: 
             {summaries.length === 0 && (
               <tr>
                 <td colSpan={12} className="py-6 text-center">
-                  No delivery challans match these filters.
+                  {t("dc.list.empty")}
                 </td>
               </tr>
             )}
             {summaries.length > 0 && (
               <tr className="font-semibold">
-                <td colSpan={6}>Total</td>
+                <td colSpan={6}>{t("dc.qty.total")}</td>
                 <td className="text-right">{totals.received}</td>
                 <td className="text-right">{totals.sent}</td>
                 <td className="text-right">{totals.materialProblem}</td>

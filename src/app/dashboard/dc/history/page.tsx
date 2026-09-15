@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Form from "next/form";
 import type { Metadata } from "next";
-import { format } from "date-fns";
 import { Printer, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,16 +8,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { shortCustomerName } from "@/lib/customer-name";
 import {
-  HISTORY_DATE_SOURCE_LABELS,
-  HISTORY_KIND_LABELS,
+  HISTORY_DATE_SOURCE_KEYS,
+  HISTORY_KIND_KEYS,
   parseHistoryFilters,
   type HistoryFilters,
   type HistoryKind,
   type HistoryRecord,
 } from "@/lib/dc-history";
 import { fetchDcHistory } from "@/lib/dc-history-data";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
+import type { Translate } from "@/lib/i18n/types";
 
-export const metadata: Metadata = { title: "DC History | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcHistory.title")} | Oviya Engineers` };
+}
 
 const KIND_STYLES: Record<HistoryKind, string> = {
   scanned: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
@@ -26,24 +31,22 @@ const KIND_STYLES: Record<HistoryKind, string> = {
   completed: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
 };
 
-function HistoryKindBadge({ kind }: { kind: HistoryKind }) {
+function HistoryKindBadge({ kind, t }: { kind: HistoryKind; t: Translate }) {
   return (
     <Badge
       variant="outline"
       className={`border-transparent whitespace-nowrap ${KIND_STYLES[kind]}`}
     >
-      {HISTORY_KIND_LABELS[kind]}
+      {t(HISTORY_KIND_KEYS[kind])}
     </Badge>
   );
 }
 
-function day(date: string): string {
-  return format(new Date(`${date}T00:00:00`), "dd MMM yyyy");
-}
-
-function balanceText(record: HistoryRecord): string {
+function balanceText(record: HistoryRecord, t: Translate): string {
   if (record.balance === null) return "—";
-  return record.balance < 0 ? `${-record.balance} extra` : String(record.balance);
+  return record.balance < 0
+    ? t("dc.list.extra", { count: -record.balance })
+    : String(record.balance);
 }
 
 function balanceClass(record: HistoryRecord): string {
@@ -73,41 +76,43 @@ export default async function DcHistoryPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const filters = parseHistoryFilters(await searchParams);
-  const { records, summary, error, customerNames, componentNames } = await fetchDcHistory(filters);
+  const [{ records, summary, error, customerNames, componentNames }, { t, lang }] =
+    await Promise.all([fetchDcHistory(filters), getTranslator()]);
+  const day = (date: string) => formatDate(date, "dd MMM yyyy", lang);
   const query = queryOf(filters);
   const filtered = Boolean(query);
 
   const summaryCards: [string, number, string?][] = [
-    ["Total records", summary.totalRecords],
-    ["Scanned - Pending", summary.scannedPending, "text-teal-700 dark:text-teal-300"],
-    ["Dispatched - Pending", summary.dispatchedPending, "text-blue-700 dark:text-blue-300"],
-    ["Completed", summary.completed, "text-green-700 dark:text-green-300"],
+    [t("dcHistory.totalRecords"), summary.totalRecords],
+    [t("dcHistory.kindScanned"), summary.scannedPending, "text-teal-700 dark:text-teal-300"],
+    [
+      t("dcHistory.kindDispatchedPending"),
+      summary.dispatchedPending,
+      "text-blue-700 dark:text-blue-300",
+    ],
+    [t("dcHistory.kindCompleted"), summary.completed, "text-green-700 dark:text-green-300"],
   ];
   const quantityCards: [string, number][] = [
-    ["Total received", summary.received],
-    ["Total sent", summary.sent],
-    ["Total material problem", summary.materialProblem],
-    ["Total rejection", summary.rejection],
-    ["Total balance", summary.balance],
+    [t("dcHistory.totalReceived"), summary.received],
+    [t("dcHistory.totalSent"), summary.sent],
+    [t("dcHistory.totalMaterialProblem"), summary.materialProblem],
+    [t("dcHistory.totalRejection"), summary.rejection],
+    [t("dcHistory.totalBalance"), summary.balance],
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">DC History</h1>
-          <p className="text-sm text-muted-foreground">
-            Every DC record in a date range, oldest first. Our challans are dated by our DC date;
-            scanned customer DCs by the date on the customer&apos;s DC, or the day scanned when no
-            date was read.
-          </p>
+          <h1 className="text-2xl font-semibold">{t("dcHistory.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("dcHistory.intro")}</p>
         </div>
         <Button
           render={<Link href={`/dashboard/dc/history/print${query ? `?${query}` : ""}`} />}
           variant="outline"
           className="h-11 sm:h-8"
         >
-          <Printer className="h-4 w-4" /> Print history
+          <Printer className="h-4 w-4" /> {t("dcHistory.printHistory")}
         </Button>
       </div>
 
@@ -121,7 +126,7 @@ export default async function DcHistoryPage({
       >
         <div className="flex flex-col gap-1">
           <label htmlFor="history-from" className="text-xs text-muted-foreground">
-            From date
+            {t("dcHistory.fromDate")}
           </label>
           <Input
             id="history-from"
@@ -133,25 +138,25 @@ export default async function DcHistoryPage({
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="history-to" className="text-xs text-muted-foreground">
-            To date
+            {t("dcHistory.toDate")}
           </label>
           <Input id="history-to" type="date" name="to" defaultValue={filters.to} className="w-40" />
         </div>
         <div className="flex min-w-[14rem] flex-1 flex-col gap-1">
           <label htmlFor="history-q" className="text-xs text-muted-foreground">
-            Search
+            {t("common.search")}
           </label>
           <Input
             id="history-q"
             type="search"
             name="q"
             defaultValue={filters.q}
-            placeholder="Our DC no., customer DC no., customer, component or material"
+            placeholder={t("dcHistory.searchPlaceholder")}
           />
         </div>
         <div className="flex w-full flex-col gap-1 sm:w-56">
           <label htmlFor="history-customer" className="text-xs text-muted-foreground">
-            Customer
+            {t("common.customer")}
           </label>
           <select
             id="history-customer"
@@ -159,7 +164,7 @@ export default async function DcHistoryPage({
             defaultValue={filters.customer ?? ""}
             className="rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
           >
-            <option value="">All customers</option>
+            <option value="">{t("common.allCustomers")}</option>
             {customerNames.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -169,7 +174,7 @@ export default async function DcHistoryPage({
         </div>
         <div className="flex w-full flex-col gap-1 sm:w-64">
           <label htmlFor="history-component" className="text-xs text-muted-foreground">
-            Component
+            {t("common.component")}
           </label>
           <select
             id="history-component"
@@ -177,7 +182,7 @@ export default async function DcHistoryPage({
             defaultValue={filters.component ?? ""}
             className="rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
           >
-            <option value="">All components</option>
+            <option value="">{t("common.allComponents")}</option>
             {componentNames.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -187,29 +192,32 @@ export default async function DcHistoryPage({
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
           <Button type="submit" className="h-11 flex-1 sm:h-9 sm:flex-none">
-            Apply Filter
+            {t("dcHistory.applyFilter")}
           </Button>
           <Button
             render={<Link href="/dashboard/dc/history" />}
             variant="outline"
             className="h-11 flex-1 sm:h-9 sm:flex-none"
           >
-            <X className="h-4 w-4" /> Clear Filter
+            <X className="h-4 w-4" /> {t("dcHistory.clearFilter")}
           </Button>
         </div>
       </Form>
 
       {error ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-          {error} Choose a From date on or before the To date.
+          {t("dcHistory.fromAfterTo")}
         </p>
       ) : null}
 
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           {filters.from || filters.to
-            ? `${filters.from ? day(filters.from) : "Earliest"} to ${filters.to ? day(filters.to) : "latest"}, both days included.`
-            : "All dates. Choose a From and To date to narrow the history."}
+            ? t("dcHistory.range", {
+                from: filters.from ? day(filters.from) : t("dcHistory.earliest"),
+                to: filters.to ? day(filters.to) : t("dcHistory.latest"),
+              })
+            : t("dcHistory.allDates")}
         </p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {summaryCards.map(([label, value, tone]) => (
@@ -229,11 +237,7 @@ export default async function DcHistoryPage({
             </div>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">
-          Sent, material problem and rejection are counted on the challan that made them. Balance
-          counts each original lot once, however many of its follow-ups are listed, plus what is
-          received on scanned DCs waiting for our challan.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("dcHistory.totalsNote")}</p>
       </div>
 
       <Card className="hidden md:block">
@@ -245,17 +249,21 @@ export default async function DcHistoryPage({
           <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="px-2 py-2.5 text-left font-medium">Date</th>
-                <th className="px-2 py-2.5 text-left font-medium">DC No. / Customer DC</th>
-                <th className="px-2 py-2.5 text-left font-medium">Customer</th>
-                <th className="px-2 py-2.5 text-left font-medium">Component / Material</th>
-                <th className="px-2 py-2.5 text-right font-medium">Received</th>
-                <th className="px-2 py-2.5 text-right font-medium">Sent</th>
-                <th className="px-2 py-2.5 text-right font-medium">Mat. Problem</th>
-                <th className="px-2 py-2.5 text-right font-medium">Rejection</th>
-                <th className="px-2 py-2.5 text-right font-medium">Balance</th>
-                <th className="px-2 py-2.5 text-left font-medium">Status</th>
-                <th className="px-2 py-2.5 text-right font-medium">View</th>
+                <th className="px-2 py-2.5 text-left font-medium">{t("common.date")}</th>
+                <th className="px-2 py-2.5 text-left font-medium">
+                  {t("dcHistory.dcNoCustomerDc")}
+                </th>
+                <th className="px-2 py-2.5 text-left font-medium">{t("common.customer")}</th>
+                <th className="px-2 py-2.5 text-left font-medium">
+                  {t("dcDetail.componentMaterial")}
+                </th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("dc.qty.received")}</th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("dc.qty.sent")}</th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("dc.qty.matProblem")}</th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("dc.qty.rejection")}</th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("dc.qty.balance")}</th>
+                <th className="px-2 py-2.5 text-left font-medium">{t("common.status")}</th>
+                <th className="px-2 py-2.5 text-right font-medium">{t("common.view")}</th>
               </tr>
             </thead>
             <tbody>
@@ -264,14 +272,14 @@ export default async function DcHistoryPage({
                   <td className="px-2 py-2.5">
                     <span className="whitespace-nowrap">{day(record.date)}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {HISTORY_DATE_SOURCE_LABELS[record.dateSource]}
+                      {t(HISTORY_DATE_SOURCE_KEYS[record.dateSource])}
                     </span>
                   </td>
                   <td className="px-2 py-2.5">
                     {record.dcNumber ? (
                       <span className="font-medium whitespace-nowrap">{record.dcNumber}</span>
                     ) : (
-                      <span className="text-muted-foreground">Not yet raised</span>
+                      <span className="text-muted-foreground">{t("dcHistory.notYetRaised")}</span>
                     )}
                     <span className="block text-xs whitespace-nowrap text-muted-foreground">
                       {record.customerDcNumbers.length > 0
@@ -280,7 +288,7 @@ export default async function DcHistoryPage({
                     </span>
                     {record.followUpOf ? (
                       <span className="block text-xs text-muted-foreground">
-                        Follow-up of{" "}
+                        {t("dcHistory.followUpOf")}{" "}
                         {record.followUpOf.dcId ? (
                           <Link
                             href={`/dashboard/dc/${record.followUpOf.dcId}`}
@@ -310,7 +318,7 @@ export default async function DcHistoryPage({
                       <>
                         {record.pending}
                         <span className="block text-xs text-muted-foreground">
-                          pending on {record.followUpOf?.dcNumber}
+                          {t("dc.list.pendingOn", { dc: record.followUpOf?.dcNumber })}
                         </span>
                       </>
                     ) : (
@@ -321,26 +329,26 @@ export default async function DcHistoryPage({
                     {record.sent}
                     {record.sentOnFollowUps > 0 ? (
                       <span className="block text-xs text-muted-foreground">
-                        +{record.sentOnFollowUps} on follow-ups
+                        {t("dcHistory.onFollowUps", { count: record.sentOnFollowUps })}
                       </span>
                     ) : null}
                   </td>
                   <td className="px-2 py-2.5 text-right tabular-nums">{record.materialProblem}</td>
                   <td className="px-2 py-2.5 text-right tabular-nums">{record.rejection}</td>
                   <td className={`px-2 py-2.5 text-right tabular-nums ${balanceClass(record)}`}>
-                    {balanceText(record)}
+                    {balanceText(record, t)}
                     {record.followUpOf && record.balance !== null ? (
                       <span className="block text-xs font-normal text-muted-foreground">
-                        left on {record.followUpOf.dcNumber}
+                        {t("dc.list.leftOn", { dc: record.followUpOf.dcNumber })}
                       </span>
                     ) : null}
                   </td>
                   <td className="px-2 py-2.5">
-                    <HistoryKindBadge kind={record.kind} />
+                    <HistoryKindBadge kind={record.kind} t={t} />
                   </td>
                   <td className="px-2 py-2.5 text-right">
                     <Button render={<Link href={record.href} />} variant="outline" size="sm">
-                      View
+                      {t("common.view")}
                     </Button>
                   </td>
                 </tr>
@@ -349,10 +357,10 @@ export default async function DcHistoryPage({
                 <tr>
                   <td colSpan={11} className="p-8 text-center text-muted-foreground">
                     {error
-                      ? "No range to show."
+                      ? t("dcHistory.noRange")
                       : filtered
-                        ? "No DC record matches these filters."
-                        : "No DC records yet."}
+                        ? t("dcHistory.noMatch")
+                        : t("dcHistory.noRecords")}
                   </td>
                 </tr>
               )}
@@ -368,46 +376,49 @@ export default async function DcHistoryPage({
             <CardContent className="space-y-2 p-4 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium">{record.dcNumber ?? "Scanned customer DC"}</p>
+                  <p className="font-medium">{record.dcNumber ?? t("search.scannedCustomerDc")}</p>
                   <p className="text-muted-foreground">
                     {day(record.date)} · {shortCustomerName(record.customerName)}
                   </p>
                   {record.followUpOf ? (
                     <p className="text-xs text-muted-foreground">
-                      Follow-up of {record.followUpOf.dcNumber}
+                      {t("dcHistory.followUpOfDc", { dc: record.followUpOf.dcNumber })}
                     </p>
                   ) : null}
                 </div>
-                <HistoryKindBadge kind={record.kind} />
+                <HistoryKindBadge kind={record.kind} t={t} />
               </div>
               <p className="font-medium">{record.component ?? "-"}</p>
               <p className="text-muted-foreground">
-                {record.material ?? "-"} · customer DC{" "}
-                {record.customerDcNumbers.length > 0 ? record.customerDcNumbers.join(", ") : "-"}
+                {record.material ?? "-"} ·{" "}
+                {t("dcHistory.customerDcInline", {
+                  refs:
+                    record.customerDcNumbers.length > 0 ? record.customerDcNumbers.join(", ") : "-",
+                })}
               </p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
                 <dt className="text-muted-foreground">
-                  {record.received !== null ? "Received" : "Pending"}
+                  {record.received !== null ? t("dc.qty.received") : t("dc.qty.pending")}
                 </dt>
                 <dd className="text-right tabular-nums">
                   {record.received ?? record.pending ?? "—"}
                 </dd>
-                <dt className="text-muted-foreground">Sent</dt>
+                <dt className="text-muted-foreground">{t("dc.qty.sent")}</dt>
                 <dd className="text-right tabular-nums">
                   {record.sent}
                   {record.sentOnFollowUps > 0 ? (
                     <span className="block text-xs text-muted-foreground">
-                      +{record.sentOnFollowUps} on follow-ups
+                      {t("dcHistory.onFollowUps", { count: record.sentOnFollowUps })}
                     </span>
                   ) : null}
                 </dd>
-                <dt className="text-muted-foreground">Material problem</dt>
+                <dt className="text-muted-foreground">{t("dc.qty.materialProblem")}</dt>
                 <dd className="text-right tabular-nums">{record.materialProblem}</dd>
-                <dt className="text-muted-foreground">Rejection</dt>
+                <dt className="text-muted-foreground">{t("dc.qty.rejection")}</dt>
                 <dd className="text-right tabular-nums">{record.rejection}</dd>
-                <dt className="text-muted-foreground">Balance</dt>
+                <dt className="text-muted-foreground">{t("dc.qty.balance")}</dt>
                 <dd className={`text-right tabular-nums ${balanceClass(record)}`}>
-                  {balanceText(record)}
+                  {balanceText(record, t)}
                 </dd>
               </dl>
               <Button
@@ -416,14 +427,14 @@ export default async function DcHistoryPage({
                 size="sm"
                 className="h-11 w-full"
               >
-                View
+                {t("common.view")}
               </Button>
             </CardContent>
           </Card>
         ))}
         {records.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {filtered ? "No DC record matches these filters." : "No DC records yet."}
+            {filtered ? t("dcHistory.noMatch") : t("dcHistory.noRecords")}
           </p>
         )}
       </div>

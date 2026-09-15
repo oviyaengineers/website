@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * Switches the component being looked at.
@@ -26,6 +27,7 @@ export function ComponentPicker({
   current?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   // Selected by name, navigated by id. The trigger renders whatever the value
   // is, so keying on the id printed the uuid where the part name belongs.
   const byName = new Map(components.map((c) => [c.name, c.id]));
@@ -42,12 +44,12 @@ export function ComponentPicker({
         }}
       >
         <SelectTrigger className="w-full data-[size=default]:h-11 sm:w-[28rem] sm:data-[size=default]:h-8">
-          <SelectValue placeholder="Choose a component..." />
+          <SelectValue placeholder={t("dcViews.chooseComponent")} />
         </SelectTrigger>
         <SelectContent>
           {components.length === 0 && (
             <div className="px-2 py-1.5 text-sm text-muted-foreground">
-              No components in Settings yet.
+              {t("dcViews.noComponents")}
             </div>
           )}
           {components.map((component) => (

@@ -1,5 +1,8 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
-import { DC_LIFECYCLE_LABELS, type DcLifecycle } from "@/lib/dc-lifecycle";
+import { useI18n } from "@/components/i18n-provider";
+import { DC_LIFECYCLE_KEYS, type DcLifecycle } from "@/lib/dc-lifecycle";
 import type { PaymentStatus } from "@/types/database";
 
 const dcStyles: Record<DcLifecycle, string> = {
@@ -10,9 +13,10 @@ const dcStyles: Record<DcLifecycle, string> = {
 
 /** Takes the lifecycle, not the stored status, so it agrees with the balance. */
 export function DcStatusBadge({ status }: { status: DcLifecycle }) {
+  const { t } = useI18n();
   return (
     <Badge variant="outline" className={`border-transparent ${dcStyles[status]}`}>
-      {DC_LIFECYCLE_LABELS[status]}
+      {t(DC_LIFECYCLE_KEYS[status])}
     </Badge>
   );
 }

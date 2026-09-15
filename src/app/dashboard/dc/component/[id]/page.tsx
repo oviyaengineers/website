@@ -1,26 +1,33 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { ComponentPicker } from "@/components/component-picker";
-import {
-  fetchComponentLedger,
-  listComponents,
-  LEDGER_STATUS_LABELS,
-  type LedgerRow,
-} from "@/lib/component-ledger";
+import { fetchComponentLedger, listComponents, type LedgerRow } from "@/lib/component-ledger";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
+import type { TranslationKey } from "@/lib/i18n/types";
 
-export const metadata: Metadata = { title: "Component | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("common.component")} | Oviya Engineers` };
+}
 
 const STATUS_STYLES: Record<LedgerRow["status"], string> = {
   "pending-scan": "bg-amber-100 text-amber-800",
   draft: "bg-slate-100 text-slate-700",
   active: "bg-blue-100 text-blue-700",
   completed: "bg-green-100 text-green-700",
+};
+
+const STATUS_KEYS: Record<LedgerRow["status"], TranslationKey> = {
+  "pending-scan": "search.pendingScan",
+  draft: "dc.lifecycle.draft",
+  active: "dc.lifecycle.active",
+  completed: "dc.lifecycle.completed",
 };
 
 function Figure({ label, value, note }: { label: string; value: number; note?: string }) {
@@ -45,7 +52,11 @@ function Figure({ label, value, note }: { label: string; value: number; note?: s
  */
 export default async function ComponentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [ledger, components] = await Promise.all([fetchComponentLedger(id), listComponents()]);
+  const [ledger, components, { t, lang }] = await Promise.all([
+    fetchComponentLedger(id),
+    listComponents(),
+    getTranslator(),
+  ]);
   if (!ledger) notFound();
 
   const { summary } = ledger;
@@ -56,7 +67,7 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
       <div className="space-y-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Component
+            {t("common.component")}
           </p>
           <h1 className="text-2xl font-semibold">{ledger.name}</h1>
         </div>
@@ -64,25 +75,27 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Figure label="Total received" value={summary.received} note="on our challans" />
-        <Figure label="Total sent" value={summary.sent} />
-        <Figure label="Material problem" value={summary.materialProblem} />
-        <Figure label="Rejection" value={summary.rejection} />
         <Figure
-          label="Current balance"
+          label={t("dcHistory.totalReceived")}
+          value={summary.received}
+          note={t("dcViews.onOurChallans")}
+        />
+        <Figure label={t("dcHistory.totalSent")} value={summary.sent} />
+        <Figure label={t("dc.qty.materialProblem")} value={summary.materialProblem} />
+        <Figure label={t("dc.qty.rejection")} value={summary.rejection} />
+        <Figure
+          label={t("dcViews.currentBalance")}
           value={summary.balance}
-          note="received less sent, problem and rejection"
+          note={t("dcViews.balanceNote")}
         />
       </div>
 
       {summary.awaitingEntry > 0 && (
         <Card className="border-amber-300 bg-amber-50">
           <CardContent className="py-3 text-sm text-amber-900">
-            A further <span className="font-semibold">{summary.awaitingEntry}</span> received on{" "}
-            {summary.pendingScans} scanned customer DC
-            {summary.pendingScans === 1 ? "" : "s"} that{" "}
-            {summary.pendingScans === 1 ? "has" : "have"} not been entered yet. Those are not
-            counted in the balance above, because no challan of ours exists for them.
+            {summary.pendingScans === 1
+              ? t("dcViews.awaitingOne", { qty: summary.awaitingEntry })
+              : t("dcViews.awaiting", { qty: summary.awaitingEntry, count: summary.pendingScans })}
           </CardContent>
         </Card>
       )}
@@ -90,32 +103,34 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
       <Card>
         <CardHeader>
           <CardTitle className="text-base text-[#10233f]">
-            {ledger.rows.length} record{ledger.rows.length === 1 ? "" : "s"} for this component
+            {ledger.rows.length === 1
+              ? t("dcViews.recordsOne")
+              : t("dcViews.records", { count: ledger.rows.length })}
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="p-3 text-left font-medium">Date</th>
-                <th className="p-3 text-left font-medium">Customer</th>
-                <th className="p-3 text-left font-medium">Customer DC No</th>
-                <th className="p-3 text-left font-medium">Our DC No</th>
-                <th className="p-3 text-left font-medium">Material</th>
-                <th className="p-3 text-right font-medium">Received</th>
-                <th className="p-3 text-right font-medium">Sent</th>
-                <th className="p-3 text-right font-medium">Mat. Problem</th>
-                <th className="p-3 text-right font-medium">Rejection</th>
-                <th className="p-3 text-right font-medium">Balance</th>
-                <th className="p-3 text-left font-medium">Status</th>
-                <th className="p-3 text-right font-medium">View</th>
+                <th className="p-3 text-left font-medium">{t("common.date")}</th>
+                <th className="p-3 text-left font-medium">{t("common.customer")}</th>
+                <th className="p-3 text-left font-medium">{t("dcViews.customerDcNo")}</th>
+                <th className="p-3 text-left font-medium">{t("dcViews.ourDcNo")}</th>
+                <th className="p-3 text-left font-medium">{t("common.material")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.received")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.sent")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.matProblem")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.rejection")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.balance")}</th>
+                <th className="p-3 text-left font-medium">{t("common.status")}</th>
+                <th className="p-3 text-right font-medium">{t("common.view")}</th>
               </tr>
             </thead>
             <tbody>
               {ledger.rows.map((row) => (
                 <tr key={row.key} className="border-b last:border-b-0">
                   <td className="p-3 whitespace-nowrap">
-                    {row.date ? format(new Date(row.date), "dd MMM yyyy") : "-"}
+                    {row.date ? formatDate(row.date, "dd MMM yyyy", lang) : "-"}
                   </td>
                   <td className="p-3">{row.customerName}</td>
                   <td className="p-3">{row.customerDcNumber}</td>
@@ -126,7 +141,7 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
                     {row.sent}
                     {row.sent !== row.ownSent && (
                       <span className="block text-xs text-muted-foreground">
-                        {row.ownSent} on this DC
+                        {t("dc.list.onThisDc", { count: row.ownSent })}
                       </span>
                     )}
                   </td>
@@ -136,11 +151,11 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
                     {row.balance === null
                       ? "—"
                       : row.balance < 0
-                        ? `${-row.balance} extra`
+                        ? t("dc.list.extra", { count: -row.balance })
                         : row.balance}
                     {row.onDraft > 0 && (
                       <span className="block text-xs text-muted-foreground">
-                        {row.onDraft} on draft
+                        {t("dc.list.onDraft", { count: row.onDraft })}
                       </span>
                     )}
                   </td>
@@ -149,12 +164,12 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
                       variant="outline"
                       className={`border-transparent ${STATUS_STYLES[row.status]}`}
                     >
-                      {LEDGER_STATUS_LABELS[row.status]}
+                      {t(STATUS_KEYS[row.status])}
                     </Badge>
                   </td>
                   <td className="p-3 text-right">
                     <Button render={<Link href={row.href} />} variant="outline" size="sm">
-                      {row.source === "scan" ? "Scan" : "DC"}
+                      {row.source === "scan" ? t("dcViews.scanButton") : t("dcViews.dcButton")}
                     </Button>
                   </td>
                 </tr>
@@ -162,7 +177,7 @@ export default async function ComponentPage({ params }: { params: Promise<{ id: 
               {ledger.rows.length === 0 && (
                 <tr>
                   <td colSpan={12} className="p-8 text-center text-muted-foreground">
-                    Nothing has been recorded against this component yet.
+                    {t("dcViews.nothingRecorded")}
                   </td>
                 </tr>
               )}

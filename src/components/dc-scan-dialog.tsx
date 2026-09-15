@@ -34,6 +34,8 @@ import {
 } from "@/lib/actions/dc-lookup";
 import { formatDcDate, StoredDcMatchList } from "@/components/dc-ref-lookup";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
+import { useI18n } from "@/components/i18n-provider";
+import type { TranslationKey } from "@/lib/i18n/types";
 
 export type ScannedItemSelection = {
   component: string;
@@ -80,12 +82,12 @@ const TILE =
 /** Quoted in the warning, so the number the operator sees matches the check. */
 const MIN_READABLE_PX = 1500;
 
-const PROGRESS_LABELS: Record<string, string> = {
-  "loading tesseract core": "Loading the OCR engine",
-  "initializing tesseract": "Starting the OCR engine",
-  "loading language traineddata": "Loading the language data",
-  "initializing api": "Getting ready",
-  "recognizing text": "Reading the challan",
+const PROGRESS_LABEL_KEYS: Record<string, TranslationKey> = {
+  "loading tesseract core": "dcScan.progressCore",
+  "initializing tesseract": "dcScan.progressInit",
+  "loading language traineddata": "dcScan.progressLang",
+  "initializing api": "dcScan.progressApi",
+  "recognizing text": "dcScan.progressRecognizing",
 };
 
 export function DcScanDialog({
@@ -109,6 +111,7 @@ export function DcScanDialog({
   /** Icon-only trigger, for the dashboard header bar. */
   compact?: boolean;
 }) {
+  const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState<OcrProgress | null>(null);
@@ -273,11 +276,7 @@ export function DcScanDialog({
       ]);
       setStage("review");
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Could not read that image. Try a flatter, better-lit photo."
-      );
+      setError(e instanceof Error ? e.message : t("dcScan.readFailed"));
       setStage("idle");
     }
   }
@@ -289,9 +288,9 @@ export function DcScanDialog({
     const unpicked = keptItems.filter((item) => !item.component.trim());
     if (unpicked.length > 0) {
       toast.error(
-        `Choose the component from Settings for ${unpicked.length} row${
-          unpicked.length === 1 ? "" : "s"
-        }, or untick ${unpicked.length === 1 ? "it" : "them"}.`
+        unpicked.length === 1
+          ? t("dcScan.chooseForRowsOne")
+          : t("dcScan.chooseForRows", { count: unpicked.length })
       );
       return;
     }
@@ -304,12 +303,12 @@ export function DcScanDialog({
     let imagePath: string | null = null;
     if (originalFile.current) {
       try {
-        imagePath = await uploadScanImage(originalFile.current);
+        imagePath = await uploadScanImage(originalFile.current, t("dcErrors.imagePrepare"));
       } catch (e) {
         toast.error(
-          `The photograph could not be stored, so this scan was not kept: ${
-            e instanceof Error ? e.message : "unknown error"
-          }. Check the connection and try again.`
+          t("dcScan.photoNotStored", {
+            error: e instanceof Error ? e.message : t("dcScan.unknownError"),
+          })
         );
         setStoring(false);
         return;
@@ -370,21 +369,21 @@ export function DcScanDialog({
     ? [
         {
           key: "customerId",
-          label: "Customer",
+          label: t("dcScan.fieldCustomer"),
           value: scan.customerName,
-          missingHint: "No customer on file matched this challan — pick one on the form.",
+          missingHint: t("dcScan.missingCustomer"),
         },
         {
           key: "customerDcNumber",
-          label: "Customer DC No.",
+          label: t("dcScan.fieldCustomerDcNo"),
           value: scan.customerDcNumber,
-          missingHint: "Not read — type it from the paper challan.",
+          missingHint: t("dcScan.missingNumber"),
         },
         {
           key: "customerDcDate",
-          label: "Customer DC date",
+          label: t("dcScan.fieldCustomerDcDate"),
           value: scan.customerDcDate,
-          missingHint: "Not read — set it on the form.",
+          missingHint: t("dcScan.missingDate"),
         },
       ]
     : [];
@@ -432,7 +431,7 @@ export function DcScanDialog({
           // Closing mid-review throws the scan away. It used to do so in
           // silence, which looked identical to a scan that had been kept.
           if (stage === "review") {
-            toast.warning("That scan was discarded. Nothing was kept for the delivery challan.");
+            toast.warning(t("dcScan.discardedOnClose"));
           }
           reset();
           setCaptured(0);
@@ -447,8 +446,8 @@ export function DcScanDialog({
           render={
             <Button
               type="button"
-              aria-label="Scan inward challan"
-              title="Scan inward challan"
+              aria-label={t("dcScan.scanInward")}
+              title={t("dcScan.scanInward")}
               className="size-11 shrink-0 border border-amber-500 bg-amber-400 bg-gradient-to-r from-amber-400 to-orange-500 p-0 text-[#10233f] shadow-sm hover:from-amber-500 hover:to-orange-600 md:size-9"
             />
           }
@@ -464,18 +463,17 @@ export function DcScanDialog({
             />
           }
         >
-          <ScanLine className="h-4 w-4" /> Scan inward challan
+          <ScanLine className="h-4 w-4" /> {t("dcScan.scanInward")}
         </DialogTrigger>
       )}
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+        closeLabel={t("common.close")}
+      >
         <DialogHeader>
-          <DialogTitle>Scan inward challan</DialogTitle>
-          <DialogDescription>
-            Photograph or upload the customer&apos;s delivery challan. Text is read on this device.
-            The photograph is kept privately with the scan. Only components in Settings can be
-            chosen.
-          </DialogDescription>
+          <DialogTitle>{t("dcScan.scanInward")}</DialogTitle>
+          <DialogDescription>{t("dcScan.dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         {stage === "idle" && (
@@ -516,7 +514,7 @@ export function DcScanDialog({
                 )}
               >
                 <Camera className="h-5 w-5" />
-                Take photo
+                {t("dcScan.takePhoto")}
                 {/* No `capture` attribute on purpose. It makes the browser use
                     a quick in-app camera intent, and on Android that hands back
                     a heavily downscaled picture — a photographed challan came
@@ -541,7 +539,7 @@ export function DcScanDialog({
                 )}
               >
                 <ImageUp className="h-5 w-5" />
-                Upload image
+                {t("dcScan.uploadImage")}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -553,8 +551,9 @@ export function DcScanDialog({
             </div>
             {captured > 0 && (
               <p className="rounded-md border border-emerald-500/50 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-200">
-                {captured} challan{captured === 1 ? "" : "s"} captured. Scan another, or close this
-                — they will fill the new delivery challan together.
+                {captured === 1
+                  ? t("dcScan.capturedOne")
+                  : t("dcScan.captured", { count: captured })}
               </p>
             )}
 
@@ -565,9 +564,11 @@ export function DcScanDialog({
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
                 <p className="text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">
-                    {waiting} scanned challan{waiting === 1 ? "" : "s"} waiting
+                    {waiting === 1
+                      ? t("dcScan.waitingOne")
+                      : t("dcScan.waiting", { count: waiting })}
                   </span>{" "}
-                  to fill the next new delivery challan. They are kept until one is saved.
+                  {t("dcScan.waitingNote")}
                 </p>
                 <Button
                   type="button"
@@ -578,20 +579,19 @@ export function DcScanDialog({
                     void discardPendingScans().then((result) => {
                       window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
                       toast.success(
-                        `Discarded ${result.removed} waiting scan${result.removed === 1 ? "" : "s"}.`
+                        result.removed === 1
+                          ? t("dcScan.discardedCountOne")
+                          : t("dcScan.discardedCount", { count: result.removed })
                       );
                     });
                   }}
                 >
-                  Discard them
+                  {t("dcScan.discardThem")}
                 </Button>
               </div>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              Lay the challan flat, fill the frame, and avoid shadows and glare. Only components and
-              materials already in Settings can be matched.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("dcScan.captureTips")}</p>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )}
@@ -600,7 +600,7 @@ export function DcScanDialog({
           <div className="space-y-3 py-6">
             <div className="flex items-center gap-2 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {PROGRESS_LABELS[progress?.status ?? ""] ?? "Preparing the image"}…
+              {t(PROGRESS_LABEL_KEYS[progress?.status ?? ""] ?? "dcScan.preparingImage")}…
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
@@ -608,10 +608,7 @@ export function DcScanDialog({
                 style={{ width: `${Math.round((progress?.progress ?? 0) * 100)}%` }}
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              The first scan on a device downloads the OCR engine, so it takes longer than later
-              ones.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("dcScan.firstScanNote")}</p>
           </div>
         )}
 
@@ -622,7 +619,7 @@ export function DcScanDialog({
                  canvas data: URL, never a stored asset */
               <img
                 src={previewUrl}
-                alt="Scanned challan"
+                alt={t("dcScan.scannedChallanAlt")}
                 className="max-h-40 w-full rounded-md border object-contain"
               />
             )}
@@ -631,24 +628,18 @@ export function DcScanDialog({
               <div className="space-y-1 rounded-md border border-destructive bg-destructive/5 p-3">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
                   <AlertTriangle className="h-4 w-4" />
-                  This photo is too small to read reliably
+                  {t("dcScan.tooSmallTitle")}
                 </h3>
                 <p className="text-xs text-destructive/90">
-                  {quality.longEdge}px across, where a part number needs about {MIN_READABLE_PX}px.
-                  Everything below is a guess — check every value, or retake the photo now while the
-                  challan is in front of you.
+                  {t("dcScan.tooSmallBody", { px: quality.longEdge, min: MIN_READABLE_PX })}
                 </p>
-                <p className="text-xs text-destructive/80">
-                  Hold the phone square over the sheet and fill the frame with it. If your camera
-                  offers a choice, take the picture with the camera app rather than a quick capture.
-                </p>
+                <p className="text-xs text-destructive/80">{t("dcScan.tooSmallTip")}</p>
               </div>
             )}
 
             {nothingFound && (
               <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                Nothing recognisable was found. Try a sharper, flatter photo — or close this and key
-                the challan in by hand.
+                {t("dcScan.nothingFound")}
               </p>
             )}
 
@@ -657,18 +648,25 @@ export function DcScanDialog({
                 <div className="border-b border-amber-500/40 px-3 py-2">
                   <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
                     <AlertTriangle className="h-4 w-4" />
-                    This challan may already be recorded
+                    {t("dcScan.mayBeRecordedTitle")}
                   </h3>
                   <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-                    {refMatches.matches.length} stored delivery challan
-                    {refMatches.matches.length === 1 ? "" : "s"} match
-                    {refMatches.matches.length === 1 ? "es" : ""}{" "}
-                    {refMatches.basis === "both"
-                      ? "this DC number and date"
-                      : refMatches.basis === "number"
-                        ? "this DC number"
-                        : "this date (the scanned DC number did not match)"}
-                    . Check before applying so the same inward challan is not entered twice.
+                    {t(
+                      refMatches.matches.length === 1
+                        ? "dcScan.matchCountOne"
+                        : "dcScan.matchCount",
+                      {
+                        count: refMatches.matches.length,
+                        basis: t(
+                          refMatches.basis === "both"
+                            ? "dcScan.basisBoth"
+                            : refMatches.basis === "number"
+                              ? "dcScan.basisNumber"
+                              : "dcScan.basisDate"
+                        ),
+                      }
+                    )}{" "}
+                    {t("dcScan.checkBeforeApplying")}
                   </p>
                 </div>
                 <StoredDcMatchList matches={refMatches.matches} />
@@ -677,9 +675,7 @@ export function DcScanDialog({
 
             {correctedFrom && (
               <p className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                Read as <span className="font-mono">{correctedFrom}</span> — corrected to{" "}
-                <span className="font-mono font-medium">{scan.customerDcNumber}</span> to match the
-                reference already on file. Untick it below to keep the scan as read.
+                {t("dcScan.correctedNote", { from: correctedFrom, to: scan.customerDcNumber })}
               </p>
             )}
 
@@ -687,19 +683,20 @@ export function DcScanDialog({
               <div className="rounded-md border border-destructive bg-destructive/5 px-3 py-2">
                 <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
                   <AlertTriangle className="h-4 w-4" />
-                  Different customer
+                  {t("dcScan.differentCustomer")}
                 </h3>
                 <p className="text-xs text-destructive/90">
-                  This challan reads as <span className="font-medium">{scan.customerName}</span>,
-                  but the reference is already on file under {customerMismatch.join(", ")}. Check
-                  you are scanning the right paper before applying.
+                  {t("dcScan.differentCustomerBody", {
+                    scanned: scan.customerName,
+                    stored: customerMismatch.join(", "),
+                  })}
                 </p>
               </div>
             )}
 
             {detectedFields.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">Detected details</h3>
+                <h3 className="text-sm font-medium">{t("dcScan.detectedDetails")}</h3>
                 {/* Every field is listed even when it was not read. Dropping the
                     row made a failed read look identical to a challan that
                     simply had no such value, so the gap went unnoticed. */}
@@ -721,7 +718,9 @@ export function DcScanDialog({
                     <span className="w-36 shrink-0 text-muted-foreground">{field.label}</span>
                     {field.value ? (
                       <span className="font-medium">
-                        {field.key === "customerDcDate" ? formatDcDate(field.value) : field.value}
+                        {field.key === "customerDcDate"
+                          ? formatDcDate(field.value, lang)
+                          : field.value}
                       </span>
                     ) : (
                       <span className="text-muted-foreground italic">{field.missingHint}</span>
@@ -734,7 +733,8 @@ export function DcScanDialog({
             {items.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">
-                  Detected items <span className="text-muted-foreground">(received qty)</span>
+                  {t("dcScan.detectedItems")}{" "}
+                  <span className="text-muted-foreground">{t("dcScan.receivedQtyParen")}</span>
                 </h3>
                 {items.map((item) => (
                   <div key={item.key} className="flex items-center gap-3 rounded-md border p-2">
@@ -765,27 +765,25 @@ export function DcScanDialog({
                             )
                           )
                         }
-                        placeholder="Choose the component from Settings"
-                        searchPlaceholder="Search components..."
-                        emptyText="No component matches. Add it in Settings first."
+                        placeholder={t("dcScan.chooseFromSettings")}
+                        searchPlaceholder={t("dcForm.searchComponents")}
+                        emptyText={t("dcForm.noComponentMatch")}
                         invalid={item.include && !item.component}
-                        ariaLabel="Component"
+                        ariaLabel={t("common.component")}
                       />
                       <p className="mt-1 text-xs">
                         {item.material && (
                           <span className="text-muted-foreground">{item.material} · </span>
                         )}
                         {!item.component ? (
-                          <span className="text-destructive">
-                            Not matched — choose the component
-                          </span>
+                          <span className="text-destructive">{t("dcScan.notMatched")}</span>
                         ) : item.confidence < LOW_CONFIDENCE ? (
                           <span className="text-amber-600">
-                            {Math.round(item.confidence * 100)}% match — check it
+                            {t("dcScan.matchCheck", { pct: Math.round(item.confidence * 100) })}
                           </span>
                         ) : item.confidence < 1 ? (
                           <span className="text-muted-foreground">
-                            {Math.round(item.confidence * 100)}% match
+                            {t("dcScan.match", { pct: Math.round(item.confidence * 100) })}
                           </span>
                         ) : null}
                       </p>
@@ -793,7 +791,7 @@ export function DcScanDialog({
                     </div>
                     <div className="w-20 shrink-0 [&_input]:h-11 sm:[&_input]:h-8">
                       <Label className="sr-only" htmlFor={`${inputId}-qty-${item.key}`}>
-                        Received quantity for {item.component}
+                        {t("dcScan.receivedQtyFor", { component: item.component })}
                       </Label>
                       <Input
                         id={`${inputId}-qty-${item.key}`}
@@ -821,12 +819,11 @@ export function DcScanDialog({
               <div className="space-y-1 rounded-md border border-dashed p-3">
                 <h3 className="flex items-center gap-2 text-sm font-medium">
                   <AlertTriangle className="h-4 w-4" />
-                  {unreadableLines.length} row{unreadableLines.length === 1 ? "" : "s"} could not be
-                  read
+                  {unreadableLines.length === 1
+                    ? t("dcScan.unreadableOne")
+                    : t("dcScan.unreadable", { count: unreadableLines.length })}
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  These carry a quantity but no description could be made out. Enter them by hand.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("dcScan.unreadableNote")}</p>
                 <ul className="space-y-1">
                   {unreadableLines.map((line, i) => (
                     <li key={i} className="truncate font-mono text-xs text-muted-foreground">
@@ -839,10 +836,10 @@ export function DcScanDialog({
 
             <details className="rounded-md border p-2">
               <summary className="cursor-pointer text-sm text-muted-foreground">
-                Raw scanned text
+                {t("dcScan.rawText")}
               </summary>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs">
-                {rawText || "(empty)"}
+                {rawText || t("dcScan.empty")}
               </pre>
             </details>
           </div>
@@ -852,10 +849,10 @@ export function DcScanDialog({
           {stage === "review" && (
             <>
               <p className="mr-auto self-center text-xs text-muted-foreground">
-                Keep it, or it is lost when you close this.
+                {t("dcScan.keepOrLose")}
               </p>
               <Button type="button" variant="outline" onClick={reset}>
-                Discard this scan
+                {t("dcScan.discardThisScan")}
               </Button>
               {/* Named for what it does to THIS challan, not for what might
                   come next: labelled "Capture & scan next" it read as an
@@ -867,7 +864,7 @@ export function DcScanDialog({
                 onClick={() => void apply()}
                 disabled={nothingFound || storing}
               >
-                {storing ? "Saving…" : "Keep this challan"}
+                {storing ? t("common.saving") : t("dcScan.keepThisChallan")}
               </Button>
             </>
           )}
@@ -877,7 +874,7 @@ export function DcScanDialog({
               className="bg-[#10233f] hover:bg-[#10233f]/90"
               onClick={() => setOpen(false)}
             >
-              Done — {captured} captured
+              {t("dcScan.doneCaptured", { count: captured })}
             </Button>
           )}
         </DialogFooter>

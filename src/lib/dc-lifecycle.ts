@@ -76,3 +76,10 @@ export const DC_LIFECYCLE_LABELS: Record<DcLifecycle, string> = {
   active: "Active",
   completed: "Completed",
 };
+
+/** The same labels as dictionary keys, for screens shown in the chosen language. */
+export const DC_LIFECYCLE_KEYS = {
+  draft: "dc.lifecycle.draft",
+  active: "dc.lifecycle.active",
+  completed: "dc.lifecycle.completed",
+} as const satisfies Record<DcLifecycle, `dc.lifecycle.${DcLifecycle}`>;

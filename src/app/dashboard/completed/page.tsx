@@ -9,8 +9,12 @@ import { DcFilters } from "@/components/dc-filters";
 import { SearchBox } from "@/components/search-box";
 import { fetchDcRows } from "@/lib/dc-rows";
 import { dcRowMatches } from "@/lib/dc-search";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Completed DCs | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("nav.completedDcs")} | Oviya Engineers` };
+}
 
 /**
  * Item lines that are finished: every piece received has gone back, whether
@@ -33,10 +37,11 @@ export default async function CompletedChallansPage({
   const filters = await searchParams;
   const { q } = filters;
   const supabase = await createClient();
-  const [rows, { data: picklist }, { data: customers }] = await Promise.all([
+  const [rows, { data: picklist }, { data: customers }, { t }] = await Promise.all([
     fetchDcRows(),
     supabase.from("dc_picklist_items").select("name").eq("kind", "component").order("name"),
     supabase.from("customers").select("name").order("name"),
+    getTranslator(),
   ]);
   // Completed is exactly zero, from the same chain calculation as every screen.
   const finished = rows.filter((row) => row.received > 0 && row.pending === 0);
@@ -69,22 +74,20 @@ export default async function CompletedChallansPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Completed DCs</h1>
-          <p className="text-sm text-muted-foreground">
-            Lines where everything received has been accounted for back to the customer.
-          </p>
+          <h1 className="text-2xl font-semibold">{t("nav.completedDcs")}</h1>
+          <p className="text-sm text-muted-foreground">{t("dcViews.completedIntro")}</p>
         </div>
         <Button
           render={<Link href="/dashboard/completed/print" />}
           variant="outline"
           className="h-11 sm:h-8"
         >
-          <Printer className="h-4 w-4" /> Print list
+          <Printer className="h-4 w-4" /> {t("dc.list.printList")}
         </Button>
       </div>
 
       <div className="space-y-3">
-        <SearchBox placeholder="Our DC number, customer DC number, customer, component, material or date..." />
+        <SearchBox placeholder={t("dcViews.completedSearch")} />
         <DcFilters
           defaults={filters}
           components={(picklist ?? []).map((item) => item.name)}
@@ -96,23 +99,23 @@ export default async function CompletedChallansPage({
       {completed.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            {filtered
-              ? "No completed line matches these filters."
-              : "Nothing is completed yet. A line appears here once its sent, material problem and rejection quantities together match what came in."}
+            {filtered ? t("dcViews.completedNoMatch") : t("dcViews.completedNothingYet")}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Figure
-              label="Completed lines"
+              label={t("dcViews.completedLines")}
               value={completed.length}
-              note={`${challans} challan${challans === 1 ? "" : "s"}`}
+              note={
+                challans === 1 ? t("dc.list.countOne") : t("dc.list.count", { count: challans })
+              }
             />
-            <Figure label="Received" value={totals.received} />
-            <Figure label="Sent back" value={totals.sent} />
+            <Figure label={t("dc.qty.received")} value={totals.received} />
+            <Figure label={t("dcViews.sentBack")} value={totals.sent} />
             <Figure
-              label="Material problem / rejection"
+              label={t("dcViews.mpRejection")}
               value={totals.materialProblem + totals.rejection}
               note={`${totals.materialProblem} + ${totals.rejection}`}
             />
@@ -122,7 +125,9 @@ export default async function CompletedChallansPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-[#10233f]">
                 <CheckCircle2 className="h-4 w-4" />
-                {completed.length} completed line{completed.length === 1 ? "" : "s"}
+                {completed.length === 1
+                  ? t("dcViews.completedLineCountOne")
+                  : t("dcViews.completedLineCount", { count: completed.length })}
               </CardTitle>
             </CardHeader>
             <CardContent>

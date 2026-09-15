@@ -11,19 +11,24 @@ import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { bookableOnLine, challanSettledIn, indexChain } from "@/lib/dc-chain";
 import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit Delivery Challan | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcForm.editPageTitle")} | Oviya Engineers` };
+}
 
 export default async function EditDcPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: dc }, { data: items }, { data: customers }, { data: picklistItems }] =
+  const [{ data: dc }, { data: items }, { data: customers }, { data: picklistItems }, { t }] =
     await Promise.all([
       supabase.from("delivery_challans").select("*").eq("id", id).single(),
       supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
       supabase.from("customers").select("id, name").order("name"),
       supabase.from("dc_picklist_items").select("*").order("name"),
+      getTranslator(),
     ]);
 
   if (!dc) notFound();
@@ -40,19 +45,17 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
       <div className="space-y-6">
         <BreadcrumbRecordLabel value={dc.dc_number} />
         <div>
-          <h1 className="text-2xl font-semibold">{dc.dc_number} is completed</h1>
-          <p className="text-sm text-muted-foreground">
-            Every piece received on this challan has been accounted for.
-          </p>
+          <h1 className="text-2xl font-semibold">
+            {t("dcForm.completedTitle", { dc: dc.dc_number })}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("dcForm.completedIntro")}</p>
         </div>
         <Card>
           <CardContent className="space-y-4 p-6 text-sm">
-            <p>
-              Completed challans are not edited in place, because the figures on them have usually
-              been billed. Open the challan and choose Reopen to put it back into draft, make the
-              correction, then confirm it again.
-            </p>
-            <Button render={<Link href={`/dashboard/dc/${dc.id}`} />}>Open the challan</Button>
+            <p>{t("dcForm.completedBody")}</p>
+            <Button render={<Link href={`/dashboard/dc/${dc.id}`} />}>
+              {t("dcForm.openChallan")}
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -79,8 +82,8 @@ export default async function EditDcPage({ params }: { params: Promise<{ id: str
     <div className="space-y-6">
       <BreadcrumbRecordLabel value={dc.dc_number} />
       <div>
-        <h1 className="text-2xl font-semibold">Edit {dc.dc_number}</h1>
-        <p className="text-sm text-muted-foreground">Update delivery challan details.</p>
+        <h1 className="text-2xl font-semibold">{t("dcForm.editTitle", { dc: dc.dc_number })}</h1>
+        <p className="text-sm text-muted-foreground">{t("dcForm.editIntro")}</p>
       </div>
       {/* Keyed on the DC so switching to a different one remounts the form and
           re-seeds every field from props, rather than leaving stale state. */}

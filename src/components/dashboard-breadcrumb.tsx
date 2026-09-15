@@ -4,54 +4,57 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { ChevronRight } from "lucide-react";
+import { useI18n } from "@/components/i18n-provider";
+import type { Translate, TranslationKey } from "@/lib/i18n/types";
 
 /**
  * Segment labels that differ from a plain title-case of the URL segment.
  * Anything not listed falls back to title case, so new routes still read
  * sensibly without needing an entry here.
  */
-const SEGMENT_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
-  customers: "Customers",
+const SEGMENT_LABELS: Record<string, TranslationKey> = {
+  dashboard: "nav.dashboard",
+  customers: "nav.customers",
   // Matches the menu, where these all sit under one DC group.
-  dc: "DC",
-  new: "New DC - Manual",
-  scan: "Scan DC",
-  scanned: "Scanned DCs",
-  dispatched: "Dispatched DCs",
-  history: "DC History",
-  component: "Component",
-  stock: "Stock / Balance",
-  completed: "Completed DCs",
-  invoices: "Billing",
-  costs: "Costs",
-  reports: "Reports",
-  outstanding: "Outstanding Payments",
-  settings: "Settings",
-  components: "Components & Materials",
-  "dc-numbers": "DC Numbers",
-  unbilled: "Unbilled Work",
-  billing: "Billing Details",
-  "invoice-numbers": "Invoice Numbers",
-  rates: "Rate List",
-  balance: "Balance",
-  edit: "Edit",
-  print: "Print",
+  dc: "nav.dc",
+  scan: "nav.scanDc",
+  scanned: "nav.scannedDcs",
+  dispatched: "nav.dispatchedDcs",
+  history: "nav.dcHistory",
+  component: "common.component",
+  stock: "nav.stockBalance",
+  completed: "nav.completedDcs",
+  invoices: "nav.billing",
+  costs: "nav.costs",
+  reports: "nav.reports",
+  outstanding: "nav.outstandingPayments",
+  settings: "nav.settings",
+  components: "nav.componentsMaterials",
+  "dc-numbers": "nav.dcNumbers",
+  unbilled: "nav.unbilledWork",
+  billing: "nav.billingDetails",
+  "invoice-numbers": "nav.invoiceNumbers",
+  rates: "nav.rateList",
+  balance: "nav.balance",
+  edit: "common.edit",
+  print: "nav.print",
+  "print-list": "nav.printList",
 };
 
 /** The label for a "new" page, by the section it sits in. */
-const NEW_LABELS: Record<string, string> = {
-  dc: "New DC - Manual",
-  invoices: "New Invoice",
-  customers: "New Customer",
+const NEW_LABELS: Record<string, TranslationKey> = {
+  dc: "nav.newDcManual",
+  invoices: "nav.newInvoice",
+  customers: "nav.newCustomer",
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function labelFor(segment: string): string {
-  if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
+function labelFor(segment: string, t: Translate): string {
+  const key = SEGMENT_LABELS[segment];
+  if (key) return t(key);
   // Fallback until the page reports the record's real name.
-  if (UUID.test(segment)) return "Details";
+  if (UUID.test(segment)) return t("nav.details");
   return segment
     .split("-")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -70,7 +73,7 @@ const NO_PAGE = [
   /^\/dashboard\/customers\/[^/]+$/,
 ];
 
-export function buildCrumbs(pathname: string): Crumb[] {
+export function buildCrumbs(pathname: string, t: Translate): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
   let recordSeen = false;
 
@@ -81,9 +84,9 @@ export function buildCrumbs(pathname: string): Crumb[] {
 
     const href = `/${segments.slice(0, i + 1).join("/")}`;
     // "new" means a different form in each section, so the parent decides it.
-    const newLabel = segment === "new" ? NEW_LABELS[segments[i - 1] ?? ""] : undefined;
+    const newKey = segment === "new" ? NEW_LABELS[segments[i - 1] ?? ""] : undefined;
     return {
-      label: newLabel ?? labelFor(segment),
+      label: newKey ? t(newKey) : labelFor(segment, t),
       href: NO_PAGE.some((pattern) => pattern.test(href)) ? null : href,
       isRecord,
     };
@@ -134,13 +137,14 @@ export function BreadcrumbRecordLabel({ value }: { value: string | null | undefi
 
 export function DashboardBreadcrumb() {
   const pathname = usePathname();
+  const { t } = useI18n();
   const label = useSyncExternalStore(
     subscribeRecordLabel,
     () => recordLabel,
     // Nothing is registered during the server render.
     () => null
   );
-  const crumbs = buildCrumbs(pathname);
+  const crumbs = buildCrumbs(pathname, t);
 
   // A lone "Dashboard" crumb is just the page you are already on.
   if (crumbs.length < 2) return null;

@@ -10,8 +10,12 @@ import {
   listPendingScans,
 } from "@/lib/actions/dc-scan-queue";
 import { scannedDcMatches } from "@/lib/dc-search";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Scanned DCs | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcScan.scannedTitle")} | Oviya Engineers` };
+}
 
 /**
  * Customer DCs received, and what has become of them.
@@ -26,10 +30,11 @@ export default async function ScannedDcsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const [allPending, allConverted, allDiscarded] = await Promise.all([
+  const [allPending, allConverted, allDiscarded, { t }] = await Promise.all([
     listPendingScans(),
     listConvertedScans(),
     listDiscardedScans(),
+    getTranslator(),
   ]);
   // Searching only narrows what is shown. It never converts, edits or
   // discards anything.
@@ -41,11 +46,11 @@ export default async function ScannedDcsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Scanned DCs</h1>
+          <h1 className="text-2xl font-semibold">{t("dcScan.scannedTitle")}</h1>
           <p className="text-sm text-muted-foreground">
             {q
-              ? `${pending.length} of ${allPending.length} waiting match "${q}".`
-              : "Customer DCs received and waiting for work completion. Our delivery challan is created only when you ask for it."}
+              ? t("dcScan.scannedMatch", { pending: pending.length, all: allPending.length, q })
+              : t("dcScan.scannedIntro")}
           </p>
         </div>
         <Button
@@ -53,11 +58,11 @@ export default async function ScannedDcsPage({
           variant="outline"
           className="h-11 sm:h-8"
         >
-          <ScanLine className="h-4 w-4" /> Scan another
+          <ScanLine className="h-4 w-4" /> {t("dcScan.scanAnother")}
         </Button>
       </div>
 
-      <SearchBox placeholder="Customer DC number, customer, component, material or date..." />
+      <SearchBox placeholder={t("dcScan.scannedSearch")} />
 
       <ScannedDcList pending={pending} converted={converted} discarded={discarded} searchTerm={q} />
     </div>

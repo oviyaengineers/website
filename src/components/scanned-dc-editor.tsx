@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { FilePlus2, ImageOff, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +15,14 @@ import { CustomerCombobox, type ComboboxCustomer } from "@/components/customer-c
 import { SearchableSelect } from "@/components/searchable-select";
 import { discardPendingScans, updateScannedDc, type ScannedDc } from "@/lib/actions/dc-scan-queue";
 import { PENDING_SCAN_CHANGED } from "@/lib/dc-scan-handoff";
+import { useI18n } from "@/components/i18n-provider";
+import type { Lang } from "@/lib/i18n/config";
+import { formatDate } from "@/lib/i18n/dates";
 
-function shortDate(value: string | null | undefined): string {
+function shortDate(value: string | null | undefined, lang: Lang): string {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : format(parsed, "dd MMM yyyy");
+  return Number.isNaN(parsed.getTime()) ? value : formatDate(value, "dd MMM yyyy", lang);
 }
 
 /**
@@ -51,6 +53,7 @@ export function ScannedDcEditor({
   /** Edit mode, opened from the Edit button. */
   editing: boolean;
 }) {
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [saving, startSaving] = useTransition();
   const [discarding, startDiscarding] = useTransition();
@@ -66,9 +69,9 @@ export function ScannedDcEditor({
     customers.find((c) => c.id === id)?.name ?? null;
 
   const problems = items.flatMap((item, index) => {
-    if (!item.component) return [`Row ${index + 1}: choose the component`];
+    if (!item.component) return [t("dcScan.rowChoose", { row: index + 1 })];
     if (!listed.has(item.component)) {
-      return [`Row ${index + 1}: "${item.component}" is not in Settings — choose the correct one`];
+      return [t("dcScan.rowNotInSettings", { row: index + 1, component: item.component })];
     }
     return [];
   });
@@ -93,7 +96,7 @@ export function ScannedDcEditor({
         toast.error(error);
         return;
       }
-      toast.success("Corrections saved. The scan is still waiting under Scanned DCs.");
+      toast.success(t("dcScan.correctionsSaved"));
       router.push(`/dashboard/dc/scanned/${scan.id}`);
       router.refresh();
     });
@@ -103,11 +106,11 @@ export function ScannedDcEditor({
     startDiscarding(async () => {
       const { removed, error } = await discardPendingScans([scan.id]);
       if (error || removed === 0) {
-        toast.error(error ?? "That scan is no longer pending, so it was not discarded.");
+        toast.error(error ?? t("dcScan.notDiscarded"));
         return;
       }
       window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
-      toast.success("Scan discarded. It is kept under Discarded on Scanned DCs.");
+      toast.success(t("dcScan.scanDiscardedToast"));
       router.push("/dashboard/dc/scanned");
       router.refresh();
     });
@@ -120,7 +123,7 @@ export function ScannedDcEditor({
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">Original scanned image</CardTitle>
+            <CardTitle className="text-base text-[#10233f]">{t("dcScan.originalImage")}</CardTitle>
           </CardHeader>
           <CardContent>
             {imageUrl ? (
@@ -129,19 +132,17 @@ export function ScannedDcEditor({
                     short-lived signed link to a private file, not a static asset */}
                 <img
                   src={imageUrl}
-                  alt={`Customer DC ${scan.customerDcNumber ?? ""} as photographed`}
+                  alt={t("dcScan.photographedAlt", { number: scan.customerDcNumber ?? "" })}
                   className="max-h-[70vh] w-full rounded-md border object-contain"
                 />
                 <span className="mt-2 block text-xs text-muted-foreground underline">
-                  Open full size
+                  {t("dcScan.openFullSize")}
                 </span>
               </a>
             ) : (
               <div className="flex flex-col items-center gap-2 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
                 <ImageOff className="h-5 w-5" />
-                {scan.imagePath
-                  ? "The image could not be loaded right now. Refresh to try again."
-                  : "No image stored. This scan was kept before scan images were saved."}
+                {scan.imagePath ? t("dcScan.imageNotLoaded") : t("dcScan.noImage")}
               </div>
             )}
           </CardContent>
@@ -149,24 +150,28 @@ export function ScannedDcEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">As read by OCR</CardTitle>
+            <CardTitle className="text-base text-[#10233f]">{t("dcScan.asReadByOcr")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {read ? (
               <>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                  <dt className="text-muted-foreground">Customer</dt>
-                  <dd>{customerName(read.customerId) ?? "Not read"}</dd>
-                  <dt className="text-muted-foreground">Customer DC No.</dt>
-                  <dd className="font-mono">{read.customerDcNumber ?? "Not read"}</dd>
-                  <dt className="text-muted-foreground">Customer DC date</dt>
-                  <dd>{read.customerDcDate ? shortDate(read.customerDcDate) : "Not read"}</dd>
+                  <dt className="text-muted-foreground">{t("dcScan.fieldCustomer")}</dt>
+                  <dd>{customerName(read.customerId) ?? t("dcScan.notRead")}</dd>
+                  <dt className="text-muted-foreground">{t("dcScan.fieldCustomerDcNo")}</dt>
+                  <dd className="font-mono">{read.customerDcNumber ?? t("dcScan.notRead")}</dd>
+                  <dt className="text-muted-foreground">{t("dcScan.fieldCustomerDcDate")}</dt>
+                  <dd>
+                    {read.customerDcDate
+                      ? shortDate(read.customerDcDate, lang)
+                      : t("dcScan.notRead")}
+                  </dd>
                 </dl>
                 <ul className="space-y-1">
                   {read.items.map((item, index) => (
                     <li key={index} className="rounded border px-2 py-1">
                       {item.component || (
-                        <span className="text-muted-foreground">(not matched)</span>
+                        <span className="text-muted-foreground">{t("dcScan.notMatchedParen")}</span>
                       )}
                       <span className="text-muted-foreground">
                         {" "}
@@ -177,13 +182,13 @@ export function ScannedDcEditor({
                 </ul>
               </>
             ) : (
-              <p className="text-muted-foreground">
-                No OCR record stored. This scan was kept before OCR results were saved.
-              </p>
+              <p className="text-muted-foreground">{t("dcScan.noOcrRecord")}</p>
             )}
             {scan.ocrText ? (
               <details className="rounded-md border p-2">
-                <summary className="cursor-pointer text-muted-foreground">Raw scanned text</summary>
+                <summary className="cursor-pointer text-muted-foreground">
+                  {t("dcScan.rawText")}
+                </summary>
                 <pre className="mt-2 max-h-48 overflow-auto text-xs whitespace-pre-wrap">
                   {scan.ocrText}
                 </pre>
@@ -197,7 +202,7 @@ export function ScannedDcEditor({
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base text-[#10233f]">
-              {canEdit ? "Correct the details" : "Customer DC"}
+              {canEdit ? t("dcScan.correctDetails") : t("dcScan.customerDc")}
             </CardTitle>
             <div className="flex flex-wrap gap-2">
               <Badge
@@ -211,19 +216,21 @@ export function ScannedDcEditor({
                 }`}
               >
                 {scan.status === "converted"
-                  ? "Converted"
+                  ? t("dcScan.statusConverted")
                   : scan.status === "discarded"
-                    ? "Discarded"
-                    : "Pending"}
+                    ? t("dcScan.statusDiscarded")
+                    : t("dcScan.statusPending")}
               </Badge>
               {scan.correctedAt ? (
-                <Badge variant="outline">Corrected {shortDate(scan.correctedAt)}</Badge>
+                <Badge variant="outline">
+                  {t("dcScan.correctedOn", { date: shortDate(scan.correctedAt, lang) })}
+                </Badge>
               ) : null}
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 [&_input]:h-11 sm:grid-cols-2 sm:[&_input]:h-8">
             <div className="space-y-2 sm:col-span-2">
-              <Label>Customer</Label>
+              <Label>{t("dcScan.fieldCustomer")}</Label>
               {canEdit ? (
                 <CustomerCombobox
                   customers={customers}
@@ -232,11 +239,11 @@ export function ScannedDcEditor({
                   name="scan_customer_id"
                 />
               ) : (
-                <p className="text-sm">{customerName(scan.customerId) ?? "Not set"}</p>
+                <p className="text-sm">{customerName(scan.customerId) ?? t("dcScan.notSet")}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customer_dc_number">Customer DC number</Label>
+              <Label htmlFor="customer_dc_number">{t("dcScan.customerDcNumber")}</Label>
               {canEdit ? (
                 <Input
                   id="customer_dc_number"
@@ -244,16 +251,16 @@ export function ScannedDcEditor({
                   onChange={(e) => setNumber(e.target.value)}
                 />
               ) : (
-                <p className="text-sm">{scan.customerDcNumber || "Not set"}</p>
+                <p className="text-sm">{scan.customerDcNumber || t("dcScan.notSet")}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label>Customer DC date</Label>
+              <Label>{t("dcScan.fieldCustomerDcDate")}</Label>
               {canEdit ? (
                 <DatePicker value={date} onChange={setDate} />
               ) : (
                 <p className="text-sm">
-                  {scan.customerDcDate ? shortDate(scan.customerDcDate) : "Not set"}
+                  {scan.customerDcDate ? shortDate(scan.customerDcDate, lang) : t("dcScan.notSet")}
                 </p>
               )}
             </div>
@@ -262,14 +269,16 @@ export function ScannedDcEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">Received from the customer</CardTitle>
+            <CardTitle className="text-base text-[#10233f]">
+              {t("dcScan.receivedFromCustomer")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Only the received quantity is recorded here. Sent, material
                 problem and rejection belong to our challan and start at zero,
                 because none of that has happened at scanning time. */}
             {items.length === 0 && (
-              <p className="text-sm text-muted-foreground">No items on this scan.</p>
+              <p className="text-sm text-muted-foreground">{t("dcScan.noItemsOnScan")}</p>
             )}
             {items.map((item, index) => {
               const unlisted = Boolean(item.component) && !listed.has(item.component);
@@ -279,46 +288,50 @@ export function ScannedDcEditor({
                   className="grid gap-2 rounded-lg border p-3 [&_input]:h-11 sm:grid-cols-[1fr_150px_110px_auto] sm:items-end sm:[&_input]:h-8"
                 >
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Component / Description</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      {t("dcScan.componentDescription")}
+                    </Label>
                     {canEdit ? (
                       <SearchableSelect
                         options={components}
                         value={unlisted ? null : item.component || null}
                         onChange={(v) => setItem(index, { component: v ?? "" })}
                         placeholder={
-                          unlisted ? `Read as "${item.component}" — choose` : "Choose..."
+                          unlisted
+                            ? t("dcScan.readAsChoose", { component: item.component })
+                            : t("dcScan.choose")
                         }
-                        searchPlaceholder="Search components..."
-                        emptyText="No component matches. Add it in Settings first."
+                        searchPlaceholder={t("dcForm.searchComponents")}
+                        emptyText={t("dcForm.noComponentMatch")}
                         invalid={!item.component || unlisted}
-                        ariaLabel="Component"
+                        ariaLabel={t("common.component")}
                       />
                     ) : (
                       <p
                         className={`text-sm ${unlisted || !item.component ? "text-destructive" : ""}`}
                       >
-                        {item.component || "Not chosen"}
-                        {unlisted ? " (not in Settings)" : ""}
+                        {item.component || t("dcScan.notChosen")}
+                        {unlisted ? t("dcScan.notInSettingsParen") : ""}
                       </p>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Material</Label>
+                    <Label className="text-xs text-muted-foreground">{t("common.material")}</Label>
                     {canEdit ? (
                       <SearchableSelect
                         options={materials}
                         value={item.material || null}
                         onChange={(v) => setItem(index, { material: v })}
-                        searchPlaceholder="Search materials..."
+                        searchPlaceholder={t("dcForm.searchMaterials")}
                         allowClear
-                        ariaLabel="Material"
+                        ariaLabel={t("common.material")}
                       />
                     ) : (
                       <p className="text-sm">{item.material ?? "-"}</p>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Received</Label>
+                    <Label className="text-xs text-muted-foreground">{t("dc.qty.received")}</Label>
                     {canEdit ? (
                       <Input
                         type="number"
@@ -339,7 +352,7 @@ export function ScannedDcEditor({
                       variant="ghost"
                       size="icon"
                       className="h-11 w-11 text-destructive sm:h-8 sm:w-8"
-                      aria-label={`Remove row ${index + 1}`}
+                      aria-label={t("dcScan.removeRowN", { row: index + 1 })}
                       onClick={() => setItems((rows) => rows.filter((_, i) => i !== index))}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -358,7 +371,7 @@ export function ScannedDcEditor({
                   setItems((rows) => [...rows, { component: "", material: null, received_qty: 0 }])
                 }
               >
-                <Plus className="h-4 w-4" /> Add a row OCR missed
+                <Plus className="h-4 w-4" /> {t("dcScan.addMissedRow")}
               </Button>
             ) : null}
             {problems.length > 0 && pending ? (
@@ -376,13 +389,14 @@ export function ScannedDcEditor({
             {canEdit ? (
               <>
                 <Button onClick={save} disabled={saving || problems.length > 0}>
-                  <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save corrections"}
+                  <Save className="h-4 w-4" />{" "}
+                  {saving ? t("common.saving") : t("dcScan.saveCorrections")}
                 </Button>
                 <Button
                   render={<Link href={`/dashboard/dc/scanned/${scan.id}`} />}
                   variant="outline"
                 >
-                  <X className="h-4 w-4" /> Cancel
+                  <X className="h-4 w-4" /> {t("common.cancel")}
                 </Button>
               </>
             ) : (
@@ -391,40 +405,38 @@ export function ScannedDcEditor({
                   render={<Link href={`/dashboard/dc/new?scan=${scan.id}`} />}
                   className="bg-[#10233f] hover:bg-[#10233f]/90"
                 >
-                  <FilePlus2 className="h-4 w-4" /> Create Delivery Challan
+                  <FilePlus2 className="h-4 w-4" /> {t("dcScan.createDc")}
                 </Button>
                 <Button
                   render={<Link href={`/dashboard/dc/scanned/${scan.id}?edit=1`} />}
                   variant="outline"
                 >
-                  <Pencil className="h-4 w-4" /> Edit
+                  <Pencil className="h-4 w-4" /> {t("common.edit")}
                 </Button>
                 <Button variant="destructive" onClick={discard} disabled={discarding}>
-                  <Trash2 className="h-4 w-4" /> {discarding ? "Discarding..." : "Discard"}
+                  <Trash2 className="h-4 w-4" />{" "}
+                  {discarding ? t("dcScan.discarding") : t("dcScan.discard")}
                 </Button>
               </>
             )}
           </div>
         ) : scan.status === "converted" ? (
           <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-            <p className="font-medium">Our delivery challan has already been created from this.</p>
-            <p className="mt-1 text-muted-foreground">
-              The figures now live on that challan, so they are edited there rather than here.
-            </p>
+            <p className="font-medium">{t("dcScan.convertedTitle")}</p>
+            <p className="mt-1 text-muted-foreground">{t("dcScan.convertedBody")}</p>
             {scan.dcId && (
               <Button
                 render={<Link href={`/dashboard/dc/${scan.dcId}`} />}
                 variant="outline"
                 className="mt-3 h-11 sm:h-8"
               >
-                Open {scan.dcNumber ?? "the delivery challan"}
+                {scan.dcNumber ? t("dcForm.openDc", { dc: scan.dcNumber }) : t("dcForm.openTheDc")}
               </Button>
             )}
           </div>
         ) : (
           <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
-            This scan was discarded. It is kept as a record that the customer&apos;s DC was seen,
-            but no delivery challan can be created from it.
+            {t("dcScan.discardedBody")}
           </div>
         )}
       </div>

@@ -10,6 +10,7 @@ import {
   type StoredDcMatch,
 } from "@/lib/actions/dc-lookup";
 import { formatDcDate, StoredDcMatchList } from "@/components/dc-ref-lookup";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * Offers the customer DC numbers already on file for the selected customer,
@@ -31,6 +32,7 @@ export function CustomerDcRefPicker({
   excludeDcId?: string | null;
   onPick: (option: CustomerDcRefOption) => void;
 }) {
+  const { t, lang } = useI18n();
   const [options, setOptions] = useState<CustomerDcRefOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -91,9 +93,11 @@ export function CustomerDcRefPicker({
             variant="outline"
             size="icon"
             className="size-11 md:size-8"
-            aria-label={`Choose from ${options.length} stored customer DC number${
-              options.length === 1 ? "" : "s"
-            }`}
+            aria-label={
+              options.length === 1
+                ? t("dcForm.chooseFromOne")
+                : t("dcForm.chooseFrom", { count: options.length })
+            }
           />
         }
       >
@@ -102,11 +106,11 @@ export function CustomerDcRefPicker({
 
       <PopoverContent align="start" className="max-h-96 w-[24rem] overflow-y-auto p-0">
         <div className="border-b bg-muted/50 px-3 py-2">
-          <p className="text-sm font-medium">Stored customer DC numbers</p>
+          <p className="text-sm font-medium">{t("dcForm.storedNumbers")}</p>
           <p className="text-xs text-muted-foreground">
             {date.trim()
-              ? `On file for this customer dated ${formatDcDate(date)}.`
-              : "On file for this customer. Pick a date to narrow the list."}
+              ? t("dcForm.onFileDated", { date: formatDcDate(date, lang) })
+              : t("dcForm.onFile")}
           </p>
         </div>
 
@@ -117,9 +121,10 @@ export function CustomerDcRefPicker({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{option.number}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDcDate(option.date)} · {option.match.dc_number} ·{" "}
-                    {option.match.items.length} item
-                    {option.match.items.length === 1 ? "" : "s"}
+                    {formatDcDate(option.date, lang)} · {option.match.dc_number} ·{" "}
+                    {option.match.items.length === 1
+                      ? t("dcForm.itemsOne")
+                      : t("dcForm.items", { count: option.match.items.length })}
                   </p>
                 </div>
                 <Button
@@ -128,7 +133,7 @@ export function CustomerDcRefPicker({
                   size="sm"
                   onClick={() => setPreview(preview?.id === option.match.id ? null : option.match)}
                 >
-                  {preview?.id === option.match.id ? "Hide" : "Details"}
+                  {preview?.id === option.match.id ? t("dcForm.hide") : t("common.details")}
                 </Button>
                 <Button
                   type="button"
@@ -140,7 +145,7 @@ export function CustomerDcRefPicker({
                     setPreview(null);
                   }}
                 >
-                  Use
+                  {t("dcForm.use")}
                 </Button>
               </div>
 
@@ -154,8 +159,7 @@ export function CustomerDcRefPicker({
         </ul>
 
         <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-          “Use” fills the reference and copies the stored components and received quantities.
-          Nothing is saved until you submit this form.
+          {t("dcForm.useNote")}
         </p>
       </PopoverContent>
     </Popover>

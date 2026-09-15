@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * Back, forward and refresh for the dashboard itself.
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
  */
 export function HistoryNav() {
   const router = useRouter();
+  const { t } = useI18n();
   const [refreshing, startRefresh] = useTransition();
 
   return (
@@ -28,8 +30,8 @@ export function HistoryNav() {
         variant="ghost"
         size="icon"
         className="size-11 md:size-8"
-        aria-label="Go back"
-        title="Back"
+        aria-label={t("header.goBack")}
+        title={t("header.back")}
         onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" />
@@ -38,8 +40,8 @@ export function HistoryNav() {
         variant="ghost"
         size="icon"
         className="size-11 md:size-8"
-        aria-label="Go forward"
-        title="Forward"
+        aria-label={t("header.goForward")}
+        title={t("header.forward")}
         onClick={() => router.forward()}
       >
         <ArrowRight className="h-4 w-4" />
@@ -54,8 +56,8 @@ export function HistoryNav() {
         variant="ghost"
         size="icon"
         className="size-11 md:size-8"
-        aria-label="Refresh this screen"
-        title="Refresh"
+        aria-label={t("header.refreshScreen")}
+        title={t("header.refresh")}
         disabled={refreshing}
         onClick={() => startRefresh(() => router.refresh())}
       >

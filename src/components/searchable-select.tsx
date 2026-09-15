@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useI18n } from "@/components/i18n-provider";
 
 /**
  * A dropdown that can be typed into, for picking from a master list.
@@ -18,9 +19,9 @@ export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "Select...",
-  searchPlaceholder = "Type to search...",
-  emptyText = "Nothing matches.",
+  placeholder,
+  searchPlaceholder,
+  emptyText,
   disabled = false,
   invalid = false,
   allowClear = false,
@@ -40,6 +41,7 @@ export function SearchableSelect({
   className?: string;
   ariaLabel?: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -78,7 +80,7 @@ export function SearchableSelect({
         }
       >
         <span className={cn("min-w-0 break-words", !value && "text-muted-foreground")}>
-          {value || placeholder}
+          {value || (placeholder ?? t("dcForm.select"))}
         </span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
@@ -87,7 +89,7 @@ export function SearchableSelect({
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             autoFocus
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder ?? t("dcForm.typeToSearch")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
@@ -103,11 +105,13 @@ export function SearchableSelect({
               }}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
             >
-              Clear
+              {t("common.clear")}
             </button>
           )}
           {filtered.length === 0 && (
-            <p className="px-2 py-4 text-center text-sm text-muted-foreground">{emptyText}</p>
+            <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+              {emptyText ?? t("dcForm.nothingMatches")}
+            </p>
           )}
           {filtered.map((option) => (
             <button

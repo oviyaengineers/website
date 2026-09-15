@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_Tamil } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -11,6 +11,16 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Tamil letters for the ERP when Tamil is chosen, on screen and in browser
+// print, so vowel signs and conjuncts render the same on every device. Not
+// preloaded: the browser fetches it only when Tamil text is on the page, so
+// the English marketing site never downloads it.
+const notoSansTamil = Noto_Sans_Tamil({
+  variable: "--font-noto-tamil",
+  subsets: ["tamil"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -26,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${notoSansTamil.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

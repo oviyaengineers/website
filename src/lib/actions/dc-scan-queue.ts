@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getTranslator } from "@/lib/i18n/server";
 import type { DcScanResult, ScannedItemSelection } from "@/components/dc-scan-dialog";
 
 // Customer DCs read from a photograph, before they are anything of ours.
@@ -125,7 +126,10 @@ export async function queuePendingScan(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { id: null, waiting: 0, error: "You are signed out. Sign in and scan again." };
+  if (!user) {
+    const { t } = await getTranslator();
+    return { id: null, waiting: 0, error: t("dcErrors.signedOutScan") };
+  }
 
   const items = cleanItems(scan.items);
   const unlisted = await unlistedComponents(supabase, items);
@@ -133,7 +137,7 @@ export async function queuePendingScan(
     return {
       id: null,
       waiting: 0,
-      error: `Not in Settings → Components & Materials: ${unlisted.join(", ")}. Pick the correct component instead.`,
+      error: (await getTranslator()).t("dcErrors.notInSettings", { names: unlisted.join(", ") }),
     };
   }
 
@@ -252,7 +256,9 @@ export async function updateScannedDc(
     const unlisted = await unlistedComponents(supabase, items);
     if (unlisted.length > 0) {
       return {
-        error: `Not in Settings → Components & Materials: ${unlisted.join(", ")}. Pick the correct component from the list.`,
+        error: (await getTranslator()).t("dcErrors.notInSettingsList", {
+          names: unlisted.join(", "),
+        }),
       };
     }
   }
@@ -274,9 +280,12 @@ export async function updateScannedDc(
     .eq("status", "pending")
     .select("id");
 
-  if (error) return { error: `The corrections were not saved: ${error.message}` };
+  if (error) {
+    const { t } = await getTranslator();
+    return { error: t("dcErrors.correctionsNotSaved", { error: error.message }) };
+  }
   if (!data || data.length === 0) {
-    return { error: "That scan is no longer pending, so it cannot be edited." };
+    return { error: (await getTranslator()).t("dcErrors.scanNoLongerPending") };
   }
 
   revalidatePath("/dashboard/dc/scanned");

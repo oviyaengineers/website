@@ -3,8 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { DcForm } from "@/components/dc-form";
 import { createDcAction } from "@/lib/actions/dc";
 import { getPendingLine } from "@/lib/actions/dc-continuation";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New Delivery Challan | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcForm.newTitle")} | Oviya Engineers` };
+}
 
 export default async function NewDcPage({
   searchParams,
@@ -20,11 +24,13 @@ export default async function NewDcPage({
   // it, so calling that here burned a DC number on every page view — the
   // number must only move when a challan is actually created, which the
   // insert trigger handles.
-  const [{ data: customers }, { data: nextDcNumber }, { data: picklistItems }] = await Promise.all([
-    supabase.from("customers").select("id, name").order("name"),
-    supabase.rpc("peek_dc_number"),
-    supabase.from("dc_picklist_items").select("*").order("name"),
-  ]);
+  const [{ data: customers }, { data: nextDcNumber }, { data: picklistItems }, { t }] =
+    await Promise.all([
+      supabase.from("customers").select("id, name").order("name"),
+      supabase.rpc("peek_dc_number"),
+      supabase.from("dc_picklist_items").select("*").order("name"),
+      getTranslator(),
+    ]);
   const components = (picklistItems ?? []).filter((i) => i.kind === "component").map((i) => i.name);
   const materials = (picklistItems ?? []).filter((i) => i.kind === "material").map((i) => i.name);
 
@@ -32,12 +38,10 @@ export default async function NewDcPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">
-          {continues ? "Next Delivery Challan" : "New Delivery Challan"}
+          {continues ? t("dcForm.nextTitle") : t("dcForm.newTitle")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {continues
-            ? "Completing work that is still outstanding on an earlier challan."
-            : "Fill in the details below."}
+          {continues ? t("dcForm.nextIntro") : t("dcForm.newIntro")}
         </p>
       </div>
       <DcForm

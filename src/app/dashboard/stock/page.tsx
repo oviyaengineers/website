@@ -7,8 +7,12 @@ import { DcRowTable } from "@/components/dc-row-table";
 import { SearchBox } from "@/components/search-box";
 import { fetchDcRows } from "@/lib/dc-rows";
 import { dcRowMatches } from "@/lib/dc-search";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Stock / Balance | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("nav.stockBalance")} | Oviya Engineers` };
+}
 
 /**
  * Item lines still owing work: pieces received that have not gone back.
@@ -23,7 +27,7 @@ export default async function StockPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const rows = await fetchDcRows();
+  const [rows, { t }] = await Promise.all([fetchDcRows(), getTranslator()]);
   const outstanding = rows.filter((row) => row.pending > 0);
   // Read-only: the balance still comes from the challan rows, and searching
   // only decides which of them are shown.
@@ -47,47 +51,45 @@ export default async function StockPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Stock / Balance</h1>
-          <p className="text-sm text-muted-foreground">
-            Pieces received that have not yet gone back — what is still on the floor.
-          </p>
+          <h1 className="text-2xl font-semibold">{t("nav.stockBalance")}</h1>
+          <p className="text-sm text-muted-foreground">{t("dcViews.stockIntro")}</p>
         </div>
         <Button
           render={<Link href="/dashboard/stock/print" />}
           variant="outline"
           className="h-11 sm:h-8"
         >
-          <Printer className="h-4 w-4" /> Print list
+          <Printer className="h-4 w-4" /> {t("dc.list.printList")}
         </Button>
       </div>
 
-      <SearchBox placeholder="Our DC number, customer DC number, customer, component or material..." />
+      <SearchBox placeholder={t("dcViews.stockSearch")} />
 
       {pending.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            {q
-              ? `Nothing outstanding matches "${q}".`
-              : "Nothing is outstanding. Every piece received has been sent back, returned with a material problem, or scrapped."}
+            {q ? t("dcViews.stockNothingMatches", { q }) : t("dcViews.stockNothingOutstanding")}
           </CardContent>
         </Card>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Figure label="Pieces on the floor" value={totalPending} />
+            <Figure label={t("dcViews.piecesOnFloor")} value={totalPending} />
             <Figure
-              label="Unfinished lines"
+              label={t("dcViews.unfinishedLines")}
               value={pending.length}
-              note={`${challans} challan${challans === 1 ? "" : "s"}`}
+              note={
+                challans === 1 ? t("dc.list.countOne") : t("dc.list.count", { count: challans })
+              }
             />
-            <Figure label="Distinct parts" value={parts.length} />
+            <Figure label={t("dcViews.distinctParts")} value={parts.length} />
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-[#10233f]">
                 <Boxes className="h-4 w-4" />
-                By part
+                {t("dcViews.byPart")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
@@ -111,7 +113,9 @@ export default async function StockPage({
           <Card>
             <CardHeader>
               <CardTitle className="text-base text-[#10233f]">
-                {pending.length} unfinished line{pending.length === 1 ? "" : "s"}
+                {pending.length === 1
+                  ? t("dcViews.unfinishedCountOne")
+                  : t("dcViews.unfinishedCount", { count: pending.length })}
               </CardTitle>
             </CardHeader>
             <CardContent>

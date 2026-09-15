@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { format } from "date-fns";
 import { FileSearch, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n-provider";
 import { findDcsByCustomerRef, type StoredDcMatch } from "@/lib/actions/dc-lookup";
-import { DC_LIFECYCLE_LABELS } from "@/lib/dc-lifecycle";
+import { DC_LIFECYCLE_KEYS } from "@/lib/dc-lifecycle";
+import { formatDate } from "@/lib/i18n/dates";
+import type { Lang } from "@/lib/i18n/config";
 
 /** Wait this long after the last keystroke before querying. */
 const DEBOUNCE_MS = 450;
 
-export function formatDcDate(value: string | null | undefined): string {
+export function formatDcDate(value: string | null | undefined, lang: Lang = "en"): string {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : format(parsed, "dd MMM yyyy");
+  return Number.isNaN(parsed.getTime()) ? value : formatDate(value, "dd MMM yyyy", lang);
 }
 
 /**
@@ -22,6 +24,7 @@ export function formatDcDate(value: string | null | undefined): string {
  * scanner's review step so both present a match the same way.
  */
 export function StoredDcMatchList({ matches }: { matches: StoredDcMatch[] }) {
+  const { t, lang } = useI18n();
   return (
     <div className="divide-y">
       {matches.map((match) => (
@@ -31,25 +34,27 @@ export function StoredDcMatchList({ matches }: { matches: StoredDcMatch[] }) {
             {/* The lifecycle, not the stored status, and worked out on the
                 server across the whole chain. Judged here from the rows alone
                 it called a challan finished by follow-ups still Active. */}
-            <span className="text-muted-foreground">{DC_LIFECYCLE_LABELS[match.lifecycle]}</span>
+            <span className="text-muted-foreground">{t(DC_LIFECYCLE_KEYS[match.lifecycle])}</span>
           </div>
           <p className="text-muted-foreground">
-            {formatDcDate(match.dc_date)} · {match.customer_name ?? "-"}
+            {formatDcDate(match.dc_date, lang)} · {match.customer_name ?? "-"}
           </p>
           <p className="text-muted-foreground">
-            Customer DC: {match.customer_dc_number?.filter(Boolean).join(", ") || "-"}
+            {t("dcLookup.customerDc", {
+              refs: match.customer_dc_number?.filter(Boolean).join(", ") || "-",
+            })}
           </p>
 
           {match.items.length === 0 ? (
-            <p className="text-muted-foreground">No items recorded.</p>
+            <p className="text-muted-foreground">{t("dcLookup.noItems")}</p>
           ) : (
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-left text-[11px] text-muted-foreground">
-                  <th className="py-0.5 font-medium">Component</th>
-                  <th className="w-10 py-0.5 pl-2 text-right font-medium">Recd</th>
-                  <th className="w-10 py-0.5 pl-2 text-right font-medium">Sent</th>
-                  <th className="w-10 py-0.5 pl-2 text-right font-medium">Total</th>
+                  <th className="py-0.5 font-medium">{t("common.component")}</th>
+                  <th className="w-10 py-0.5 pl-2 text-right font-medium">{t("dc.qty.recd")}</th>
+                  <th className="w-10 py-0.5 pl-2 text-right font-medium">{t("dc.qty.sent")}</th>
+                  <th className="w-10 py-0.5 pl-2 text-right font-medium">{t("dc.qty.total")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -109,6 +114,7 @@ export function DcRefLookup({
    */
   dateCoveredElsewhere?: boolean;
 }) {
+  const { t, lang } = useI18n();
   const [matches, setMatches] = useState<StoredDcMatch[]>([]);
   const [loading, setLoading] = useState(false);
   /** Which reference the operator has dismissed, so it does not keep popping back. */
@@ -238,7 +244,7 @@ export function DcRefLookup({
   const panel = (
     <div
       role="dialog"
-      aria-label="Stored delivery challan details"
+      aria-label={t("dcLookup.dialogLabel")}
       style={
         inline
           ? undefined
@@ -259,16 +265,24 @@ export function DcRefLookup({
       <div className="flex items-start justify-between gap-2 border-b bg-muted/50 px-3 py-2">
         <div>
           <p className="text-sm font-medium">
-            {matches.length} stored delivery challan{matches.length === 1 ? "" : "s"}
+            {matches.length === 1
+              ? t("dcLookup.storedOne")
+              : t("dcLookup.stored", { count: matches.length })}
           </p>
           <p className="text-xs text-muted-foreground">
-            Already recorded against {number.trim() ? `“${number.trim()}”` : "this date"}
-            {number.trim() && date.trim() ? ` on ${formatDcDate(date)}` : ""}.
+            {!number.trim()
+              ? t("dcLookup.recordedAgainstDate")
+              : date.trim()
+                ? t("dcLookup.recordedAgainstRefOn", {
+                    ref: number.trim(),
+                    date: formatDcDate(date, lang),
+                  })
+                : t("dcLookup.recordedAgainstRef", { ref: number.trim() })}
           </p>
         </div>
         <button
           type="button"
-          aria-label="Hide stored challan details"
+          aria-label={t("dcLookup.hide")}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground"
           onClick={() => setDismissed(queryKey)}
         >
@@ -279,7 +293,7 @@ export function DcRefLookup({
       <StoredDcMatchList matches={matches} />
 
       <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">
-        Read-only. Nothing here changes the stored challans.
+        {t("dcLookup.readOnly")}
       </p>
     </div>
   );
@@ -293,9 +307,11 @@ export function DcRefLookup({
         size="icon"
         className="size-11 border-amber-500 text-amber-700 md:size-8"
         aria-expanded={open}
-        aria-label={`${open ? "Hide" : "Show"} ${matches.length} stored delivery challan${
-          matches.length === 1 ? "" : "s"
-        } for this reference`}
+        aria-label={
+          open
+            ? t("dcLookup.hideStored", { count: matches.length })
+            : t("dcLookup.showStored", { count: matches.length })
+        }
         onClick={() => setDismissed(open ? queryKey : null)}
       >
         <FileSearch className="h-4 w-4" />

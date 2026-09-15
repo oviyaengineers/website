@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { DcScanDialog, type DcScanCapture } from "@/components/dc-scan-dialog";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
+import { useI18n } from "@/components/i18n-provider";
 import { PENDING_SCAN_CHANGED, PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
 import { queuePendingScan } from "@/lib/actions/dc-scan-queue";
 
@@ -25,20 +26,21 @@ export function ScanDcPanel({
   components: string[];
   materials: string[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   async function handleApply(result: DcScanCapture): Promise<boolean> {
     const { error } = await queuePendingScan(result);
     if (error) {
       // Reporting a capture that did not happen is how scans were lost before.
-      toast.error(`This challan could not be held: ${error}`);
+      toast.error(t("dcScan.couldNotHold", { error }));
       return false;
     }
     window.dispatchEvent(new Event(PENDING_SCAN_EVENT));
     window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
     // Held, not entered. It waits on Scanned DCs until somebody checks it
     // against the paper and raises the challan.
-    toast.success("Challan captured. It is waiting under Scanned DCs.");
+    toast.success(t("dcScan.capturedToast"));
     router.push("/dashboard/dc/scanned");
     return true;
   }
@@ -46,11 +48,7 @@ export function ScanDcPanel({
   return (
     <Card>
       <CardContent className="space-y-4 p-6">
-        <p className="text-sm text-muted-foreground">
-          Photograph or upload the customer&apos;s inward challan. What is read is shown for
-          checking, the photograph is kept privately with the scan, and our delivery challan is only
-          created when you save one.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("dcScan.panelIntro")}</p>
         <DcScanDialog
           customers={customers}
           components={components}

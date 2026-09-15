@@ -4,8 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { ScannedDcEditor } from "@/components/scanned-dc-editor";
 import { getScanImageUrl, getScannedDc } from "@/lib/actions/dc-scan-queue";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Scanned DC | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcScan.scannedDc")} | Oviya Engineers` };
+}
 
 export default async function ScannedDcPage({
   params,
@@ -15,7 +19,11 @@ export default async function ScannedDcPage({
   searchParams: Promise<{ edit?: string }>;
 }) {
   const [{ id }, { edit }] = await Promise.all([params, searchParams]);
-  const [scan, supabase] = await Promise.all([getScannedDc(id), createClient()]);
+  const [scan, supabase, { t }] = await Promise.all([
+    getScannedDc(id),
+    createClient(),
+    getTranslator(),
+  ]);
   if (!scan) notFound();
 
   const [{ data: picklist }, { data: customers }, imageUrl] = await Promise.all([
@@ -24,19 +32,16 @@ export default async function ScannedDcPage({
     getScanImageUrl(scan.imagePath),
   ]);
   const editing = edit === "1" && scan.status === "pending";
+  const name = scan.customerDcNumber || t("dcScan.scannedCustomerDc");
 
   return (
     <div className="space-y-6">
-      <BreadcrumbRecordLabel value={scan.customerDcNumber ?? "Scanned DC"} />
+      <BreadcrumbRecordLabel value={scan.customerDcNumber ?? t("dcScan.scannedDc")} />
       <div>
         <h1 className="text-2xl font-semibold">
-          {editing ? "Edit " : ""}
-          {scan.customerDcNumber || "Scanned customer DC"}
+          {editing ? t("dcScan.editName", { name }) : name}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          What the customer sent in. No delivery challan of ours exists until you create and save
-          one.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("dcScan.scannedDetailIntro")}</p>
       </div>
       {/* Keyed on the mode, so leaving Edit resets any unsaved changes. */}
       <ScannedDcEditor

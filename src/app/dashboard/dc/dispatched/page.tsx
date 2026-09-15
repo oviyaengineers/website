@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { format } from "date-fns";
 import { FilePlus2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +9,13 @@ import { ComponentPicker } from "@/components/component-picker";
 import { DcFilters } from "@/components/dc-filters";
 import { SearchBox } from "@/components/search-box";
 import { fetchDispatched, totalDispatched, type DispatchedTab } from "@/lib/dispatched-dcs";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
 
-export const metadata: Metadata = { title: "Dispatched DCs | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("nav.dispatchedDcs")} | Oviya Engineers` };
+}
 
 type Search = {
   q?: string;
@@ -65,15 +69,18 @@ export default async function DispatchedDcsPage({
   const tab: DispatchedTab = filters.tab === "completed" ? "completed" : "pending";
 
   const supabase = await createClient();
-  const [{ pending, completed }, { data: picklist }, { data: customers }] = await Promise.all([
-    fetchDispatched(filters),
-    supabase
-      .from("dc_picklist_items")
-      .select("id, name, kind")
-      .eq("kind", "component")
-      .order("name"),
-    supabase.from("customers").select("id, name").order("name"),
-  ]);
+  const [{ pending, completed }, { data: picklist }, { data: customers }, { t, lang }] =
+    await Promise.all([
+      fetchDispatched(filters),
+      supabase
+        .from("dc_picklist_items")
+        .select("id, name, kind")
+        .eq("kind", "component")
+        .order("name"),
+      supabase.from("customers").select("id, name").order("name"),
+      getTranslator(),
+    ]);
+  const day = (value: string) => formatDate(value, "dd MMM yyyy", lang);
 
   const rows = tab === "completed" ? completed : pending;
   const totals = totalDispatched(rows);
@@ -93,15 +100,12 @@ export default async function DispatchedDcsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dispatched DCs</h1>
-        <p className="text-sm text-muted-foreground">
-          Our delivery challans, issued to the customer. Pending still has work outstanding;
-          Completed is fully reconciled.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("nav.dispatchedDcs")}</h1>
+        <p className="text-sm text-muted-foreground">{t("dcViews.dispatchedIntro")}</p>
       </div>
 
       <div className="space-y-3">
-        <SearchBox placeholder="Our DC number, customer DC number, customer, component or material..." />
+        <SearchBox placeholder={t("dcViews.stockSearch")} />
         {/* No status filter: the tabs below are the status. */}
         <DcFilters
           defaults={filters}
@@ -114,13 +118,13 @@ export default async function DispatchedDcsPage({
 
       <div className="flex border-b">
         <Tab
-          label="Pending"
+          label={t("dcViews.tabPending")}
           count={pending.length}
           active={tab === "pending"}
           href={tabHref("pending")}
         />
         <Tab
-          label="Completed"
+          label={t("dcViews.tabCompleted")}
           count={completed.length}
           active={tab === "completed"}
           href={tabHref("completed")}
@@ -136,20 +140,20 @@ export default async function DispatchedDcsPage({
           <table className="w-full min-w-[1180px] text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="p-3 text-left font-medium">Our DC</th>
-                <th className="p-3 text-left font-medium">DC date</th>
-                <th className="p-3 text-left font-medium">Customer</th>
-                <th className="p-3 text-left font-medium">Customer DC</th>
-                <th className="p-3 text-left font-medium">Their date</th>
-                <th className="p-3 text-left font-medium">Description</th>
-                <th className="p-3 text-left font-medium">Material</th>
-                <th className="p-3 text-right font-medium">Received</th>
-                <th className="p-3 text-right font-medium">Sent</th>
-                <th className="p-3 text-right font-medium">Mat. Problem</th>
-                <th className="p-3 text-right font-medium">Rejection</th>
-                <th className="p-3 text-right font-medium">Balance</th>
-                <th className="p-3 text-left font-medium">Status</th>
-                <th className="p-3 text-right font-medium">Actions</th>
+                <th className="p-3 text-left font-medium">{t("dc.cols.ourDc")}</th>
+                <th className="p-3 text-left font-medium">{t("dcViews.dcDate")}</th>
+                <th className="p-3 text-left font-medium">{t("common.customer")}</th>
+                <th className="p-3 text-left font-medium">{t("dc.cols.customerDc")}</th>
+                <th className="p-3 text-left font-medium">{t("dcViews.theirDate")}</th>
+                <th className="p-3 text-left font-medium">{t("dc.cols.description")}</th>
+                <th className="p-3 text-left font-medium">{t("common.material")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.received")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.sent")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.matProblem")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.rejection")}</th>
+                <th className="p-3 text-right font-medium">{t("dc.qty.balance")}</th>
+                <th className="p-3 text-left font-medium">{t("common.status")}</th>
+                <th className="p-3 text-right font-medium">{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +166,7 @@ export default async function DispatchedDcsPage({
                           {dc.dcNumber}
                         </td>
                         <td rowSpan={dc.lines.length} className="p-3 whitespace-nowrap">
-                          {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                          {day(dc.dcDate)}
                         </td>
                         <td rowSpan={dc.lines.length} className="p-3">
                           {dc.customerName}
@@ -171,9 +175,7 @@ export default async function DispatchedDcsPage({
                           {line.customerDcNumber}
                         </td>
                         <td rowSpan={dc.lines.length} className="p-3 whitespace-nowrap">
-                          {line.customerDcDate
-                            ? format(new Date(line.customerDcDate), "dd MMM yyyy")
-                            : "-"}
+                          {line.customerDcDate ? day(line.customerDcDate) : "-"}
                         </td>
                       </>
                     ) : null}
@@ -184,7 +186,7 @@ export default async function DispatchedDcsPage({
                           stops the zero reading as a mistake. */}
                       {line.continues && (
                         <span className="ml-2 text-xs text-muted-foreground">
-                          continues an earlier challan
+                          {t("dc.list.continuesEarlier")}
                         </span>
                       )}
                       {/* Offered only while there is room left once drafts are
@@ -197,7 +199,7 @@ export default async function DispatchedDcsPage({
                           size="xs"
                           className="ml-2 align-middle"
                         >
-                          <FilePlus2 className="h-3 w-3" /> Create Follow-up DC
+                          <FilePlus2 className="h-3 w-3" /> {t("dc.list.createFollowUp")}
                         </Button>
                       )}
                     </td>
@@ -209,7 +211,7 @@ export default async function DispatchedDcsPage({
                         <>
                           {line.pending}
                           <span className="block text-xs text-muted-foreground">
-                            pending on {line.rootDcNumber}
+                            {t("dc.list.pendingOn", { dc: line.rootDcNumber })}
                           </span>
                         </>
                       ) : (
@@ -223,7 +225,7 @@ export default async function DispatchedDcsPage({
                           shown beneath whenever the two differ. */}
                       {!line.continues && line.sent !== line.ownSent && (
                         <span className="block text-xs text-muted-foreground">
-                          {line.ownSent} on this DC
+                          {t("dc.list.onThisDc", { count: line.ownSent })}
                         </span>
                       )}
                     </td>
@@ -245,16 +247,16 @@ export default async function DispatchedDcsPage({
                       {(line.balance ?? line.after) === null
                         ? "—"
                         : (line.balance ?? line.after ?? 0) < 0
-                          ? `${-(line.balance ?? line.after ?? 0)} extra`
+                          ? t("dc.list.extra", { count: -(line.balance ?? line.after ?? 0) })
                           : (line.balance ?? line.after)}
                       {line.onDraft > 0 && (
                         <span className="block text-xs font-normal text-muted-foreground">
-                          {line.onDraft} on draft
+                          {t("dc.list.onDraft", { count: line.onDraft })}
                         </span>
                       )}
                       {line.continues && line.after !== null && (
                         <span className="block text-xs font-normal text-muted-foreground">
-                          left on {line.rootDcNumber}
+                          {t("dc.list.leftOn", { dc: line.rootDcNumber })}
                         </span>
                       )}
                     </td>
@@ -269,7 +271,7 @@ export default async function DispatchedDcsPage({
                                 : "bg-blue-100 text-blue-700"
                             }`}
                           >
-                            {dc.settled ? "Completed" : "Pending"}
+                            {dc.settled ? t("dcViews.tabCompleted") : t("dcViews.tabPending")}
                           </Badge>
                         </td>
                         <td
@@ -281,12 +283,13 @@ export default async function DispatchedDcsPage({
                             variant="outline"
                             size="sm"
                           >
-                            View
+                            {t("common.view")}
                           </Button>
                           <Button
                             render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
                             variant="outline"
                             size="sm"
+                            aria-label={t("dc.list.printDc", { dc: dc.dcNumber })}
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
@@ -304,17 +307,17 @@ export default async function DispatchedDcsPage({
                     filters.from ||
                     filters.to ||
                     filters.customer
-                      ? "No dispatched challan matches these filters."
+                      ? t("dcViews.dispatchedNoMatch")
                       : tab === "pending"
-                        ? "Nothing is outstanding on a dispatched challan."
-                        : "No dispatched challan is fully reconciled yet."}
+                        ? t("dcViews.dispatchedNothingOutstanding")
+                        : t("dcViews.dispatchedNoneReconciled")}
                   </td>
                 </tr>
               )}
               {rows.length > 0 && (
                 <tr className="border-t-2 font-medium">
                   <td colSpan={7} className="p-3">
-                    Total
+                    {t("dc.qty.total")}
                   </td>
                   <td className="p-3 text-right tabular-nums">{totals.received}</td>
                   <td className="p-3 text-right tabular-nums">{totals.sent}</td>
@@ -341,7 +344,7 @@ export default async function DispatchedDcsPage({
                 <div>
                   <p className="font-medium">{dc.dcNumber}</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(dc.dcDate), "dd MMM yyyy")} · {dc.customerName}
+                    {day(dc.dcDate)} · {dc.customerName}
                   </p>
                 </div>
                 <Badge
@@ -350,7 +353,7 @@ export default async function DispatchedDcsPage({
                     dc.settled ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                   }`}
                 >
-                  {dc.settled ? "Completed" : "Pending"}
+                  {dc.settled ? t("dcViews.tabCompleted") : t("dcViews.tabPending")}
                 </Badge>
               </div>
 
@@ -358,42 +361,43 @@ export default async function DispatchedDcsPage({
                 <div key={line.key} className="rounded-lg border p-3 text-sm">
                   <p className="font-medium">{line.component}</p>
                   <p className="text-muted-foreground">
-                    {line.material ?? "-"} · their DC {line.customerDcNumber}
-                    {line.continues ? " · continues an earlier challan" : ""}
+                    {line.material ?? "-"} ·{" "}
+                    {t("dcViews.theirDcInline", { refs: line.customerDcNumber })}
+                    {line.continues ? ` · ${t("dc.list.continuesEarlier")}` : ""}
                   </p>
                   <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
                     {/* A follow-up received nothing; it shows what is pending
                         on the original it continues, as its own page does. */}
                     {line.pending !== null ? (
                       <>
-                        <dt className="text-muted-foreground">Pending</dt>
+                        <dt className="text-muted-foreground">{t("dc.qty.pending")}</dt>
                         <dd className="text-right tabular-nums">
                           {line.pending}
                           <span className="block text-xs text-muted-foreground">
-                            on {line.rootDcNumber}
+                            {t("dc.list.onDc", { dc: line.rootDcNumber })}
                           </span>
                         </dd>
                       </>
                     ) : (
                       <>
-                        <dt className="text-muted-foreground">Received</dt>
+                        <dt className="text-muted-foreground">{t("dc.qty.received")}</dt>
                         <dd className="text-right tabular-nums">{line.received}</dd>
                       </>
                     )}
-                    <dt className="text-muted-foreground">Sent</dt>
+                    <dt className="text-muted-foreground">{t("dc.qty.sent")}</dt>
                     <dd className="text-right tabular-nums">
                       {line.sent}
                       {!line.continues && line.sent !== line.ownSent && (
                         <span className="block text-xs text-muted-foreground">
-                          {line.ownSent} on this DC
+                          {t("dc.list.onThisDc", { count: line.ownSent })}
                         </span>
                       )}
                     </dd>
-                    <dt className="text-muted-foreground">Material problem</dt>
+                    <dt className="text-muted-foreground">{t("dc.qty.materialProblem")}</dt>
                     <dd className="text-right tabular-nums">{line.materialProblem}</dd>
-                    <dt className="text-muted-foreground">Rejection</dt>
+                    <dt className="text-muted-foreground">{t("dc.qty.rejection")}</dt>
                     <dd className="text-right tabular-nums">{line.rejection}</dd>
-                    <dt className="text-muted-foreground">Balance</dt>
+                    <dt className="text-muted-foreground">{t("dc.qty.balance")}</dt>
                     <dd
                       className={`text-right tabular-nums ${
                         (line.balance ?? line.after ?? 0) < 0
@@ -406,16 +410,16 @@ export default async function DispatchedDcsPage({
                       {(line.balance ?? line.after) === null
                         ? "—"
                         : (line.balance ?? line.after ?? 0) < 0
-                          ? `${-(line.balance ?? line.after ?? 0)} extra`
+                          ? t("dc.list.extra", { count: -(line.balance ?? line.after ?? 0) })
                           : (line.balance ?? line.after)}
                       {line.onDraft > 0 && (
                         <span className="block text-xs font-normal text-muted-foreground">
-                          {line.onDraft} on draft
+                          {t("dc.list.onDraft", { count: line.onDraft })}
                         </span>
                       )}
                       {line.continues && line.after !== null && (
                         <span className="block text-xs font-normal text-muted-foreground">
-                          left on {line.rootDcNumber}
+                          {t("dc.list.leftOn", { dc: line.rootDcNumber })}
                         </span>
                       )}
                     </dd>
@@ -427,7 +431,7 @@ export default async function DispatchedDcsPage({
                       size="sm"
                       className="mt-2 h-11 w-full"
                     >
-                      <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                      <FilePlus2 className="h-4 w-4" /> {t("dc.list.createFollowUp")}
                     </Button>
                   )}
                 </div>
@@ -440,13 +444,14 @@ export default async function DispatchedDcsPage({
                   size="sm"
                   className="h-11 flex-1"
                 >
-                  View
+                  {t("common.view")}
                 </Button>
                 <Button
                   render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
                   variant="outline"
                   size="sm"
                   className="h-11 w-11"
+                  aria-label={t("dc.list.printDc", { dc: dc.dcNumber })}
                 >
                   <Printer className="h-4 w-4" />
                 </Button>
@@ -456,7 +461,7 @@ export default async function DispatchedDcsPage({
         ))}
         {rows.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Nothing to show in this tab.
+            {t("dcViews.nothingInTab")}
           </p>
         )}
       </div>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -16,24 +15,27 @@ import {
 import { outwardTotal } from "@/lib/dc-balance";
 import { figuresFor, indexChain, isOriginalLine } from "@/lib/dc-chain";
 import { withDraftFlags } from "@/lib/dc-chain-data";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
 
-export const metadata: Metadata = { title: "Balance | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("nav.balance")} | Oviya Engineers` };
+}
 
 /** How many months of inward/outward history to summarise. */
 const MONTHS_SHOWN = 6;
 
-function monthLabel(key: string): string {
-  return format(new Date(`${key}-01T00:00:00`), "MMM yyyy");
-}
-
 export default async function BalancePage() {
   const supabase = await createClient();
 
-  const [{ data: dcs }, { data: rawItems }, { data: customers }] = await Promise.all([
+  const [{ data: dcs }, { data: rawItems }, { data: customers }, { t, lang }] = await Promise.all([
     supabase.from("delivery_challans").select("id, dc_number, dc_date, customer_id, status"),
     supabase.from("delivery_challan_items").select("*"),
     supabase.from("customers").select("id, name"),
+    getTranslator(),
   ]);
+  const monthLabel = (key: string) => formatDate(`${key}-01`, "MMM yyyy", lang);
 
   const dcMap = new Map((dcs ?? []).map((dc) => [dc.id, dc]));
   const customerMap = new Map((customers ?? []).map((c) => [c.id, c.name]));
@@ -101,46 +103,46 @@ export default async function BalancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Balance</h1>
-        <p className="text-sm text-muted-foreground">
-          Job-work still to be completed, and inward vs outward totals by month.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("nav.balance")}</h1>
+        <p className="text-sm text-muted-foreground">{t("dcViews.balanceIntro")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pending (not completed)
+              {t("dcViews.pendingNotCompleted")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalPending.toLocaleString("en-IN")}</div>
             <p className="text-xs text-muted-foreground">
-              pieces across {pending.length} row{pending.length === 1 ? "" : "s"}
+              {pending.length === 1
+                ? t("dcViews.piecesAcrossOne")
+                : t("dcViews.piecesAcross", { count: pending.length })}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total inward
+              {t("dcViews.totalInward")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalInward.toLocaleString("en-IN")}</div>
-            <p className="text-xs text-muted-foreground">pieces received, all time</p>
+            <p className="text-xs text-muted-foreground">{t("dcViews.piecesReceivedAllTime")}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total outward
+              {t("dcViews.totalOutward")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalOutward.toLocaleString("en-IN")}</div>
-            <p className="text-xs text-muted-foreground">sent + material problem + rejection</p>
+            <p className="text-xs text-muted-foreground">{t("dcViews.outwardNote")}</p>
           </CardContent>
         </Card>
       </div>
@@ -150,8 +152,9 @@ export default async function BalancePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base text-destructive">
               <AlertTriangle className="h-4 w-4" />
-              Balance error on {overDelivered.length} row
-              {overDelivered.length === 1 ? "" : "s"}
+              {overDelivered.length === 1
+                ? t("dcDetail.balanceErrorOne")
+                : t("dcDetail.balanceError", { count: overDelivered.length })}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm text-destructive">
@@ -160,9 +163,9 @@ export default async function BalancePage() {
                 <Link href={`/dashboard/dc/${row.dcId}`} className="underline">
                   {row.dcNumber}
                 </Link>{" "}
-                — <span className="font-medium">{row.component}</span>: received {row.received},
-                accounted out {row.outward} —{" "}
-                <span className="font-medium">{-row.balance} extra.</span>
+                — <span className="font-medium">{row.component}</span>
+                {t("dcDetail.rowFigures", { received: row.received, outward: row.outward })} —{" "}
+                <span className="font-medium">{t("dc.list.extra", { count: -row.balance })}.</span>
               </p>
             ))}
           </CardContent>
@@ -171,17 +174,17 @@ export default async function BalancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Monthly inward vs outward</CardTitle>
+          <CardTitle className="text-base">{t("dcViews.monthly")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Month</TableHead>
-                  <TableHead className="text-right">Inward</TableHead>
-                  <TableHead className="text-right">Outward</TableHead>
-                  <TableHead className="text-right">Difference</TableHead>
+                  <TableHead>{t("dcViews.month")}</TableHead>
+                  <TableHead className="text-right">{t("dcViews.inward")}</TableHead>
+                  <TableHead className="text-right">{t("dcViews.outward")}</TableHead>
+                  <TableHead className="text-right">{t("dcViews.difference")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -213,7 +216,7 @@ export default async function BalancePage() {
                 {months.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                      No delivery challans yet.
+                      {t("dcViews.noDcs")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -225,29 +228,29 @@ export default async function BalancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Not completed</CardTitle>
+          <CardTitle className="text-base">{t("dcViews.notCompleted")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>DC</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Component</TableHead>
-                  <TableHead>Material</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead className="text-right">Outward</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead>{t("dcViews.dcCol")}</TableHead>
+                  <TableHead>{t("common.date")}</TableHead>
+                  <TableHead>{t("common.customer")}</TableHead>
+                  <TableHead>{t("common.component")}</TableHead>
+                  <TableHead>{t("common.material")}</TableHead>
+                  <TableHead className="text-right">{t("dc.qty.received")}</TableHead>
+                  <TableHead className="text-right">{t("dcViews.outward")}</TableHead>
+                  <TableHead className="text-right">{t("dc.qty.balance")}</TableHead>
+                  <TableHead className="text-right">{t("dcViews.action")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pending.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.dcNumber}</TableCell>
-                    <TableCell>{format(new Date(row.dcDate), "dd MMM yyyy")}</TableCell>
+                    <TableCell>{formatDate(row.dcDate, "dd MMM yyyy", lang)}</TableCell>
                     <TableCell>{row.customerName}</TableCell>
                     <TableCell>{row.component}</TableCell>
                     <TableCell>{row.material ?? "-"}</TableCell>
@@ -265,7 +268,7 @@ export default async function BalancePage() {
                         variant="outline"
                         size="sm"
                       >
-                        View
+                        {t("common.view")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -273,7 +276,7 @@ export default async function BalancePage() {
                 {pending.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                      Nothing pending — every piece received has been accounted for.
+                      {t("dcViews.nothingPending")}
                     </TableCell>
                   </TableRow>
                 )}

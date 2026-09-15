@@ -614,3 +614,12 @@
   border-color: rgba(100, 116, 139, 0.18);
   color: rgba(100, 116, 139, 0.18);
 }
+
+/* Tamil ERP screens and prints. Latin text keeps the face it already renders
+   in (Times New Roman), and Tamil letters come from Noto Sans Tamil, so names,
+   numbers and quantities look exactly as they do in English mode. Toasts sit
+   outside the dashboard wrapper, so they are matched separately. */
+[lang="ta"],
+body:has([lang="ta"]) [data-sonner-toaster] {
+  font-family: "Times New Roman", Times, var(--font-noto-tamil), "Noto Sans Tamil", serif;
+}

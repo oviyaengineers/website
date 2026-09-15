@@ -6,6 +6,7 @@ import { Truck, Receipt, Users, AlertCircle } from "lucide-react";
 import { SearchBox } from "@/components/search-box";
 import { GlobalSearchResults } from "@/components/global-search-results";
 import { globalSearch } from "@/lib/global-search";
+import { getTranslator } from "@/lib/i18n/server";
 
 export default async function DashboardHomePage({
   searchParams,
@@ -14,9 +15,10 @@ export default async function DashboardHomePage({
 }) {
   const { q } = await searchParams;
   const term = q ?? "";
+  const { t } = await getTranslator();
   // Searching replaces the dashboard's figures with results, because when
   // somebody is looking for a record the month's totals are not the answer.
-  const hits = term.trim().length >= 2 ? await globalSearch(term) : [];
+  const hits = term.trim().length >= 2 ? await globalSearch(term, t) : [];
   const { profile } = await getCurrentUserAndProfile();
   const isAdmin = profile?.role === "admin";
   const supabase = await createClient();
@@ -74,16 +76,15 @@ export default async function DashboardHomePage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-2xl font-semibold">{t("dashboard.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Welcome back{profile?.full_name ? `, ${profile.full_name}` : ""}.
+          {profile?.full_name
+            ? t("dashboard.welcomeName", { name: profile.full_name })
+            : t("dashboard.welcome")}
         </p>
       </div>
 
-      <SearchBox
-        placeholder="Search anything: DC number, customer, component, material..."
-        className="w-full sm:w-[32rem]"
-      />
+      <SearchBox placeholder={t("dashboard.searchPlaceholder")} className="w-full sm:w-[32rem]" />
 
       {term.trim() ? (
         <GlobalSearchResults term={term} hits={hits} />
@@ -92,7 +93,7 @@ export default async function DashboardHomePage({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">DCs this month</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("dashboard.dcsThisMonth")}</CardTitle>
                 <Truck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -101,7 +102,9 @@ export default async function DashboardHomePage({
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {t("dashboard.totalCustomers")}
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -110,7 +113,9 @@ export default async function DashboardHomePage({
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Outstanding Invoices</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {t("dashboard.outstandingInvoices")}
+                </CardTitle>
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -118,7 +123,7 @@ export default async function DashboardHomePage({
                   ₹{outstandingTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {(outstandingInvoices ?? []).length} unpaid/partial invoice(s)
+                  {t("dashboard.unpaidInvoices", { count: (outstandingInvoices ?? []).length })}
                 </p>
               </CardContent>
             </Card>
@@ -128,7 +133,7 @@ export default async function DashboardHomePage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Receipt className="h-4 w-4" /> Revenue vs Cost (last 6 months)
+                  <Receipt className="h-4 w-4" /> {t("dashboard.revenueVsCost")}
                 </CardTitle>
               </CardHeader>
               <CardContent>

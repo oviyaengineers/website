@@ -5,6 +5,7 @@ import { ClipboardList, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { findCustomerDcRefs, type StoredDcItem, type StoredDcMatch } from "@/lib/actions/dc-lookup";
 import { formatDcDate } from "@/components/dc-ref-lookup";
+import { useI18n } from "@/components/i18n-provider";
 
 /** Wait this long after the date changes before querying. */
 const DEBOUNCE_MS = 250;
@@ -46,6 +47,7 @@ export function DcDateComponents({
   excludeDcId?: string | null;
   onFill: (items: DateComponentPick[], sourceLabel: string) => void;
 }) {
+  const { t, lang } = useI18n();
   const [groups, setGroups] = useState<DateGroup[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -108,7 +110,7 @@ export function DcDateComponents({
     return (
       <p className="flex items-center gap-1.5 px-1 py-1 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Checking what is still pending on {formatDcDate(date)}…
+        {t("dcForm.checkingDate", { date: formatDcDate(date, lang) })}
       </p>
     );
   }
@@ -127,7 +129,7 @@ export function DcDateComponents({
         material: row.item.material,
         received_qty: row.pending,
       })),
-      formatDcDate(date)
+      formatDcDate(date, lang)
     );
 
   return (
@@ -136,16 +138,14 @@ export function DcDateComponents({
         <div className="min-w-0">
           <h4 className="flex items-center gap-1.5 text-xs font-medium text-amber-900 dark:text-amber-200">
             <ClipboardList className="h-3.5 w-3.5" />
-            {totalPending} pending on {formatDcDate(date)}
+            {t("dcForm.pendingOnDate", { total: totalPending, date: formatDcDate(date, lang) })}
           </h4>
           <p className="text-[11px] text-muted-foreground">
-            {rows.length} unfinished row{rows.length === 1 ? "" : "s"} across {groups.length}{" "}
-            challan
-            {groups.length === 1 ? "" : "s"}. Settled challans are not listed.
+            {t("dcForm.unfinishedAcross", { rows: rows.length, challans: groups.length })}
           </p>
         </div>
         <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={fillAll}>
-          Fill all {rows.length}
+          {t("dcForm.fillAll", { count: rows.length })}
         </Button>
       </div>
 
@@ -156,16 +156,16 @@ export function DcDateComponents({
               <span className="font-medium text-foreground">
                 {group.refNumbers.join(", ") || "-"}
               </span>{" "}
-              · {group.match.dc_number} · {formatDcDate(group.match.dc_date)}
+              · {group.match.dc_number} · {formatDcDate(group.match.dc_date, lang)}
             </p>
 
             <table className="mt-1 w-full border-collapse text-xs">
               <thead>
                 <tr className="text-left text-[11px] text-muted-foreground">
-                  <th className="py-0.5 font-medium">Component</th>
-                  <th className="w-12 py-0.5 pl-2 text-right font-medium">Recd</th>
-                  <th className="w-12 py-0.5 pl-2 text-right font-medium">Done</th>
-                  <th className="w-14 py-0.5 pl-2 text-right font-medium">Pending</th>
+                  <th className="py-0.5 font-medium">{t("common.component")}</th>
+                  <th className="w-12 py-0.5 pl-2 text-right font-medium">{t("dc.qty.recd")}</th>
+                  <th className="w-12 py-0.5 pl-2 text-right font-medium">{t("dcForm.done")}</th>
+                  <th className="w-14 py-0.5 pl-2 text-right font-medium">{t("dc.qty.pending")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,9 +193,7 @@ export function DcDateComponents({
       </div>
 
       <p className="border-t border-amber-500/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-        Pending is received minus sent, material problem and rejection. Filling copies the pending
-        count; sent, material problem and rejection stay at zero for you to enter. Nothing is saved
-        until you submit this form.
+        {t("dcForm.dateNote")}
       </p>
     </div>
   );

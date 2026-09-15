@@ -9,6 +9,7 @@ import { DatePicker } from "@/components/date-picker";
 import { DcRefLookup } from "@/components/dc-ref-lookup";
 import { CustomerDcRefPicker } from "@/components/customer-dc-ref-picker";
 import { DcDateComponents, type DateComponentPick } from "@/components/dc-date-components";
+import { useI18n } from "@/components/i18n-provider";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
 
 let refId = 0;
@@ -62,6 +63,7 @@ export function CustomerDcRefs({
   // on the server and in the browser, so putting it in an id makes the two
   // renders disagree.
   const slotPrefix = useId();
+  const { t } = useI18n();
 
   function addRow() {
     onRowsChange((r) => [...r, emptyCustomerDcRef()]);
@@ -83,7 +85,7 @@ export function CustomerDcRefs({
 
   return (
     <div className="space-y-2 sm:col-span-2">
-      <Label>Customer DC Number(s)</Label>
+      <Label>{t("dcForm.customerDcNumbers")}</Label>
       <div className="space-y-2">
         {rows.map((row, index) => (
           <div key={row.key} className="space-y-2">
@@ -95,7 +97,7 @@ export function CustomerDcRefs({
               <Input
                 className="col-span-3 sm:col-span-1"
                 name="customer_dc_number"
-                placeholder="Customer DC No."
+                placeholder={t("dcForm.customerDcNoPlaceholder")}
                 value={row.number}
                 onChange={(e) => updateRow(row.key, { number: e.target.value })}
               />
@@ -131,6 +133,7 @@ export function CustomerDcRefs({
                 variant="ghost"
                 size="icon"
                 className="text-destructive"
+                aria-label={t("dcForm.removeRow")}
                 onClick={() => removeRow(row.key)}
                 disabled={rows.length === 1}
               >
@@ -163,7 +166,7 @@ export function CustomerDcRefs({
         ))}
       </div>
       <Button type="button" variant="outline" size="sm" onClick={addRow}>
-        <Plus className="h-4 w-4" /> Add another Customer DC No.
+        <Plus className="h-4 w-4" /> {t("dcForm.addAnotherRef")}
       </Button>
     </div>
   );

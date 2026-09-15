@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { findPendingDcsForComponent, type PendingComponentDc } from "@/lib/actions/dc-lookup";
 import { formatDcDate } from "@/components/dc-ref-lookup";
+import { useI18n } from "@/components/i18n-provider";
 
 /** Wait this long after the selection changes before querying. */
 const DEBOUNCE_MS = 200;
@@ -25,6 +26,7 @@ export function ComponentPendingDcs({
   component: string;
   excludeDcId?: string | null;
 }) {
+  const { t, lang } = useI18n();
   const [rows, setRows] = useState<PendingComponentDc[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +66,7 @@ export function ComponentPendingDcs({
     return (
       <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        Checking pending challans…
+        {t("dcViews.checkingPending")}
       </p>
     );
   }
@@ -78,15 +80,17 @@ export function ComponentPendingDcs({
       <div className="border-b border-amber-500/40 px-2 py-1.5">
         <p className="flex items-center gap-1.5 text-[11px] font-medium text-amber-900 dark:text-amber-200">
           <ClipboardList className="h-3.5 w-3.5" />
-          {totalPending} pending on {rows.length} challan{rows.length === 1 ? "" : "s"}
+          {rows.length === 1
+            ? t("dcViews.pendingSummaryOne", { total: totalPending })
+            : t("dcViews.pendingSummary", { total: totalPending, count: rows.length })}
         </p>
       </div>
       <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr className="text-left text-muted-foreground">
-            <th className="px-2 py-0.5 font-medium">DC</th>
-            <th className="px-2 py-0.5 font-medium">Date</th>
-            <th className="w-12 px-2 py-0.5 text-right font-medium">Pending</th>
+            <th className="px-2 py-0.5 font-medium">{t("dcViews.dcCol")}</th>
+            <th className="px-2 py-0.5 font-medium">{t("common.date")}</th>
+            <th className="w-12 px-2 py-0.5 text-right font-medium">{t("dc.qty.pending")}</th>
           </tr>
         </thead>
         <tbody>
@@ -101,14 +105,14 @@ export function ComponentPendingDcs({
                   <span className="block text-muted-foreground">{row.customer_name}</span>
                 ) : null}
               </td>
-              <td className="px-2 py-0.5 whitespace-nowrap">{formatDcDate(row.dc_date)}</td>
+              <td className="px-2 py-0.5 whitespace-nowrap">{formatDcDate(row.dc_date, lang)}</td>
               <td className="px-2 py-0.5 text-right font-medium tabular-nums">{row.pending_qty}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="border-t border-amber-500/40 px-2 py-1 text-[11px] text-muted-foreground">
-        Received minus sent, material problem and rejection. Read-only.
+        {t("dcViews.pendingNote")}
       </p>
     </div>
   );

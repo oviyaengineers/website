@@ -1,10 +1,9 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
-import {
-  BILLING_STATUS_LABELS,
-  MONTH_STATUS_LABELS,
-  type BillingStatus,
-  type MonthBillingStatus,
-} from "@/lib/billing";
+import { useI18n } from "@/components/i18n-provider";
+import type { TranslationKey } from "@/lib/i18n/types";
+import { MONTH_STATUS_LABELS, type BillingStatus, type MonthBillingStatus } from "@/lib/billing";
 import type { InvoiceStatus } from "@/types/database";
 
 const BILLING_STYLES: Record<BillingStatus, string> = {
@@ -14,13 +13,21 @@ const BILLING_STYLES: Record<BillingStatus, string> = {
   billed: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
 };
 
+const BILLING_STATUS_KEYS: Record<BillingStatus, TranslationKey> = {
+  "not-billable": "billingStatus.notBillable",
+  unbilled: "billingStatus.unbilled",
+  partial: "billingStatus.partial",
+  billed: "billingStatus.billed",
+};
+
 export function BillingStatusBadge({ status }: { status: BillingStatus }) {
+  const { t } = useI18n();
   return (
     <Badge
       variant="outline"
       className={`border-transparent whitespace-nowrap ${BILLING_STYLES[status]}`}
     >
-      {BILLING_STATUS_LABELS[status]}
+      {t(BILLING_STATUS_KEYS[status])}
     </Badge>
   );
 }

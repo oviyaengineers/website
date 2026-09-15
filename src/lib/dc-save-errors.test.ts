@@ -40,6 +40,17 @@ test("billed quantity protects a DC line", () => {
   );
 });
 
+test("Tamil messages keep the component, DC number and quantities unchanged", () => {
+  const text = saveErrorMessage("OVER_DISPATCH:WCB Casting REV 2|100.00|101", null, "ta");
+  assert.match(text, /WCB Casting REV 2/);
+  assert.match(text, /100/);
+  assert.match(text, /101/);
+  assert.match(text, /[஀-௿]/);
+  assert.match(saveErrorMessage("SCAN_NOT_PENDING:26-27-019", null, "ta"), /26-27-019/);
+  assert.match(saveErrorMessage("network down", null, "ta"), /network down/);
+  assert.doesNotMatch(saveErrorMessage("DC_NO_ITEMS", null, "ta"), /Add at least/);
+});
+
 test("a billed DC keeps its month and customer", () => {
   assert.match(
     saveErrorMessage(

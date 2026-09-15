@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { GROUP_LABELS, type GlobalHit, type GlobalHitGroup } from "@/lib/global-search";
+import { useI18n } from "@/components/i18n-provider";
+import { GROUP_LABEL_KEYS, type GlobalHit, type GlobalHitGroup } from "@/lib/global-search";
 
 const ORDER: GlobalHitGroup[] = ["component", "challan", "scan", "customer"];
 
@@ -13,13 +16,14 @@ const ORDER: GlobalHitGroup[] = ["component", "challan", "scan", "customer"];
  * another. Every row is a link to that record and nothing else.
  */
 export function GlobalSearchResults({ term, hits }: { term: string; hits: GlobalHit[] }) {
+  const { t } = useI18n();
   if (!term.trim()) return null;
 
   if (term.trim().length < 2) {
     return (
       <Card>
         <CardContent className="py-6 text-center text-sm text-muted-foreground">
-          Type at least two characters to search.
+          {t("search.typeTwo")}
         </CardContent>
       </Card>
     );
@@ -29,8 +33,7 @@ export function GlobalSearchResults({ term, hits }: { term: string; hits: Global
     return (
       <Card>
         <CardContent className="py-6 text-center text-sm text-muted-foreground">
-          Nothing matches &ldquo;{term}&rdquo;. Try part of a DC number, a customer, a component or
-          a material.
+          {t("search.nothingMatches", { term })}
         </CardContent>
       </Card>
     );
@@ -44,7 +47,7 @@ export function GlobalSearchResults({ term, hits }: { term: string; hits: Global
         return (
           <div key={group} className="space-y-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {GROUP_LABELS[group]}
+              {t(GROUP_LABEL_KEYS[group])}
             </h2>
             <Card>
               <CardContent className="divide-y p-0">

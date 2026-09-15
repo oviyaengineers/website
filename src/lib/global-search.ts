@@ -4,6 +4,7 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { matchesTerm } from "@/lib/dc-search";
 import type { ScannedItemSelection } from "@/components/dc-scan-dialog";
+import type { Translate, TranslationKey } from "@/lib/i18n/types";
 
 /**
  * One search across the whole application.
@@ -28,11 +29,11 @@ export type GlobalHit = {
   status: string | null;
 };
 
-export const GROUP_LABELS: Record<GlobalHitGroup, string> = {
-  component: "Components",
-  challan: "Delivery challans",
-  scan: "Scanned customer DCs",
-  customer: "Customers",
+export const GROUP_LABEL_KEYS: Record<GlobalHitGroup, TranslationKey> = {
+  component: "search.groupComponents",
+  challan: "search.groupChallans",
+  scan: "search.groupScans",
+  customer: "search.groupCustomers",
 };
 
 /** How many of each kind to show, so one kind cannot crowd out the rest. */
@@ -42,7 +43,8 @@ function like(term: string): string {
   return `%${term.replace(/[%_]/g, (ch) => "\\" + ch)}%`;
 }
 
-export async function globalSearch(term: string): Promise<GlobalHit[]> {
+/** Labels come from `t`; names, numbers and counts are passed through unchanged. */
+export async function globalSearch(term: string, t: Translate): Promise<GlobalHit[]> {
   const needle = term.trim();
   if (needle.length < 2) return [];
 
@@ -97,7 +99,7 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
       group: "component",
       href: `/dashboard/dc/component/${component.id}`,
       title: component.name,
-      detail: "Every challan and scan for this part",
+      detail: t("search.componentDetail"),
       status: null,
     });
   }
@@ -124,8 +126,10 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
         .join(" · "),
       status:
         lifecycle === "completed"
-          ? "Completed"
-          : `${lifecycle === "draft" ? "Draft" : "Active"} · ${outstanding} pending`,
+          ? t("search.statusCompleted")
+          : lifecycle === "draft"
+            ? t("search.statusDraftPending", { count: outstanding })
+            : t("search.statusActivePending", { count: outstanding }),
     });
   }
 
@@ -142,9 +146,9 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
       key: `scan-${scan.id}`,
       group: "scan",
       href: `/dashboard/dc/scanned/${scan.id}`,
-      title: scan.customer_dc_number || "Scanned customer DC",
-      detail: customerNames.get(scan.customer_id ?? "") ?? "Waiting to be entered",
-      status: "Pending scan",
+      title: scan.customer_dc_number || t("search.scannedCustomerDc"),
+      detail: customerNames.get(scan.customer_id ?? "") ?? t("search.waitingToBeEntered"),
+      status: t("search.pendingScan"),
     });
   }
 
@@ -154,7 +158,7 @@ export async function globalSearch(term: string): Promise<GlobalHit[]> {
       group: "customer",
       href: `/dashboard/customers`,
       title: customer.name,
-      detail: "Customer record",
+      detail: t("search.customerRecord"),
       status: null,
     });
   }

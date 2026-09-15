@@ -23,6 +23,7 @@ import {
   makeCustomerDcRefs,
 } from "@/components/customer-dc-refs";
 import type { DcScanResult } from "@/components/dc-scan-dialog";
+import { useI18n } from "@/components/i18n-provider";
 import { PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
 import { getScannedDc, listPendingScans } from "@/lib/actions/dc-scan-queue";
 import type { StoredDcMatch } from "@/lib/actions/dc-lookup";
@@ -60,6 +61,7 @@ export function DcForm({
    */
   followUpRoom?: Record<string, number>;
 }) {
+  const { t } = useI18n();
   const [state, formAction, pending] = useActionState(action, { error: null });
   // A new challan opens on the only customer on file, so the field does not
   // have to be set every time. An existing challan keeps its own customer, and
@@ -166,7 +168,7 @@ export function DcForm({
 
     if (scan.customerId) {
       setCustomerId(scan.customerId);
-      applied.push("customer");
+      applied.push(t("dcForm.appliedCustomer"));
     }
     if (scan.customerDcNumber || scan.customerDcDate) {
       const value = {
@@ -184,7 +186,7 @@ export function DcForm({
             : [...others, { ...emptyCustomerDcRef(), ...value }];
         return next.length > 0 ? next : [emptyCustomerDcRef()];
       });
-      applied.push("customer DC ref");
+      applied.push(t("dcForm.appliedRef"));
     }
 
     if (scan.items.length > 0) {
@@ -202,13 +204,17 @@ export function DcForm({
         }));
         return [...kept, ...scanned];
       });
-      applied.push(`${scan.items.length} item${scan.items.length === 1 ? "" : "s"}`);
+      applied.push(
+        scan.items.length === 1
+          ? t("dcForm.appliedItemsOne")
+          : t("dcForm.appliedItems", { count: scan.items.length })
+      );
     }
 
     if (applied.length === 0) {
-      toast.info("Nothing was selected to apply.");
+      toast.info(t("dcForm.nothingSelected"));
     } else {
-      toast.success(`Filled in ${applied.join(", ")}. Please check before saving.`);
+      toast.success(t("dcForm.filledIn", { what: applied.join(", ") }));
     }
   }
 
@@ -227,7 +233,7 @@ export function DcForm({
     sourceLabel: string
   ) {
     if (source.length === 0) {
-      toast.info(`${sourceLabel} has no components to copy.`);
+      toast.info(t("dcForm.noComponentsToCopy", { source: sourceLabel }));
       return;
     }
 
@@ -262,9 +268,11 @@ export function DcForm({
 
     // setItemRows runs synchronously here, so `added` is settled by now.
     toast.success(
-      added > 0
-        ? `Filled ${added} item${added === 1 ? "" : "s"} from ${sourceLabel}. Check the quantities before saving.`
-        : `Those components are already on this challan.`
+      added === 0
+        ? t("dcForm.alreadyOnChallan")
+        : added === 1
+          ? t("dcForm.filledItemsOne", { source: sourceLabel })
+          : t("dcForm.filledItems", { count: added, source: sourceLabel })
     );
   }
 
@@ -316,6 +324,9 @@ export function DcForm({
       window.removeEventListener(PENDING_SCAN_EVENT, consume);
       window.removeEventListener("focus", consume);
     };
+    // applyScan reads the translator, which only changes with the language;
+    // a language switch reloads the page, so it is not a dependency here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantedScanId]);
 
   return (
@@ -323,52 +334,54 @@ export function DcForm({
       {continues && (
         <Card className="border-t-4 border-t-amber-500 bg-amber-50/60">
           <CardContent className="space-y-1 py-4 text-sm">
-            <p className="font-medium text-amber-900">Completing work from {continues.dcNumber}</p>
+            <p className="font-medium text-amber-900">
+              {t("dcForm.completingFrom", { dc: continues.dcNumber })}
+            </p>
             <p className="text-amber-900">
               {continues.component}
               {continues.material ? ` · ${continues.material}` : ""}
             </p>
             <p className="text-amber-900">
-              Received {continues.received} on the original challan. Outstanding now{" "}
-              <span className="font-semibold">{continues.remaining}</span>.
+              {t("dcForm.receivedOriginal", {
+                received: continues.received,
+                remaining: continues.remaining,
+              })}
             </p>
             {/* A draft follow-up does not reduce the balance until it is
                 confirmed, but its quantity is spoken for, so this challan is
                 limited to what is left after it. */}
             {continues.onDraft > 0 && (
               <p className="text-amber-900">
-                {continues.onDraft} of that is already on a draft follow-up, so up to{" "}
-                <span className="font-semibold">{Math.max(0, continues.bookable)}</span> can go on
-                this one.
+                {t("dcForm.onDraftFollowUp", {
+                  onDraft: continues.onDraft,
+                  bookable: Math.max(0, continues.bookable),
+                })}
               </p>
             )}
-            <p className="text-xs text-amber-900/80">
-              Enter what is going out on this challan. The received quantity stays on the original,
-              so the same pieces are never counted twice.
-            </p>
+            <p className="text-xs text-amber-900/80">{t("dcForm.enterOutgoing")}</p>
           </CardContent>
         </Card>
       )}
 
       <Card className="border-t-4 border-t-[#10233f]">
         <CardHeader>
-          <CardTitle className="text-base text-[#10233f]">Delivery Challan</CardTitle>
+          <CardTitle className="text-base text-[#10233f]">{t("dcDetail.pageTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
-            <Label>Our DC Number</Label>
+            <Label>{t("dcForm.ourDcNumber")}</Label>
             <Input
               disabled
-              value={dc?.dc_number ?? nextDcNumber ?? "Assigned on save"}
+              value={dc?.dc_number ?? nextDcNumber ?? t("dcForm.assignedOnSave")}
               className="bg-muted"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dc_date">Date *</Label>
+            <Label htmlFor="dc_date">{t("dcForm.dateRequired")}</Label>
             <DatePicker value={date} onChange={setDate} name="dc_date" />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Customer Name *</Label>
+            <Label>{t("dcForm.customerNameRequired")}</Label>
             <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
           </div>
           <CustomerDcRefs
@@ -377,14 +390,18 @@ export function DcForm({
             excludeDcId={dc?.id}
             customerId={customerId}
             onUseStoredDc={useStoredDc}
-            onFillDateComponents={(items, label) => copyInItems(items, `challans dated ${label}`)}
+            onFillDateComponents={(items, label) =>
+              copyInItems(items, t("dcForm.challansDated", { date: label }))
+            }
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-[#10233f]">Material / Component Details</CardTitle>
+          <CardTitle className="text-base text-[#10233f]">
+            {t("dcDetail.materialDetails")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DcItemRows
@@ -400,11 +417,11 @@ export function DcForm({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base text-[#10233f]">Signature</CardTitle>
+          <CardTitle className="text-base text-[#10233f]">{t("dcForm.signature")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="authorized_by">Authorized By / Signature</Label>
+            <Label htmlFor="authorized_by">{t("dcForm.authorizedBySignature")}</Label>
             <Input id="authorized_by" name="authorized_by" defaultValue={dc?.authorized_by ?? ""} />
           </div>
         </CardContent>
@@ -414,11 +431,12 @@ export function DcForm({
         <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
             <AlertTriangle className="h-4 w-4" />
-            Duplicate customer DC number
+            {t("dcForm.duplicateRefTitle")}
           </h3>
           <p className="text-sm text-destructive">
-            {duplicateRefs.join(", ")} {duplicateRefs.length === 1 ? "is" : "are"} listed more than
-            once. Remove the extra row before saving.
+            {duplicateRefs.length === 1
+              ? t("dcForm.duplicateRefOne", { refs: duplicateRefs.join(", ") })
+              : t("dcForm.duplicateRefMany", { refs: duplicateRefs.join(", ") })}
           </p>
         </div>
       )}
@@ -427,21 +445,24 @@ export function DcForm({
         <div className="space-y-2 rounded-lg border border-destructive bg-destructive/5 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
             <AlertTriangle className="h-4 w-4" />
-            {overDelivered.length} row{overDelivered.length === 1 ? "" : "s"} with more going out
-            than came in
+            {overDelivered.length === 1
+              ? t("dcForm.overDeliveredTitleOne")
+              : t("dcForm.overDeliveredTitle", { count: overDelivered.length })}
           </h3>
           <ul className="space-y-1 text-sm text-destructive">
             {overDelivered.map((row) => (
               <li key={row.position}>
-                Row {row.position} — <span className="font-medium">{row.component}</span>: received{" "}
-                {row.received}, but sent + material problem + rejection is {row.outward}.{" "}
-                <span className="font-medium">{row.extra} extra.</span>
+                {t("dcDetail.rowPrefix", { row: row.position })} —{" "}
+                <span className="font-medium">{row.component}</span>
+                {t("dcForm.overDeliveredFigures", {
+                  received: row.received,
+                  outward: row.outward,
+                })}{" "}
+                <span className="font-medium">{t("dc.list.extra", { count: row.extra })}.</span>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-destructive/80">
-            Correct these before saving — you cannot return more pieces than came in.
-          </p>
+          <p className="text-xs text-destructive/80">{t("dcForm.overDeliveredNote")}</p>
         </div>
       )}
 
@@ -449,12 +470,12 @@ export function DcForm({
         <div className="space-y-2 rounded-lg border border-amber-500 bg-amber-50 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900">
             <AlertTriangle className="h-4 w-4" />
-            This scanned customer DC has already been entered
+            {t("dcForm.alreadyConvertedTitle")}
           </h3>
           <p className="text-sm text-amber-900">
-            A delivery challan was already created from it
-            {alreadyConverted.dcNumber ? ` (${alreadyConverted.dcNumber})` : ""}. Creating another
-            would record the same inward lot twice.
+            {alreadyConverted.dcNumber
+              ? t("dcForm.alreadyConvertedBodyDc", { dc: alreadyConverted.dcNumber })
+              : t("dcForm.alreadyConvertedBody")}
           </p>
           {alreadyConverted.dcId && (
             <Button
@@ -462,7 +483,9 @@ export function DcForm({
               variant="outline"
               size="sm"
             >
-              Open {alreadyConverted.dcNumber ?? "the delivery challan"}
+              {alreadyConverted.dcNumber
+                ? t("dcForm.openDc", { dc: alreadyConverted.dcNumber })
+                : t("dcForm.openTheDc")}
             </Button>
           )}
         </div>
@@ -472,7 +495,7 @@ export function DcForm({
         <div className="space-y-3 rounded-lg border border-amber-500 bg-amber-50 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900">
             <AlertTriangle className="h-4 w-4" />
-            This challan may already be entered
+            {t("dcForm.mayBeEnteredTitle")}
           </h3>
           <p className="text-sm text-amber-900">{state.duplicateWarning}</p>
           <label className="flex items-start gap-2 text-sm font-medium text-amber-900">
@@ -482,7 +505,7 @@ export function DcForm({
               checked={allowDuplicate}
               onChange={(e) => setAllowDuplicate(e.target.checked)}
             />
-            Save it anyway — this is a second despatch against the same customer challan.
+            {t("dcForm.saveAnyway")}
           </label>
         </div>
       )}
@@ -499,12 +522,15 @@ export function DcForm({
         <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
             <AlertTriangle className="h-4 w-4" />
-            More than remains outstanding
+            {t("dcForm.overContinuedTitle")}
           </h3>
           {overContinuedLines.map((line) => (
             <p key={line.component} className="text-sm text-destructive">
-              {line.component} has {line.room} left to despatch, but {line.entered} is entered here.
-              Reduce it before saving.
+              {t("dcForm.overContinuedLine", {
+                component: line.component,
+                room: line.room,
+                entered: line.entered,
+              })}
             </p>
           ))}
         </div>
@@ -514,12 +540,12 @@ export function DcForm({
         <div className="space-y-1 rounded-lg border border-destructive bg-destructive/5 p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium text-destructive">
             <AlertTriangle className="h-4 w-4" />
-            Choose the component
+            {t("dcForm.chooseComponentTitle")}
           </h3>
           <p className="text-sm text-destructive">
-            {unnamedRows.length} row{unnamedRows.length === 1 ? " has" : "s have"} quantities but no
-            component. Pick it from the list, which holds only the components in Settings, or remove
-            the row.
+            {unnamedRows.length === 1
+              ? t("dcForm.unnamedOne")
+              : t("dcForm.unnamedMany", { count: unnamedRows.length })}
           </p>
         </div>
       )}
@@ -539,7 +565,7 @@ export function DcForm({
         }
         className="h-11 w-full bg-[#10233f] hover:bg-[#10233f]/90 sm:h-8 sm:w-auto"
       >
-        {pending ? "Saving..." : dc ? "Save changes" : "Create delivery challan"}
+        {pending ? t("common.saving") : dc ? t("dcForm.saveChanges") : t("dcForm.createDc")}
       </Button>
     </form>
   );

@@ -1,5 +1,6 @@
+"use client";
+
 import Link from "next/link";
-import { format } from "date-fns";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,12 +11,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useI18n } from "@/components/i18n-provider";
+import { formatDate } from "@/lib/i18n/dates";
+import type { Lang } from "@/lib/i18n/config";
 import type { DcRow } from "@/lib/dc-rows";
 
-function shortDate(value: string | null | undefined): string {
+function shortDate(value: string | null | undefined, lang: Lang): string {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : format(parsed, "dd MMM yyyy");
+  return Number.isNaN(parsed.getTime()) ? value : formatDate(value, "dd MMM yyyy", lang);
 }
 
 /**
@@ -26,21 +30,23 @@ function shortDate(value: string | null | undefined): string {
  * keeps it working without measuring the viewport in JavaScript.
  */
 export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: boolean }) {
+  const { t, lang } = useI18n();
+  const date = (value: string | null | undefined) => shortDate(value, lang);
   return (
     <>
       <div className="hidden overflow-x-auto sm:block">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Customer DC</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="text-right">Recd</TableHead>
-              <TableHead>Our DC</TableHead>
-              <TableHead className="text-right">Sent</TableHead>
-              <TableHead className="text-right">Mat. problem</TableHead>
-              <TableHead className="text-right">Rejection</TableHead>
-              {showPending && <TableHead className="text-right">Pending</TableHead>}
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t("dc.cols.customerDc")}</TableHead>
+              <TableHead>{t("dc.cols.description")}</TableHead>
+              <TableHead className="text-right">{t("dc.qty.recd")}</TableHead>
+              <TableHead>{t("dc.cols.ourDc")}</TableHead>
+              <TableHead className="text-right">{t("dc.qty.sent")}</TableHead>
+              <TableHead className="text-right">{t("dc.qty.materialProblem")}</TableHead>
+              <TableHead className="text-right">{t("dc.qty.rejection")}</TableHead>
+              {showPending && <TableHead className="text-right">{t("dc.qty.pending")}</TableHead>}
+              <TableHead className="text-right">{t("common.actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -49,7 +55,7 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
                 <TableCell className="align-top">
                   <span className="font-medium">{row.customerDcNumbers.join(", ") || "-"}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {row.customerDcDates.map(shortDate).join(", ") || "-"}
+                    {row.customerDcDates.map(date).join(", ") || "-"}
                   </span>
                   <span className="block text-xs text-muted-foreground">{row.customerName}</span>
                 </TableCell>
@@ -67,9 +73,7 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
                   >
                     {row.dcNumber}
                   </Link>
-                  <span className="block text-xs text-muted-foreground">
-                    {shortDate(row.dcDate)}
-                  </span>
+                  <span className="block text-xs text-muted-foreground">{date(row.dcDate)}</span>
                 </TableCell>
                 <TableCell className="text-right align-top tabular-nums">{row.sent}</TableCell>
                 <TableCell className="text-right align-top tabular-nums">
@@ -87,13 +91,13 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
                     variant="outline"
                     size="sm"
                   >
-                    View
+                    {t("common.view")}
                   </Button>
                   <Button
                     render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
                     variant="outline"
                     size="sm"
-                    aria-label={`Print ${row.dcNumber}`}
+                    aria-label={t("dc.list.printDc", { dc: row.dcNumber })}
                   >
                     <Printer className="h-4 w-4" />
                   </Button>
@@ -111,7 +115,7 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
             {row.material ? <p className="text-xs text-muted-foreground">{row.material}</p> : null}
             <p className="mt-1 text-xs text-muted-foreground">
               {row.customerDcNumbers.join(", ") || "-"} ·{" "}
-              {row.customerDcDates.map(shortDate).join(", ") || "-"}
+              {row.customerDcDates.map(date).join(", ") || "-"}
             </p>
             <p className="text-xs text-muted-foreground">{row.customerName}</p>
             <p className="mt-1 text-xs">
@@ -121,14 +125,14 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
               >
                 {row.dcNumber}
               </Link>{" "}
-              <span className="text-muted-foreground">· {shortDate(row.dcDate)}</span>
+              <span className="text-muted-foreground">· {date(row.dcDate)}</span>
             </p>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <Figure label="Received" value={row.received} />
-              <Figure label="Sent" value={row.sent} />
-              <Figure label="Material problem" value={row.materialProblem} />
-              <Figure label="Rejection" value={row.rejection} />
-              {showPending && <Figure label="Pending" value={row.pending} strong />}
+              <Figure label={t("dc.qty.received")} value={row.received} />
+              <Figure label={t("dc.qty.sent")} value={row.sent} />
+              <Figure label={t("dc.qty.materialProblem")} value={row.materialProblem} />
+              <Figure label={t("dc.qty.rejection")} value={row.rejection} />
+              {showPending && <Figure label={t("dc.qty.pending")} value={row.pending} strong />}
             </dl>
             <div className="mt-3 flex gap-2">
               <Button
@@ -137,14 +141,14 @@ export function DcRowTable({ rows, showPending }: { rows: DcRow[]; showPending: 
                 size="sm"
                 className="h-11 flex-1"
               >
-                View
+                {t("common.view")}
               </Button>
               <Button
                 render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
                 variant="outline"
                 size="sm"
                 className="h-11 w-11"
-                aria-label={`Print ${row.dcNumber}`}
+                aria-label={t("dc.list.printDc", { dc: row.dcNumber })}
               >
                 <Printer className="h-4 w-4" />
               </Button>

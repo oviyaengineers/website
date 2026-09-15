@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
+import { useI18n } from "@/components/i18n-provider";
 import type { DcItemInput } from "@/lib/actions/dc";
 import { balanceQty, outwardTotal } from "@/lib/dc-balance";
 import { ComponentPendingDcs } from "@/components/component-pending-dcs";
@@ -82,6 +83,7 @@ export function DcItemRows({
    */
   outstandingByParent?: Record<string, number>;
 }) {
+  const { t } = useI18n();
   const everyRowContinues = rows.length > 0 && rows.every((row) => Boolean(row.parent_item_id));
 
   function addRow() {
@@ -104,17 +106,17 @@ export function DcItemRows({
       <div className="overflow-x-auto">
         <div className="space-y-3 sm:min-w-[1000px]">
           <div className="hidden gap-2 px-1 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px]">
-            <span>Description</span>
-            <span>Material</span>
+            <span>{t("dc.cols.description")}</span>
+            <span>{t("common.material")}</span>
             {/* Named for what the column actually holds. On a challan that only
                 continues earlier work no row receives anything, so the figure
                 under this heading is what is left to send. */}
-            <span>{everyRowContinues ? "Pending" : "Received"}</span>
-            <span>Sent</span>
-            <span>Material Problem</span>
-            <span>Rejection</span>
-            <span>Total</span>
-            <span>Balance</span>
+            <span>{everyRowContinues ? t("dc.qty.pending") : t("dc.qty.received")}</span>
+            <span>{t("dc.qty.sent")}</span>
+            <span>{t("dcDetail.materialProblem")}</span>
+            <span>{t("dc.qty.rejection")}</span>
+            <span>{t("dc.qty.total")}</span>
+            <span>{t("dc.qty.balance")}</span>
             <span />
           </div>
           {rows.map((row) => {
@@ -128,7 +130,7 @@ export function DcItemRows({
                 className="grid gap-2 rounded-lg border p-3 [&_[data-slot=select-trigger]]:h-11 sm:[&_[data-slot=select-trigger]]:h-8 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px] sm:items-center sm:border-0 sm:p-0"
               >
                 <div className="space-y-1">
-                  <Label className="sm:hidden">Description</Label>
+                  <Label className="sm:hidden">{t("dc.cols.description")}</Label>
                   <input type="hidden" name="item_component" value={row.component} />
                   {/* The stored line's id when editing, empty on a new row. An
                       edited line keeps its id, which is what any follow-up DC
@@ -148,14 +150,14 @@ export function DcItemRows({
                     options={components}
                     value={row.component || null}
                     onChange={(v) => updateRow(row.key, { component: v ?? "" })}
-                    searchPlaceholder="Search components..."
+                    searchPlaceholder={t("dcForm.searchComponents")}
                     emptyText={
                       components.length === 0
-                        ? "Add components in Settings"
-                        : "No component matches. Add it in Settings first."
+                        ? t("dcForm.addComponentsInSettings")
+                        : t("dcForm.noComponentMatch")
                     }
                     invalid={!row.component && !isBlankDcItemRow(row)}
-                    ariaLabel="Description"
+                    ariaLabel={t("dc.cols.description")}
                     className="sm:min-h-8"
                   />
                   {/* Choosing a part is the moment to see what is already
@@ -163,26 +165,26 @@ export function DcItemRows({
                   <ComponentPendingDcs component={row.component} excludeDcId={excludeDcId} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="sm:hidden">Material</Label>
+                  <Label className="sm:hidden">{t("common.material")}</Label>
                   <input type="hidden" name="item_material" value={row.material ?? ""} />
                   <SearchableSelect
                     options={materials}
                     value={row.material || null}
                     onChange={(v) => updateRow(row.key, { material: v })}
-                    searchPlaceholder="Search materials..."
+                    searchPlaceholder={t("dcForm.searchMaterials")}
                     emptyText={
                       materials.length === 0
-                        ? "Add materials in Settings"
-                        : "No material matches. Add it in Settings first."
+                        ? t("dcForm.addMaterialsInSettings")
+                        : t("dcForm.noMaterialMatch")
                     }
                     allowClear
-                    ariaLabel="Material"
+                    ariaLabel={t("common.material")}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
                     <Label className="sm:hidden">
-                      {owed === undefined ? "Received Qty" : "Pending"}
+                      {owed === undefined ? t("dcDetail.receivedQty") : t("dc.qty.pending")}
                     </Label>
                     {owed === undefined ? (
                       <Input
@@ -211,7 +213,7 @@ export function DcItemRows({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="sm:hidden">Sent Qty</Label>
+                    <Label className="sm:hidden">{t("dcDetail.sentQty")}</Label>
                     <Input
                       name="item_sent_qty"
                       type="number"
@@ -224,7 +226,7 @@ export function DcItemRows({
                 </div>
                 <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
-                    <Label className="sm:hidden">Material Problem</Label>
+                    <Label className="sm:hidden">{t("dcDetail.materialProblem")}</Label>
                     <Input
                       name="item_material_problem_qty"
                       type="number"
@@ -239,7 +241,7 @@ export function DcItemRows({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="sm:hidden">Rejection</Label>
+                    <Label className="sm:hidden">{t("dc.qty.rejection")}</Label>
                     <Input
                       name="item_rejection_qty"
                       type="number"
@@ -255,14 +257,14 @@ export function DcItemRows({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="sm:hidden">Total</Label>
+                  <Label className="sm:hidden">{t("dc.qty.total")}</Label>
                   <Input disabled value={total} className="bg-muted" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="sm:hidden">Balance</Label>
+                  <Label className="sm:hidden">{t("dc.qty.balance")}</Label>
                   <Input
                     disabled
-                    value={overDelivered ? `${balance} extra` : balance}
+                    value={overDelivered ? t("dc.list.extra", { count: balance }) : balance}
                     className={
                       overDelivered
                         ? "border-destructive bg-destructive/10 font-medium text-destructive"
@@ -275,6 +277,7 @@ export function DcItemRows({
                   variant="ghost"
                   size="icon"
                   className="text-destructive sm:justify-self-center"
+                  aria-label={t("dcForm.removeRow")}
                   onClick={() => removeRow(row.key)}
                   disabled={rows.length === 1}
                 >
@@ -286,7 +289,7 @@ export function DcItemRows({
         </div>
       </div>
       <Button type="button" variant="outline" size="sm" onClick={addRow}>
-        <Plus className="h-4 w-4" /> Add Component
+        <Plus className="h-4 w-4" /> {t("dcForm.addComponent")}
       </Button>
     </div>
   );

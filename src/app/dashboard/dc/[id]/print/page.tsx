@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { X } from "lucide-react";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { DcPrintActions } from "@/components/dc-print-actions";
 import type { CustomerRow, DeliveryChallanRow } from "@/types/database";
 import { LogoMark } from "@/components/marketing/logo";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
+import { formatDate } from "@/lib/i18n/dates";
+import { getTranslator } from "@/lib/i18n/server";
+import type { Lang } from "@/lib/i18n/config";
+import type { Translate } from "@/lib/i18n/types";
 
 /** Rows shown in the items table, padded with blanks when a DC is short. */
 const MIN_TABLE_ROWS = 4;
@@ -30,10 +33,11 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
 
-  const [{ data: items }, { data: customer }, { data: picklist }] = await Promise.all([
+  const [{ data: items }, { data: customer }, { data: picklist }, { lang, t }] = await Promise.all([
     supabase.from("delivery_challan_items").select("*").eq("dc_id", id).order("sort_order"),
     supabase.from("customers").select("*").eq("id", dc.customer_id).single(),
     supabase.from("dc_picklist_items").select("id, name, kind").eq("kind", "component"),
+    getTranslator(),
   ]);
   // The printed challan is the document the customer signs, so it must carry
   // the part's current name rather than the spelling stored at entry.
@@ -75,7 +79,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           back to the challan short of the browser's own back button. */}
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
         <Button render={<Link href={`/dashboard/dc/${dc.id}`} />} variant="outline">
-          <X className="h-4 w-4" /> Close
+          <X className="h-4 w-4" /> {t("common.close")}
         </Button>
         <div className="flex gap-2">
           <DcPrintActions dc={pdfData} />
@@ -88,11 +92,25 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           showing it. */}
       <div className="dc-print-stage">
         <div className="dc-print-page">
-          <DcCopy label="ORIGINAL" dc={dc} customer={customer} items={printItems} />
+          <DcCopy
+            label={t("dcPrint.original")}
+            dc={dc}
+            customer={customer}
+            items={printItems}
+            lang={lang}
+            t={t}
+          />
           <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
-            <span className="relative -top-2 bg-white px-2">✂ cut here</span>
+            <span className="relative -top-2 bg-white px-2">{t("dcPrint.cutHere")}</span>
           </div>
-          <DcCopy label="DUPLICATE" dc={dc} customer={customer} items={printItems} />
+          <DcCopy
+            label={t("dcPrint.duplicate")}
+            dc={dc}
+            customer={customer}
+            items={printItems}
+            lang={lang}
+            t={t}
+          />
         </div>
       </div>
     </div>
@@ -136,11 +154,15 @@ function DcCopy({
   dc,
   customer,
   items,
+  lang,
+  t,
 }: {
   label: string;
   dc: DeliveryChallanRow;
   customer: CustomerRow | null;
   items: PrintItem[];
+  lang: Lang;
+  t: Translate;
 }) {
   return (
     <div className="dc-print-sheet break-inside-avoid">
@@ -167,38 +189,38 @@ function DcCopy({
 
       <section className="dc-print-block mb-3">
         <h2 className="dc-print-title mb-2 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
-          Delivery Challan
+          {t("dcPrint.title")}
         </h2>
         {/* Every field in its own ruled cell, the way a printed challan book
             is laid out: the container carries the top and left edges and each
             cell its right and bottom, so the rules meet with no doubling. */}
         <div className="dc-print-fields">
-          <Field label="Our DC Number" span={1}>
+          <Field label={t("dcPrint.ourDcNumber")} span={1}>
             {dc.dc_number}
           </Field>
-          <Field label="Date" span={1}>
-            {format(new Date(dc.dc_date), "dd MMM yyyy")}
+          <Field label={t("dcPrint.date")} span={1}>
+            {formatDate(dc.dc_date, "dd MMM yyyy", lang)}
           </Field>
-          <Field label="Customer DC Number(s)" span={2}>
+          <Field label={t("dcPrint.customerDcNumbers")} span={2}>
             {dc.customer_dc_number && dc.customer_dc_number.length > 0
               ? dc.customer_dc_number.map((num, i) => (
                   <span key={i} className="block">
                     {num || "-"}
                     {dc.customer_dc_date?.[i]
-                      ? ` (${format(new Date(dc.customer_dc_date[i] as string), "dd MMM yyyy")})`
+                      ? ` (${formatDate(dc.customer_dc_date[i] as string, "dd MMM yyyy", lang)})`
                       : ""}
                   </span>
                 ))
               : "-"}
           </Field>
-          <Field label="Customer Name" span={2}>
+          <Field label={t("dcPrint.customerName")} span={2}>
             <span className="font-medium">{customer?.name ?? "-"}</span>
             {customer?.address ? <span className="block">{customer.address}</span> : null}
           </Field>
-          <Field label="Contact / GST" span={2}>
+          <Field label={t("dcPrint.contactGst")} span={2}>
             {customer?.phone ? <span className="block">{customer.phone}</span> : null}
             {customer?.gst_number ? (
-              <span className="block">GST: {customer.gst_number}</span>
+              <span className="block">{t("dcPrint.gst", { gst: customer.gst_number })}</span>
             ) : null}
             {!customer?.phone && !customer?.gst_number ? "-" : null}
           </Field>
@@ -228,17 +250,17 @@ function DcCopy({
             <thead>
               <tr>
                 <th colSpan={7} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
-                  Material / Component Details
+                  {t("dcPrint.materialDetails")}
                 </th>
               </tr>
               <tr>
-                <th className={`${CELL} text-center`}>S.No.</th>
-                <th className={`${CELL} text-center`}>Description</th>
-                <th className={`${CELL} text-center`}>Material</th>
-                <th className={`${CELL} text-center`}>Qty</th>
-                <th className={`${CELL} text-center`}>Mat. Problem</th>
-                <th className={`${CELL} text-center`}>Rejection</th>
-                <th className={`${CELL} text-center`}>Total</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.sNo")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.description")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.material")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.qty")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.matProblem")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.rejection")}</th>
+                <th className={`${CELL} text-center`}>{t("dcPrint.total")}</th>
               </tr>
             </thead>
             <tbody>
@@ -279,13 +301,17 @@ function DcCopy({
           three separate cards. */}
       <section className="dc-print-block dc-print-foot">
         <div className="dc-print-fields">
-          <Field label="Note" span={4}>
-            Sent after machining
+          <Field label={t("dcPrint.note")} span={4}>
+            {t("dcPrint.noteText")}
           </Field>
-          <Field label="Receiver's Signature" span={2} tall>
+          <Field label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
           </Field>
-          <Field label={dc.authorized_by ? "Authorized By" : "Authorized Signatory"} span={2} tall>
+          <Field
+            label={dc.authorized_by ? t("dcPrint.authorizedBy") : t("dcPrint.authorizedSignatory")}
+            span={2}
+            tall
+          >
             {dc.authorized_by || ""}
           </Field>
         </div>

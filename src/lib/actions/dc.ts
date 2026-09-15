@@ -9,6 +9,9 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { findDuplicateCustomerDcNumbers } from "@/lib/dc-refs";
 import { storedStatusFor } from "@/lib/dc-lifecycle";
 import { saveErrorMessage } from "@/lib/dc-save-errors";
+import type { Lang } from "@/lib/i18n/config";
+import { getTranslator } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n/types";
 
 export type DcItemInput = {
   /** The stored line, when editing. Kept so follow-ups stay attached to it. */
@@ -97,6 +100,7 @@ async function findExistingRefs(
  * actually stops two despatches saved at once from both getting through.
  */
 async function findOverContinued(
+  t: Translate,
   items: DcItemInput[],
   /** The challan being edited, whose current figures are about to be replaced. */
   editingDcId?: string | null
@@ -112,7 +116,7 @@ async function findOverContinued(
   for (const parentId of parentIds) {
     const parent = chainRows.find((row) => row.id === parentId);
     if (!parent) {
-      problems.push("one line no longer exists");
+      problems.push(t("dcErrors.parentLineMissing"));
       continue;
     }
     // Room left on the line: the balance after confirmed despatches, less what
@@ -127,7 +131,11 @@ async function findOverContinued(
       .reduce((total, item) => total + outwardTotal(item), 0);
     if (asked > room) {
       problems.push(
-        `${parent.component} has ${Math.max(0, room)} left to despatch but ${asked} is entered`
+        t("dcErrors.overContinuedLine", {
+          component: parent.component,
+          left: Math.max(0, room),
+          entered: asked,
+        })
       );
     }
   }
@@ -191,12 +199,14 @@ function parseDcForm(formData: FormData): DcFormValues {
 }
 
 /** Checks that need nothing but the form, shared by create and edit. */
-function formProblems(values: DcFormValues): string | null {
-  if (!values.customer_id) return "Please select a customer.";
+function formProblems(t: Translate, values: DcFormValues): string | null {
+  if (!values.customer_id) return t("dcErrors.noCustomer");
   if (values.unnamed_rows > 0) {
-    return `${values.unnamed_rows} row${values.unnamed_rows === 1 ? " has" : "s have"} quantities but no component. Choose the component from Settings, or remove the row.`;
+    return values.unnamed_rows === 1
+      ? t("dcErrors.unnamedRowsOne")
+      : t("dcErrors.unnamedRows", { count: values.unnamed_rows });
   }
-  if (values.items.length === 0) return "Add at least one item.";
+  if (values.items.length === 0) return t("dcErrors.noItems");
 
   const negative = values.items.find(
     (item) =>
@@ -205,22 +215,22 @@ function formProblems(values: DcFormValues): string | null {
       item.material_problem_qty < 0 ||
       item.rejection_qty < 0
   );
-  if (negative) return `Quantities cannot be negative (${negative.component}).`;
+  if (negative) return t("dcErrors.negative", { component: negative.component });
 
   const duplicateRefs = findDuplicateCustomerDcNumbers(values.customer_dc_number ?? []);
   if (duplicateRefs.length > 0) {
-    return `The same customer DC number appears more than once: ${duplicateRefs.join(
-      ", "
-    )}. Each reference may only be listed once.`;
+    return t("dcErrors.duplicateRefs", { refs: duplicateRefs.join(", ") });
   }
 
   // Only original lines are judged this way. A continuation has no received
   // quantity, so this rule would refuse every one of them.
   const overDelivered = findOverDelivered(values.items.filter((item) => !item.parent_item_id));
   if (overDelivered.length > 0) {
-    return `More pieces go out than came in on: ${overDelivered
-      .map((row) => `${row.component} (${row.extra} extra)`)
-      .join("; ")}.`;
+    return t("dcErrors.overDelivered", {
+      rows: overDelivered
+        .map((row) => t("dcErrors.extraRow", { component: row.component, count: row.extra }))
+        .join("; "),
+    });
   }
   return null;
 }
@@ -234,7 +244,8 @@ async function saveChallan(
   supabase: Awaited<ReturnType<typeof createClient>>,
   dcId: string | null,
   values: DcFormValues,
-  scanIds: string[]
+  scanIds: string[],
+  lang: Lang
 ): Promise<{ id: string | null; error: string | null }> {
   const { data, error } = await supabase.rpc("save_delivery_challan", {
     p_dc_id: dcId,
@@ -259,10 +270,10 @@ async function saveChallan(
     p_scan_ids: scanIds,
   });
 
-  if (error) return { id: null, error: saveErrorMessage(error.message, error.code) };
+  if (error) return { id: null, error: saveErrorMessage(error.message, error.code, lang) };
   const row = Array.isArray(data) ? data[0] : data;
   if (!row?.dc_id) {
-    return { id: null, error: saveErrorMessage("The save returned no challan.") };
+    return { id: null, error: saveErrorMessage("The save returned no challan.", null, lang) };
   }
   return { id: row.dc_id, error: null };
 }
@@ -288,19 +299,18 @@ export async function createDcAction(
   formData: FormData
 ): Promise<DcFormState> {
   const values = parseDcForm(formData);
+  const { lang, t } = await getTranslator();
 
-  const problem = formProblems(values);
+  const problem = formProblems(t, values);
   if (problem) return { error: problem };
 
   // A continuation row legitimately sends more than it received, because it
   // received nothing: the pieces came in on the line it continues. So it is
   // checked against that line's remaining balance instead, read from the
   // database rather than from anything the browser sent.
-  const tooMuch = await findOverContinued(values.items);
+  const tooMuch = await findOverContinued(t, values.items);
   if (tooMuch.length > 0) {
-    return {
-      error: `More is being despatched than remains outstanding: ${tooMuch.join("; ")}.`,
-    };
+    return { error: t("dcErrors.overContinued", { lines: tooMuch.join("; ") }) };
   }
 
   const supabase = await createClient();
@@ -316,19 +326,18 @@ export async function createDcAction(
   if (!values.allow_duplicate && !isContinuation) {
     const clashes = await findExistingRefs(supabase, values.customer_id, values.customer_dc_number);
     if (clashes.length > 0) {
-      const listed = clashes.map((c) => `${c.ref} (on ${c.dcNumber})`).join(", ");
-      return {
-        error: null,
-        duplicateWarning: `This customer reference is already recorded: ${listed}. Tick the box below and save again if that is correct.`,
-      };
+      const listed = clashes
+        .map((c) => t("dcErrors.refOnDc", { ref: c.ref, dc: c.dcNumber }))
+        .join(", ");
+      return { error: null, duplicateWarning: t("dcErrors.duplicateWarning", { listed }) };
     }
   }
 
   // Saving issues the challan: it is created Active, so it appears under
   // Dispatched straight away. The scans that filled the form are converted in
   // the same transaction, and only if they are still pending.
-  const { id, error } = await saveChallan(supabase, null, values, scanIds);
-  if (error || !id) return { error: error ?? saveErrorMessage(null) };
+  const { id, error } = await saveChallan(supabase, null, values, scanIds, lang);
+  if (error || !id) return { error: error ?? saveErrorMessage(null, null, lang) };
 
   revalidateDcScreens(id);
   redirect(`/dashboard/dc/${id}`);
@@ -340,15 +349,14 @@ export async function updateDcAction(
   formData: FormData
 ): Promise<DcFormState> {
   const values = parseDcForm(formData);
+  const { lang, t } = await getTranslator();
 
-  const problem = formProblems(values);
+  const problem = formProblems(t, values);
   if (problem) return { error: problem };
 
-  const tooMuch = await findOverContinued(values.items, id);
+  const tooMuch = await findOverContinued(t, values.items, id);
   if (tooMuch.length > 0) {
-    return {
-      error: `More is being despatched than remains outstanding: ${tooMuch.join("; ")}.`,
-    };
+    return { error: t("dcErrors.overContinued", { lines: tooMuch.join("; ") }) };
   }
 
   const supabase = await createClient();
@@ -361,17 +369,16 @@ export async function updateDcAction(
       id
     );
     if (clashes.length > 0) {
-      const listed = clashes.map((c) => `${c.ref} (on ${c.dcNumber})`).join(", ");
-      return {
-        error: null,
-        duplicateWarning: `This customer reference is already recorded: ${listed}. Tick the box below and save again if that is correct.`,
-      };
+      const listed = clashes
+        .map((c) => t("dcErrors.refOnDc", { ref: c.ref, dc: c.dcNumber }))
+        .join(", ");
+      return { error: null, duplicateWarning: t("dcErrors.duplicateWarning", { listed }) };
     }
   }
 
   // Lines keep their ids, so follow-ups raised against them stay attached. The
   // DC number and status are never touched by an edit.
-  const { error } = await saveChallan(supabase, id, values, []);
+  const { error } = await saveChallan(supabase, id, values, [], lang);
   if (error) return { error };
 
   revalidateDcScreens(id);
@@ -404,13 +411,15 @@ export async function updateDcStatusAction(id: string, lifecycle: "draft" | "act
         ([lineId, left]) => left < 0 && left < (before.get(lineId) ?? 0)
       );
       if (pushedOver.length > 0) {
+        const { t } = await getTranslator();
         const named = pushedOver.map(([lineId, left]) => {
           const line = chainRows.find((row) => row.id === lineId);
-          return `${line?.component ?? "a line"} (${-left} over)`;
+          return t("dcErrors.overLine", {
+            component: line?.component ?? t("dcErrors.aLine"),
+            count: -left,
+          });
         });
-        throw new Error(
-          `Confirming this would despatch more than was received: ${named.join("; ")}. Reduce the quantity first.`
-        );
+        throw new Error(t("dcErrors.confirmOver", { lines: named.join("; ") }));
       }
     }
   }

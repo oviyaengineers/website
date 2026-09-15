@@ -27,6 +27,13 @@ export const HISTORY_KIND_LABELS: Record<HistoryKind, string> = {
   completed: "Completed",
 };
 
+/** The same labels as dictionary keys, for screens shown in the chosen language. */
+export const HISTORY_KIND_KEYS = {
+  scanned: "dcHistory.kindScanned",
+  "dispatched-pending": "dcHistory.kindDispatchedPending",
+  completed: "dcHistory.kindCompleted",
+} as const satisfies Record<HistoryKind, `dcHistory.${string}`>;
+
 export type HistoryDateSource = "dc-date" | "customer-dc-date" | "scanned-at";
 
 export const HISTORY_DATE_SOURCE_LABELS: Record<HistoryDateSource, string> = {
@@ -34,6 +41,12 @@ export const HISTORY_DATE_SOURCE_LABELS: Record<HistoryDateSource, string> = {
   "customer-dc-date": "customer DC date",
   "scanned-at": "scanned on (no DC date read)",
 };
+
+export const HISTORY_DATE_SOURCE_KEYS = {
+  "dc-date": "dcHistory.sourceDcDate",
+  "customer-dc-date": "dcHistory.sourceCustomerDcDate",
+  "scanned-at": "dcHistory.sourceScannedAt",
+} as const satisfies Record<HistoryDateSource, `dcHistory.${string}`>;
 
 export type HistoryRecord = {
   /** Unique per row: the item line's id, or the scan's id and item position. */

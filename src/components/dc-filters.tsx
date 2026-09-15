@@ -4,6 +4,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
+import { useI18n } from "@/components/i18n-provider";
 
 export type DcFilterValues = {
   q?: string;
@@ -46,6 +47,7 @@ export function DcFilters({
   showStatus?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -80,7 +82,7 @@ export function DcFilters({
     // in particular open the system picker, and a missed tap opens nothing.
     <div className="flex flex-wrap items-end gap-3 [&_input]:h-11 [&_select]:h-11 sm:[&_input]:h-8 sm:[&_select]:h-9">
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">From</label>
+        <label className="text-xs text-muted-foreground">{t("common.from")}</label>
         <Input
           type="date"
           className="w-36"
@@ -89,7 +91,7 @@ export function DcFilters({
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">To</label>
+        <label className="text-xs text-muted-foreground">{t("common.to")}</label>
         <Input
           type="date"
           className="w-36"
@@ -99,28 +101,28 @@ export function DcFilters({
       </div>
       {showStatus && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Status</label>
+          <label className="text-xs text-muted-foreground">{t("common.status")}</label>
           <select
             className="w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
             value={defaults.status ?? ""}
             onChange={(e) => update("status", e.target.value)}
           >
-            <option value="">All</option>
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
+            <option value="">{t("common.all")}</option>
+            <option value="draft">{t("dc.lifecycle.draft")}</option>
+            <option value="active">{t("dc.lifecycle.active")}</option>
+            <option value="completed">{t("dc.lifecycle.completed")}</option>
           </select>
         </div>
       )}
       {customers.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Customer</label>
+          <label className="text-xs text-muted-foreground">{t("common.customer")}</label>
           <select
             className="w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
             value={defaults.customer ?? ""}
             onChange={(e) => update("customer", e.target.value)}
           >
-            <option value="">All</option>
+            <option value="">{t("common.all")}</option>
             {customers.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -131,13 +133,13 @@ export function DcFilters({
       )}
       {components.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Component</label>
+          <label className="text-xs text-muted-foreground">{t("common.component")}</label>
           <select
             className="w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
             value={defaults.component ?? ""}
             onChange={(e) => update("component", e.target.value)}
           >
-            <option value="">All</option>
+            <option value="">{t("common.all")}</option>
             {components.map((component) => (
               <option key={component} value={component}>
                 {component}
@@ -148,13 +150,13 @@ export function DcFilters({
       )}
       {materials.length > 0 && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Material</label>
+          <label className="text-xs text-muted-foreground">{t("common.material")}</label>
           <select
             className="w-36 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
             value={defaults.material ?? ""}
             onChange={(e) => update("material", e.target.value)}
           >
-            <option value="">All</option>
+            <option value="">{t("common.all")}</option>
             {materials.map((material) => (
               <option key={material} value={material}>
                 {material}
@@ -165,7 +167,7 @@ export function DcFilters({
       )}
       {anySet && (
         <Button variant="ghost" size="sm" className="h-11 sm:h-7" onClick={clearAll}>
-          <X className="h-4 w-4" /> Clear
+          <X className="h-4 w-4" /> {t("common.clear")}
         </Button>
       )}
     </div>

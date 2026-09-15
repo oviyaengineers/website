@@ -12,7 +12,7 @@ const STORED_LONG_EDGE = 2200;
  * image (greyscale, contrast) is applied, so what is kept is what the camera
  * saw.
  */
-async function storableImage(file: File): Promise<Blob> {
+async function storableImage(file: File, failure: string): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const longEdge = Math.max(bitmap.width, bitmap.height);
   const scale = longEdge > STORED_LONG_EDGE ? STORED_LONG_EDGE / longEdge : 1;
@@ -23,7 +23,7 @@ async function storableImage(file: File): Promise<Blob> {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     bitmap.close();
-    throw new Error("Could not prepare the image on this device.");
+    throw new Error(failure);
   }
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
@@ -31,7 +31,7 @@ async function storableImage(file: File): Promise<Blob> {
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", 0.85)
   );
-  if (!blob) throw new Error("Could not prepare the image on this device.");
+  if (!blob) throw new Error(failure);
   return blob;
 }
 
@@ -41,8 +41,12 @@ async function storableImage(file: File): Promise<Blob> {
  * Uploaded with the signed-in user's own session. The path is new every time
  * and upsert is off, so an image already stored can never be overwritten.
  */
-export async function uploadScanImage(file: File): Promise<string> {
-  const blob = await storableImage(file);
+export async function uploadScanImage(
+  file: File,
+  /** Shown when this device cannot prepare the image, in the operator's language. */
+  failure = "Could not prepare the image on this device."
+): Promise<string> {
+  const blob = await storableImage(file, failure);
   const now = new Date();
   const path = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.jpg`;
 

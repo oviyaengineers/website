@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n-provider";
 
 /** Wait this long after the last keystroke before searching. */
 const DEBOUNCE_MS = 350;
@@ -28,6 +29,7 @@ export function SearchBox({
   className?: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const pathname = usePathname();
   const params = useSearchParams();
   const fromUrl = params.get(param) ?? "";
@@ -73,7 +75,7 @@ export function SearchBox({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Clear search"
+          aria-label={t("common.clearSearch")}
           className="absolute top-0.5 right-0.5 size-10 text-muted-foreground sm:size-7"
           onClick={() => {
             typing.current = true;

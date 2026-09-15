@@ -5,8 +5,11 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { DashboardScanButton } from "@/components/dashboard-scan-button";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { HistoryNav } from "@/components/history-nav";
+import { I18nProvider } from "@/components/i18n-provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { getTranslator } from "@/lib/i18n/server";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = await getCurrentUserAndProfile();
@@ -16,6 +19,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const role = profile?.role ?? "staff";
+  // The language chosen in this browser. Only the ERP's own words change;
+  // the marketing site and its root layout stay English and static.
+  const { lang, t } = await getTranslator();
 
   // The header scanner needs the same picklists the DC form matches against.
   const supabase = await createClient();
@@ -34,42 +40,51 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const materials = (picklistItems ?? []).filter((i) => i.kind === "material").map((i) => i.name);
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        fullName={profile?.full_name ?? null}
-        email={user.email}
-        role={role}
-        draftCount={draftCount ?? 0}
-      />
-      <SidebarInset>
-        <header className="dashboard-chrome flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1 size-11 md:size-8" />
-          <Separator orientation="vertical" className="mx-1 h-4" />
-          <HistoryNav />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          {/* The label yields space before the scan button does: min-w-0 plus
-              truncate lets it shrink on a narrow phone, and shrink-0 keeps the
-              button at full size instead of being squeezed out of the bar. */}
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
-            Oviya Engineers Dashboard
-          </span>
-          {/* In the shell rather than on the DC form, so a challan can be
-              scanned from any page at any point. */}
-          <div className="shrink-0">
-            <DashboardScanButton
-              customers={customers ?? []}
-              components={components}
-              materials={materials}
-            />
-          </div>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <div className="dashboard-chrome">
-            <DashboardBreadcrumb />
-          </div>
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <I18nProvider lang={lang}>
+      {/* lang on the dashboard's own content, not on <html>: it picks the
+          Tamil font and tells screen readers and the print engine which
+          language the words are in, without making the marketing pages
+          depend on the cookie. */}
+      <div lang={lang} className="contents">
+        <SidebarProvider>
+          <AppSidebar
+            fullName={profile?.full_name ?? null}
+            email={user.email}
+            role={role}
+            draftCount={draftCount ?? 0}
+          />
+          <SidebarInset>
+            <header className="dashboard-chrome flex h-14 shrink-0 items-center gap-2 border-b px-4">
+              <SidebarTrigger className="-ml-1 size-11 md:size-8" label={t("nav.toggleSidebar")} />
+              <Separator orientation="vertical" className="mx-1 h-4" />
+              <HistoryNav />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              {/* The label yields space before the scan button does: min-w-0 plus
+                  truncate lets it shrink on a narrow phone, and shrink-0 keeps the
+                  button at full size instead of being squeezed out of the bar. */}
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
+                {t("header.title")}
+              </span>
+              <LanguageSwitcher />
+              {/* In the shell rather than on the DC form, so a challan can be
+                  scanned from any page at any point. */}
+              <div className="shrink-0">
+                <DashboardScanButton
+                  customers={customers ?? []}
+                  components={components}
+                  materials={materials}
+                />
+              </div>
+            </header>
+            <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+              <div className="dashboard-chrome">
+                <DashboardBreadcrumb />
+              </div>
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
+    </I18nProvider>
   );
 }

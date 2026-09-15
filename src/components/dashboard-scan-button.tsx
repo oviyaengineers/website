@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DcScanDialog, type DcScanCapture } from "@/components/dc-scan-dialog";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
+import { useI18n } from "@/components/i18n-provider";
 import { countPendingScans, queuePendingScan } from "@/lib/actions/dc-scan-queue";
 import { PENDING_SCAN_CHANGED, PENDING_SCAN_EVENT } from "@/lib/dc-scan-handoff";
 
@@ -26,6 +27,7 @@ export function DashboardScanButton({
   components: string[];
   materials: string[];
 }) {
+  const { t } = useI18n();
   // The queue is invisible otherwise, which leaves no way to tell a scan that
   // is waiting from one that was never held. Refreshed when the window regains
   // focus as well, since that is when another device's scan is most likely to
@@ -57,7 +59,7 @@ export function DashboardScanButton({
 
     if (error) {
       // Saying "captured" here would lose the challan silently.
-      toast.error(`This challan was not kept: ${error}`);
+      toast.error(t("header.scanNotKept", { error }));
       return false;
     }
 
@@ -66,9 +68,7 @@ export function DashboardScanButton({
     window.dispatchEvent(new Event(PENDING_SCAN_CHANGED));
 
     toast.success(
-      waiting > 1
-        ? `${waiting} challans are waiting under Scanned DCs.`
-        : "Challan captured. It is waiting under Scanned DCs."
+      waiting > 1 ? t("header.scanManyWaiting", { count: waiting }) : t("header.scanCaptured")
     );
     return true;
   }
@@ -87,8 +87,14 @@ export function DashboardScanButton({
           // pointer-events-none so the badge never swallows a tap meant for
           // the button underneath it.
           className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#10233f] px-1 text-[11px] font-semibold text-white shadow ring-2 ring-background"
-          aria-label={`${pending} scanned challan${pending === 1 ? "" : "s"} not yet saved to a delivery challan`}
-          title={`${pending} scanned challan${pending === 1 ? "" : "s"} not yet saved`}
+          aria-label={
+            pending === 1 ? t("header.scanWaitingOne") : t("header.scanWaiting", { count: pending })
+          }
+          title={
+            pending === 1
+              ? t("header.scanWaitingShortOne")
+              : t("header.scanWaitingShort", { count: pending })
+          }
         >
           {pending}
         </span>

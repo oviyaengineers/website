@@ -39,8 +39,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useI18n } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
+import type { TranslationKey } from "@/lib/i18n/types";
 import type { UserRole } from "@/types/database";
 
 // Each entry gets its own icon colour so the nav is scannable at a glance —
@@ -48,7 +50,7 @@ import type { UserRole } from "@/types/database";
 type NavItem = {
   /** May carry a query, for an entry that is a filtered view of another page. */
   href: string;
-  label: string;
+  labelKey: TranslationKey;
   icon: typeof LayoutDashboard;
   color: string;
   /** Longer paths that still belong to this entry, for the active marker. */
@@ -59,7 +61,7 @@ type NavItem = {
   badge?: "drafts";
 };
 
-type NavGroup = { label: string; items: NavItem[]; adminOnly?: boolean };
+type NavGroup = { labelKey: TranslationKey; items: NavItem[]; adminOnly?: boolean };
 
 // The delivery challan work is one job done in five places, and as a flat list
 // its parts sat among Customers and Invoices with nothing saying they belonged
@@ -67,11 +69,11 @@ type NavGroup = { label: string; items: NavItem[]; adminOnly?: boolean };
 // within it second.
 const NAV: NavGroup[] = [
   {
-    label: "Menu",
+    labelKey: "nav.menu",
     items: [
       {
         href: "/dashboard",
-        label: "Dashboard",
+        labelKey: "nav.dashboard",
         icon: LayoutDashboard,
         color: "text-amber-400",
         exact: true,
@@ -79,106 +81,121 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: "DC",
+    labelKey: "nav.dc",
     items: [
       {
         href: "/dashboard/dc/new",
-        label: "New DC - Manual",
+        labelKey: "nav.newDcManual",
         icon: FilePlus2,
         color: "text-emerald-400",
       },
-      { href: "/dashboard/dc/scan", label: "Scan DC", icon: ScanLine, color: "text-teal-400" },
+      {
+        href: "/dashboard/dc/scan",
+        labelKey: "nav.scanDc",
+        icon: ScanLine,
+        color: "text-teal-400",
+      },
       {
         href: "/dashboard/dc/scanned",
-        label: "Scanned DCs",
+        labelKey: "nav.scannedDcs",
         icon: Inbox,
         color: "text-amber-300",
       },
       // Sits at /dashboard/dc, a prefix of the two entries above it, so the
       // active marker has to prefer the longest match rather than the first.
-      { href: "/dashboard/dc", label: "All DCs", icon: ListChecks, color: "text-sky-400" },
+      { href: "/dashboard/dc", labelKey: "nav.allDcs", icon: ListChecks, color: "text-sky-400" },
       // All DCs filtered to challans not yet confirmed. Not a page of its own:
       // a draft is an ordinary challan in an early state, and the list already
       // shows everything about it.
       {
         href: "/dashboard/dc?status=draft",
-        label: "Draft DCs",
+        labelKey: "nav.draftDcs",
         icon: FileClock,
         color: "text-slate-300",
         badge: "drafts",
       },
       {
         href: "/dashboard/dc/dispatched",
-        label: "Dispatched DCs",
+        labelKey: "nav.dispatchedDcs",
         icon: Send,
         color: "text-indigo-300",
       },
       {
         href: "/dashboard/stock",
-        label: "Stock / Balance",
+        labelKey: "nav.stockBalance",
         icon: Boxes,
         color: "text-fuchsia-400",
         alsoUnder: ["/dashboard/balance"],
       },
       {
         href: "/dashboard/completed",
-        label: "Completed DCs",
+        labelKey: "nav.completedDcs",
         icon: CheckCircle2,
         color: "text-lime-400",
       },
       {
         href: "/dashboard/dc/history",
-        label: "DC History",
+        labelKey: "nav.dcHistory",
         icon: CalendarRange,
         color: "text-orange-300",
       },
     ],
   },
   {
-    label: "Records",
+    labelKey: "nav.records",
     items: [
-      { href: "/dashboard/customers", label: "Customers", icon: Users, color: "text-cyan-400" },
-      { href: "/dashboard/invoices", label: "Billing", icon: Receipt, color: "text-violet-400" },
+      {
+        href: "/dashboard/customers",
+        labelKey: "nav.customers",
+        icon: Users,
+        color: "text-cyan-400",
+      },
+      {
+        href: "/dashboard/invoices",
+        labelKey: "nav.billing",
+        icon: Receipt,
+        color: "text-violet-400",
+      },
     ],
   },
   {
-    label: "Admin",
+    labelKey: "nav.admin",
     adminOnly: true,
     items: [
-      { href: "/dashboard/costs", label: "Costs", icon: Wallet, color: "text-rose-400" },
+      { href: "/dashboard/costs", labelKey: "nav.costs", icon: Wallet, color: "text-rose-400" },
       {
         href: "/dashboard/reports/outstanding",
-        label: "Reports",
+        labelKey: "nav.reports",
         icon: BarChart3,
         color: "text-orange-400",
       },
       {
         href: "/dashboard/settings/dc-numbers",
-        label: "DC Numbers",
+        labelKey: "nav.dcNumbers",
         icon: Hash,
         color: "text-slate-300",
       },
       {
         href: "/dashboard/settings/components",
-        label: "Components & Materials",
+        labelKey: "nav.componentsMaterials",
         icon: Settings,
         color: "text-slate-300",
       },
       {
         href: "/dashboard/settings/billing",
-        label: "Billing Details",
+        labelKey: "nav.billingDetails",
         icon: FileText,
         color: "text-slate-300",
       },
       {
         href: "/dashboard/settings/invoice-numbers",
-        label: "Invoice Numbers",
+        labelKey: "nav.invoiceNumbers",
         icon: ListOrdered,
         color: "text-slate-300",
       },
       {
         href: "/dashboard/settings/rates",
-        label: "Rate List",
+        labelKey: "nav.rateList",
         icon: IndianRupee,
         color: "text-slate-300",
       },
@@ -227,6 +244,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const { isMobile, setOpenMobile } = useSidebar();
   const groups = NAV.filter((group) => !group.adminOnly || role === "admin");
   const active = activeHref(
@@ -254,7 +272,7 @@ export function AppSidebar({
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold text-white">Oviya Engineers</span>
-            <span className="text-xs text-slate-400">Internal System</span>
+            <span className="text-xs text-slate-400">{t("nav.internalSystem")}</span>
           </div>
         </div>
       </SidebarHeader>
@@ -263,8 +281,8 @@ export function AppSidebar({
           sidebar-scroll brings back a slim bar (globals.css). */}
       <SidebarContent className="sidebar-scroll">
         {groups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          <SidebarGroup key={group.labelKey}>
+            <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
@@ -287,7 +305,7 @@ export function AppSidebar({
                         )}
                       >
                         <item.icon className={isActive ? "text-amber-400" : item.color} />
-                        <span>{item.label}</span>
+                        <span>{t(item.labelKey)}</span>
                       </SidebarMenuButton>
                       {/* Shown only when something is waiting, so an empty
                           badge never reads as a figure to act on. The kit
@@ -300,7 +318,9 @@ export function AppSidebar({
                       {count > 0 && (
                         <SidebarMenuBadge
                           className="bg-amber-400/20 text-amber-300 peer-data-[size=default]/menu-button:top-3 md:peer-data-[size=default]/menu-button:top-1.5"
-                          aria-label={`${count} draft challan${count === 1 ? "" : "s"}`}
+                          aria-label={
+                            count === 1 ? t("nav.draftCountOne") : t("nav.draftCount", { count })
+                          }
                         >
                           {count}
                         </SidebarMenuBadge>
@@ -322,7 +342,9 @@ export function AppSidebar({
           </Avatar>
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-sm font-medium text-white">{displayName}</span>
-            <span className="text-xs capitalize text-amber-400/90">{role}</span>
+            <span className="text-xs text-amber-400/90">
+              {role === "admin" ? t("nav.roleAdmin") : t("nav.roleStaff")}
+            </span>
           </div>
         </div>
         <form action={logoutAction}>
@@ -331,7 +353,7 @@ export function AppSidebar({
             className="h-11 w-full text-slate-300 hover:text-white md:h-8"
           >
             <LogOut className="text-rose-400" />
-            <span>Log out</span>
+            <span>{t("nav.logOut")}</span>
           </SidebarMenuButton>
         </form>
       </SidebarFooter>

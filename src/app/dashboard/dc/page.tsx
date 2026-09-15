@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { format } from "date-fns";
 import { FilePlus2, Plus, Printer, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
@@ -22,8 +21,14 @@ import { DcStatusBadge } from "@/components/status-badge";
 import { isContinuationLine, type LineFigures } from "@/lib/dc-chain";
 import { shortCustomerName } from "@/lib/customer-name";
 import { fetchDcSummaries, totalDcSummaries, type DcSummary } from "@/lib/dc-list";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
+import type { Translate } from "@/lib/i18n/types";
 
-export const metadata: Metadata = { title: "All DCs | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dc.list.title")} | Oviya Engineers` };
+}
 
 type Search = {
   q?: string;
@@ -44,18 +49,31 @@ type Search = {
  */
 function balanceText(
   line: LineFigures,
+  t: Translate,
   draft = false
 ): { text: string; className: string; note?: string } {
   const balance = line.continues ? line.after : line.balance;
   const note =
     line.continues && line.after !== null
-      ? `left on ${line.rootDcNumber}${draft ? " once confirmed" : ""}`
+      ? draft
+        ? t("dc.list.leftOnOnceConfirmed", { dc: line.rootDcNumber })
+        : t("dc.list.leftOn", { dc: line.rootDcNumber })
       : undefined;
   if (balance === null) return { text: "—", className: "text-muted-foreground" };
   if (balance < 0) {
-    return { text: `${-balance} extra`, className: "font-medium text-destructive", note };
+    return {
+      text: t("dc.list.extra", { count: -balance }),
+      className: "font-medium text-destructive",
+      note,
+    };
   }
-  if (balance > 0) return { text: `${balance} pending`, className: "text-amber-600", note };
+  if (balance > 0) {
+    return {
+      text: t("dc.list.pendingCount", { count: balance }),
+      className: "text-amber-600",
+      note,
+    };
+  }
   return { text: "0", className: "text-muted-foreground", note };
 }
 
@@ -93,18 +111,25 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
   const filters = await searchParams;
   const supabase = await createClient();
 
-  const [summaries, { profile }, { data: picklist }, { data: materialList }, { data: customers }] =
-    await Promise.all([
-      fetchDcSummaries(filters),
-      getCurrentUserAndProfile(),
-      supabase
-        .from("dc_picklist_items")
-        .select("id, name, kind")
-        .eq("kind", "component")
-        .order("name"),
-      supabase.from("dc_picklist_items").select("name").eq("kind", "material").order("name"),
-      supabase.from("customers").select("name").order("name"),
-    ]);
+  const [
+    summaries,
+    { profile },
+    { data: picklist },
+    { data: materialList },
+    { data: customers },
+    { t, lang },
+  ] = await Promise.all([
+    fetchDcSummaries(filters),
+    getCurrentUserAndProfile(),
+    supabase
+      .from("dc_picklist_items")
+      .select("id, name, kind")
+      .eq("kind", "component")
+      .order("name"),
+    supabase.from("dc_picklist_items").select("name").eq("kind", "material").order("name"),
+    supabase.from("customers").select("name").order("name"),
+    getTranslator(),
+  ]);
   const isAdmin = profile?.role === "admin";
   const totals = totalDcSummaries(summaries);
   const printHref = `/dashboard/dc/print-list?${new URLSearchParams(
@@ -115,26 +140,28 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">All DCs</h1>
+          <h1 className="text-2xl font-semibold">{t("dc.list.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {summaries.length} challan{summaries.length === 1 ? "" : "s"}
+            {summaries.length === 1
+              ? t("dc.list.countOne")
+              : t("dc.list.count", { count: summaries.length })}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 [&>*]:h-11 sm:[&>*]:h-8">
           <Button render={<Link href={printHref} />} variant="outline">
-            <Printer className="h-4 w-4" /> Print list
+            <Printer className="h-4 w-4" /> {t("dc.list.printList")}
           </Button>
           <Button render={<Link href="/dashboard/dc/scan" />} variant="outline">
-            <ScanLine className="h-4 w-4" /> Scan DC
+            <ScanLine className="h-4 w-4" /> {t("nav.scanDc")}
           </Button>
           <Button render={<Link href="/dashboard/dc/new" />}>
-            <Plus /> New DC
+            <Plus /> {t("dc.list.newDc")}
           </Button>
         </div>
       </div>
 
       <div className="space-y-3">
-        <SearchBox placeholder="DC number, customer, their DC number, component or material..." />
+        <SearchBox placeholder={t("dc.list.searchPlaceholder")} />
         <DcFilters
           defaults={filters}
           components={(picklist ?? []).map((item) => item.name)}
@@ -157,18 +184,18 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
           <Table className="min-w-[1200px]">
             <TableHeader>
               <TableRow>
-                <TableHead>DC #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Their DC #</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Received</TableHead>
-                <TableHead className="text-right">Sent</TableHead>
-                <TableHead className="text-right">Mat. Problem</TableHead>
-                <TableHead className="text-right">Rejection</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t("dc.cols.dcNo")}</TableHead>
+                <TableHead>{t("common.date")}</TableHead>
+                <TableHead>{t("common.customer")}</TableHead>
+                <TableHead>{t("dc.cols.theirDcNo")}</TableHead>
+                <TableHead>{t("dc.cols.description")}</TableHead>
+                <TableHead className="text-right">{t("dc.qty.received")}</TableHead>
+                <TableHead className="text-right">{t("dc.qty.sent")}</TableHead>
+                <TableHead className="text-right">{t("dc.qty.matProblem")}</TableHead>
+                <TableHead className="text-right">{t("dc.qty.rejection")}</TableHead>
+                <TableHead className="text-right">{t("dc.qty.balance")}</TableHead>
+                <TableHead>{t("common.status")}</TableHead>
+                <TableHead className="text-right">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,7 +206,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 const span = rows.length;
                 return rows.map((item, index) => {
                   const line = item ? dc.lines[index] : null;
-                  const balance = line ? balanceText(line, dc.lifecycle === "draft") : null;
+                  const balance = line ? balanceText(line, t, dc.lifecycle === "draft") : null;
                   return (
                     <TableRow key={`${dc.id}-${item?.id ?? "empty"}`}>
                       {index === 0 && (
@@ -188,12 +215,12 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                             {dc.dcNumber}
                             {continuesEarlier(dc) && (
                               <span className="block text-xs font-normal text-muted-foreground">
-                                continues an earlier challan
+                                {t("dc.list.continuesEarlier")}
                               </span>
                             )}
                           </TableCell>
                           <TableCell rowSpan={span} className="align-top whitespace-nowrap">
-                            {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                            {formatDate(dc.dcDate, "dd MMM yyyy", lang)}
                           </TableCell>
                           {/* Shortened for the column; the full name is on hover
                               and on the challan itself. */}
@@ -232,7 +259,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                           <>
                             {line.pending}
                             <span className="block text-xs text-muted-foreground">
-                              pending on {line.rootDcNumber}
+                              {t("dc.list.pendingOn", { dc: line.rootDcNumber })}
                             </span>
                           </>
                         ) : (
@@ -245,7 +272,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                             follow-ups, so the row adds up to its balance. */}
                         {line && !line.continues && line.sent !== line.ownSent && (
                           <span className="block text-xs text-muted-foreground">
-                            {line.ownSent} on this DC
+                            {t("dc.list.onThisDc", { count: line.ownSent })}
                           </span>
                         )}
                       </TableCell>
@@ -255,7 +282,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                         {balance?.text ?? "—"}
                         {line && line.onDraft > 0 && (
                           <span className="block text-xs font-normal text-muted-foreground">
-                            {line.onDraft} on draft
+                            {t("dc.list.onDraft", { count: line.onDraft })}
                           </span>
                         )}
                         {balance?.note && (
@@ -279,7 +306,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                                 variant="outline"
                                 size="sm"
                               >
-                                <FilePlus2 className="h-4 w-4" /> Follow-up
+                                <FilePlus2 className="h-4 w-4" /> {t("dc.list.followUp")}
                               </Button>
                             )}
                             <Button
@@ -287,12 +314,13 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                               variant="outline"
                               size="sm"
                             >
-                              View
+                              {t("common.view")}
                             </Button>
                             <Button
                               render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
                               variant="outline"
                               size="sm"
+                              aria-label={t("dc.list.printDc", { dc: dc.dcNumber })}
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
@@ -307,13 +335,13 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
               {summaries.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={12} className="py-8 text-center text-muted-foreground">
-                    No delivery challans match these filters.
+                    {t("dc.list.empty")}
                   </TableCell>
                 </TableRow>
               )}
               {summaries.length > 0 && (
                 <TableRow className="border-t-2 font-medium">
-                  <TableCell colSpan={5}>Total</TableCell>
+                  <TableCell colSpan={5}>{t("dc.qty.total")}</TableCell>
                   <TableCell className="text-right">{totals.received}</TableCell>
                   <TableCell className="text-right">{totals.sent}</TableCell>
                   <TableCell className="text-right">{totals.materialProblem}</TableCell>
@@ -338,22 +366,24 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                 <div>
                   <p className="font-medium">{dc.dcNumber}</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(dc.dcDate), "dd MMM yyyy")}
+                    {formatDate(dc.dcDate, "dd MMM yyyy", lang)}
                   </p>
                 </div>
                 <DcStatusBadge status={dc.lifecycle} />
               </div>
               <div className="text-sm">
                 <p title={dc.customerName}>{shortCustomerName(dc.customerName)}</p>
-                <p className="text-muted-foreground">Their DC #: {refsOf(dc)}</p>
+                <p className="text-muted-foreground">
+                  {t("dc.list.theirDcLabel", { refs: refsOf(dc) })}
+                </p>
                 {continuesEarlier(dc) && (
-                  <p className="text-muted-foreground">Continues an earlier challan</p>
+                  <p className="text-muted-foreground">{t("dc.list.continuesEarlierSentence")}</p>
                 )}
               </div>
 
               {dc.items.map((item, index) => {
                 const line = dc.lines[index];
-                const balance = balanceText(line, dc.lifecycle === "draft");
+                const balance = balanceText(line, t, dc.lifecycle === "draft");
                 return (
                   <div key={item.id} className="rounded-lg border p-3 text-sm">
                     <p className="font-medium">{item.component}</p>
@@ -363,39 +393,39 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                           on the original it continues, as its own page does. */}
                       {line.pending !== null ? (
                         <>
-                          <dt className="text-muted-foreground">Pending</dt>
+                          <dt className="text-muted-foreground">{t("dc.qty.pending")}</dt>
                           <dd className="text-right">
                             {line.pending}
                             <span className="block text-xs text-muted-foreground">
-                              on {line.rootDcNumber}
+                              {t("dc.list.onDc", { dc: line.rootDcNumber })}
                             </span>
                           </dd>
                         </>
                       ) : (
                         <>
-                          <dt className="text-muted-foreground">Received</dt>
+                          <dt className="text-muted-foreground">{t("dc.qty.received")}</dt>
                           <dd className="text-right">{line.received}</dd>
                         </>
                       )}
-                      <dt className="text-muted-foreground">Sent</dt>
+                      <dt className="text-muted-foreground">{t("dc.qty.sent")}</dt>
                       <dd className="text-right">
                         {line.sent}
                         {!line.continues && line.sent !== line.ownSent && (
                           <span className="block text-xs text-muted-foreground">
-                            {line.ownSent} on this DC
+                            {t("dc.list.onThisDc", { count: line.ownSent })}
                           </span>
                         )}
                       </dd>
-                      <dt className="text-muted-foreground">Material problem</dt>
+                      <dt className="text-muted-foreground">{t("dc.qty.materialProblem")}</dt>
                       <dd className="text-right">{line.materialProblem}</dd>
-                      <dt className="text-muted-foreground">Rejection</dt>
+                      <dt className="text-muted-foreground">{t("dc.qty.rejection")}</dt>
                       <dd className="text-right">{line.rejection}</dd>
-                      <dt className="text-muted-foreground">Balance</dt>
+                      <dt className="text-muted-foreground">{t("dc.qty.balance")}</dt>
                       <dd className={`text-right ${balance.className}`}>
                         {balance.text}
                         {line.onDraft > 0 && (
                           <span className="block text-xs font-normal text-muted-foreground">
-                            {line.onDraft} on draft
+                            {t("dc.list.onDraft", { count: line.onDraft })}
                           </span>
                         )}
                         {balance.note && (
@@ -418,7 +448,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                   size="sm"
                   className="h-11 w-full sm:h-8"
                 >
-                  <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                  <FilePlus2 className="h-4 w-4" /> {t("dc.list.createFollowUp")}
                 </Button>
               )}
               <div className="flex gap-2 [&>*]:h-11 sm:[&>*]:h-8">
@@ -428,12 +458,13 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
                   size="sm"
                   className="flex-1"
                 >
-                  View
+                  {t("common.view")}
                 </Button>
                 <Button
                   render={<Link href={`/dashboard/dc/${dc.id}/print`} />}
                   variant="outline"
                   size="sm"
+                  aria-label={t("dc.list.printDc", { dc: dc.dcNumber })}
                 >
                   <Printer className="h-4 w-4" />
                 </Button>
@@ -443,9 +474,7 @@ export default async function DcListPage({ searchParams }: { searchParams: Promi
           </Card>
         ))}
         {summaries.length === 0 && (
-          <p className="py-8 text-center text-muted-foreground">
-            No delivery challans match these filters.
-          </p>
+          <p className="py-8 text-center text-muted-foreground">{t("dc.list.empty")}</p>
         )}
       </div>
     </div>

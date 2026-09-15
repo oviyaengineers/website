@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useI18n } from "@/components/i18n-provider";
 
 export type ComboboxCustomer = { id: string; name: string };
 
@@ -14,7 +15,7 @@ export function CustomerCombobox({
   value,
   onChange,
   name = "customer_id",
-  placeholder = "Select customer...",
+  placeholder,
 }: {
   customers: ComboboxCustomer[];
   value: string;
@@ -22,6 +23,7 @@ export function CustomerCombobox({
   name?: string;
   placeholder?: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -38,15 +40,11 @@ export function CustomerCombobox({
       <input type="hidden" name={name} value={value} />
       <PopoverTrigger
         render={
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-between font-normal"
-          />
+          <Button type="button" variant="outline" className="w-full justify-between font-normal" />
         }
       >
         <span className={cn(!selected && "text-muted-foreground")}>
-          {selected ? selected.name : placeholder}
+          {selected ? selected.name : (placeholder ?? t("dcForm.selectCustomer"))}
         </span>
         <ChevronsUpDown className="h-4 w-4 opacity-50" />
       </PopoverTrigger>
@@ -55,7 +53,7 @@ export function CustomerCombobox({
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             autoFocus
-            placeholder="Search customers..."
+            placeholder={t("dcForm.searchCustomers")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
@@ -64,7 +62,7 @@ export function CustomerCombobox({
         <div className="max-h-64 overflow-y-auto p-1">
           {filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-sm text-muted-foreground">
-              No customers found.
+              {t("dcForm.noCustomers")}
             </p>
           )}
           {filtered.map((c) => (

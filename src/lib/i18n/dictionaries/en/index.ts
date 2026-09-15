@@ -1,0 +1,32 @@
+import { common, dashboard, header, nav, search } from "@/lib/i18n/dictionaries/en/shell";
+import { dc } from "@/lib/i18n/dictionaries/en/dc";
+import {
+  billingStatus,
+  dcDetail,
+  dcHistory,
+  dcLookup,
+  dcPrintList,
+} from "@/lib/i18n/dictionaries/en/dcPages";
+import { dcViews } from "@/lib/i18n/dictionaries/en/dcViews";
+import { dcErrors, dcForm } from "@/lib/i18n/dictionaries/en/dcForm";
+import { dcPrint, dcScan } from "@/lib/i18n/dictionaries/en/dcScan";
+
+/** The English dictionary: the source every other language must match. */
+export const en = {
+  common,
+  nav,
+  header,
+  dashboard,
+  search,
+  dc,
+  dcDetail,
+  billingStatus,
+  dcHistory,
+  dcPrintList,
+  dcLookup,
+  dcViews,
+  dcForm,
+  dcErrors,
+  dcScan,
+  dcPrint,
+};

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
 import { FilePlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
@@ -22,21 +21,29 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
 import { fetchDcBilling } from "@/lib/billing-data";
-import { formatBillingMonth } from "@/lib/billing";
 import { BillingStatusBadge } from "@/components/billing-badges";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
 import { DeleteDcButton } from "@/components/delete-dc-button";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
 import { AlertTriangle, Pencil, Printer } from "lucide-react";
+import { getTranslator } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/dates";
 
-export const metadata: Metadata = { title: "Delivery Challan | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("dcDetail.pageTitle")} | Oviya Engineers` };
+}
 
 export default async function DcDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const { profile } = await getCurrentUserAndProfile();
+  const [{ profile }, { t, lang }] = await Promise.all([
+    getCurrentUserAndProfile(),
+    getTranslator(),
+  ]);
   const isAdmin = profile?.role === "admin";
+  const day = (value: string) => formatDate(value, "dd MMM yyyy", lang);
 
   const { data: dc } = await supabase.from("delivery_challans").select("*").eq("id", id).single();
   if (!dc) notFound();
@@ -98,7 +105,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
     if (followUpOf.has(key)) continue;
     followUpOf.set(key, {
       dcId: line.rootDcId,
-      dcNumber: line.rootDcNumber ?? "an earlier challan",
+      dcNumber: line.rootDcNumber ?? t("dcDetail.anEarlierChallan"),
       component,
       // The card words a draft as "owed now, and after confirming", and a
       // confirmed challan as "what it despatched, and what is left".
@@ -107,27 +114,27 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
     });
   }
 
+  const followUpCount = new Set(related.map((row) => row.dcNumber)).size;
+
   return (
     <div className="space-y-6">
       <BreadcrumbRecordLabel value={dc.dc_number} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{dc.dc_number}</h1>
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(dc.dc_date), "dd MMM yyyy")}
-          </p>
+          <p className="text-sm text-muted-foreground">{day(dc.dc_date)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <DcStatusBadge status={lifecycle} />
           <DcStatusActions id={dc.id} lifecycle={lifecycle} />
           <Button render={<Link href={`/dashboard/dc/${dc.id}/print`} />} variant="outline">
-            <Printer className="h-4 w-4" /> Print
+            <Printer className="h-4 w-4" /> {t("common.print")}
           </Button>
           {/* A completed challan is reconciled and often already invoiced, so
               editing it is behind Reopen rather than one tap away. */}
           {lifecycle !== "completed" && (
             <Button render={<Link href={`/dashboard/dc/${dc.id}/edit`} />} variant="outline">
-              <Pencil className="h-4 w-4" /> Edit
+              <Pencil className="h-4 w-4" /> {t("common.edit")}
             </Button>
           )}
           {isAdmin && <DeleteDcButton id={dc.id} dcNumber={dc.dc_number} />}
@@ -137,7 +144,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Customer</CardTitle>
+            <CardTitle className="text-base">{t("common.customer")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {/* A line is printed only when there is something on it. A dash
@@ -149,23 +156,24 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             {dc.customer_dc_number && dc.customer_dc_number.length > 0 ? (
               dc.customer_dc_number.map((num, i) => (
                 <p key={i}>
-                  Customer DC No: {num || "-"}
-                  {dc.customer_dc_date?.[i]
-                    ? ` (${format(new Date(dc.customer_dc_date[i] as string), "dd MMM yyyy")})`
-                    : ""}
+                  {t("dcDetail.customerDcNo", {
+                    value: `${num || "-"}${
+                      dc.customer_dc_date?.[i] ? ` (${day(dc.customer_dc_date[i] as string)})` : ""
+                    }`,
+                  })}
                 </p>
               ))
             ) : (
-              <p>Customer DC No: -</p>
+              <p>{t("dcDetail.customerDcNo", { value: "-" })}</p>
             )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Authorization</CardTitle>
+            <CardTitle className="text-base">{t("dcDetail.authorization")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
-            <p>Authorized by: {dc.authorized_by ?? "-"}</p>
+            <p>{t("dcDetail.authorizedBy", { name: dc.authorized_by ?? "-" })}</p>
           </CardContent>
         </Card>
       </div>
@@ -175,16 +183,18 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base text-destructive">
               <AlertTriangle className="h-4 w-4" />
-              Balance error on {overDelivered.length} row
-              {overDelivered.length === 1 ? "" : "s"}
+              {overDelivered.length === 1
+                ? t("dcDetail.balanceErrorOne")
+                : t("dcDetail.balanceError", { count: overDelivered.length })}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm text-destructive">
             {overDelivered.map((row) => (
               <p key={row.position}>
-                Row {row.position} — <span className="font-medium">{row.component}</span>: received{" "}
-                {row.received}, accounted out {row.outward} —{" "}
-                <span className="font-medium">{row.extra} extra.</span>
+                {t("dcDetail.rowPrefix", { row: row.position })} —{" "}
+                <span className="font-medium">{row.component}</span>
+                {t("dcDetail.rowFigures", { received: row.received, outward: row.outward })} —{" "}
+                <span className="font-medium">{t("dc.list.extra", { count: row.extra })}.</span>
               </p>
             ))}
           </CardContent>
@@ -202,28 +212,20 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                   className="space-y-0.5 text-amber-900"
                 >
                   <p className="font-medium">
-                    Follow-up of{" "}
+                    {t("dcDetail.followUpOf")}{" "}
                     <Link href={`/dashboard/dc/${entry.dcId}`} className="underline">
                       {entry.dcNumber}
                     </Link>
                   </p>
                   <p>{entry.component}</p>
                   {isDraft ? (
-                    <p>
-                      Balance there now <span className="font-semibold">{entry.now}</span>.
-                      Confirming this despatches {entry.here}, leaving{" "}
-                      <span className="font-semibold">{after}</span>.
-                    </p>
+                    <p>{t("dcDetail.draftNote", { now: entry.now, here: entry.here, after })}</p>
                   ) : (
-                    <p>
-                      This challan despatched {entry.here}. Balance there now{" "}
-                      <span className="font-semibold">{entry.now}</span>.
-                    </p>
+                    <p>{t("dcDetail.confirmedNote", { here: entry.here, now: entry.now })}</p>
                   )}
                   {after < 0 && (
                     <p className="font-medium text-destructive">
-                      That is {-after} more than remains, so confirming will be refused. Edit it
-                      first.
+                      {t("dcDetail.overRemaining", { count: -after })}
                     </p>
                   )}
                 </div>
@@ -235,27 +237,27 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Material / Component Details</CardTitle>
+          <CardTitle className="text-base">{t("dcDetail.materialDetails")}</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead>Material</TableHead>
+                <TableHead>{t("dc.cols.description")}</TableHead>
+                <TableHead>{t("common.material")}</TableHead>
                 {/* Named for what the column holds, as on the follow-up form:
                     a follow-up receives nothing, so its figure is what is
                     pending on the line it continues. */}
                 <TableHead>
                   {(items ?? []).length > 0 && (items ?? []).every((i) => i.parent_item_id)
-                    ? "Pending"
-                    : "Received Qty"}
+                    ? t("dc.qty.pending")
+                    : t("dcDetail.receivedQty")}
                 </TableHead>
-                <TableHead>Sent Qty</TableHead>
-                <TableHead>Material Problem</TableHead>
-                <TableHead>Rejection</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Balance</TableHead>
+                <TableHead>{t("dcDetail.sentQty")}</TableHead>
+                <TableHead>{t("dcDetail.materialProblem")}</TableHead>
+                <TableHead>{t("dc.qty.rejection")}</TableHead>
+                <TableHead>{t("dc.qty.total")}</TableHead>
+                <TableHead>{t("dc.qty.balance")}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -281,7 +283,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                         <>
                           {pending}
                           <span className="block text-xs text-muted-foreground">
-                            pending on {entry.dcNumber}
+                            {t("dc.list.pendingOn", { dc: entry.dcNumber })}
                           </span>
                         </>
                       ) : line.continues ? (
@@ -297,7 +299,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                           challan's own figure is shown beneath when they differ. */}
                       {!line.continues && line.sent !== line.ownSent && (
                         <span className="block text-xs text-muted-foreground">
-                          {line.ownSent} on this DC
+                          {t("dc.list.onThisDc", { count: line.ownSent })}
                         </span>
                       )}
                     </TableCell>
@@ -318,19 +320,20 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                       {balance === null
                         ? "—"
                         : balance < 0
-                          ? `${-balance} extra`
+                          ? t("dc.list.extra", { count: -balance })
                           : balance > 0
-                            ? `${balance} pending`
+                            ? t("dc.list.pendingCount", { count: balance })
                             : "0"}
                       {line.onDraft > 0 && (
                         <span className="block text-xs text-muted-foreground">
-                          {line.onDraft} on draft, not yet counted
+                          {t("dcDetail.onDraftNotCounted", { count: line.onDraft })}
                         </span>
                       )}
                       {entry && (
                         <span className="block text-xs text-muted-foreground">
-                          left on {entry.dcNumber}
-                          {isDraft ? " once confirmed" : ""}
+                          {isDraft
+                            ? t("dc.list.leftOnOnceConfirmed", { dc: entry.dcNumber })
+                            : t("dc.list.leftOn", { dc: entry.dcNumber })}
                         </span>
                       )}
                     </TableCell>
@@ -345,7 +348,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                           size="sm"
                           className="h-11 sm:h-7"
                         >
-                          <FilePlus2 className="h-4 w-4" /> Create Follow-up DC
+                          <FilePlus2 className="h-4 w-4" /> {t("dc.list.createFollowUp")}
                         </Button>
                       )}
                     </TableCell>
@@ -363,9 +366,11 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
             <div>
-              <CardTitle className="text-base text-[#10233f]">Billing</CardTitle>
+              <CardTitle className="text-base text-[#10233f]">{t("nav.billing")}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Billing month {formatBillingMonth([...billing.values()][0].billingMonth)}
+                {t("dcDetail.billingMonth", {
+                  month: formatDate([...billing.values()][0].billingMonth, "MMMM yyyy", lang),
+                })}
               </p>
             </div>
             {[...billing.values()].some((line) => line.unbilled > 0) ? (
@@ -379,7 +384,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 size="sm"
                 className="h-11 sm:h-8"
               >
-                <FilePlus2 className="h-4 w-4" /> Bill this DC
+                <FilePlus2 className="h-4 w-4" /> {t("dcDetail.billThisDc")}
               </Button>
             ) : null}
           </CardHeader>
@@ -387,12 +392,12 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
             <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Component / Material</TableHead>
-                  <TableHead className="text-right">Sent (billable)</TableHead>
-                  <TableHead className="text-right">Billed</TableHead>
-                  <TableHead className="text-right">Unbilled</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Invoices</TableHead>
+                  <TableHead>{t("dcDetail.componentMaterial")}</TableHead>
+                  <TableHead className="text-right">{t("dcDetail.sentBillable")}</TableHead>
+                  <TableHead className="text-right">{t("dcDetail.billed")}</TableHead>
+                  <TableHead className="text-right">{t("dcDetail.unbilled")}</TableHead>
+                  <TableHead>{t("common.status")}</TableHead>
+                  <TableHead>{t("dcDetail.invoices")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -427,7 +432,9 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                                 <span className="text-muted-foreground">
                                   {" "}
                                   · {inv.quantity}
-                                  {inv.status === "cancelled" ? " · cancelled" : ""}
+                                  {inv.status === "cancelled"
+                                    ? ` · ${t("dcDetail.cancelled")}`
+                                    : ""}
                                 </span>
                               </span>
                             ))}
@@ -444,27 +451,29 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
       {related.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">Follow-up DC History</CardTitle>
+            <CardTitle className="text-base text-[#10233f]">
+              {t("dcDetail.followUpHistory")}
+            </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {new Set(related.map((row) => row.dcNumber)).size} follow-up challan
-              {new Set(related.map((row) => row.dcNumber)).size === 1 ? "" : "s"} raised against
-              this one. Each opens on its own.
+              {followUpCount === 1
+                ? t("dcDetail.followUpCountOne")
+                : t("dcDetail.followUpCount", { count: followUpCount })}
             </p>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
             <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Follow-up DC No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Component</TableHead>
-                  <TableHead>Material</TableHead>
-                  <TableHead className="text-right">Sent</TableHead>
-                  <TableHead className="text-right">Mat. Problem</TableHead>
-                  <TableHead className="text-right">Rejection</TableHead>
-                  <TableHead className="text-right">Remaining Balance</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("dcDetail.followUpDcNo")}</TableHead>
+                  <TableHead>{t("common.date")}</TableHead>
+                  <TableHead>{t("common.component")}</TableHead>
+                  <TableHead>{t("common.material")}</TableHead>
+                  <TableHead className="text-right">{t("dc.qty.sent")}</TableHead>
+                  <TableHead className="text-right">{t("dc.qty.matProblem")}</TableHead>
+                  <TableHead className="text-right">{t("dc.qty.rejection")}</TableHead>
+                  <TableHead className="text-right">{t("dcDetail.remainingBalance")}</TableHead>
+                  <TableHead>{t("common.status")}</TableHead>
+                  <TableHead className="text-right">{t("common.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -479,7 +488,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                       </Link>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {row.dcDate ? format(new Date(row.dcDate), "dd MMM yyyy") : "-"}
+                      {row.dcDate ? day(row.dcDate) : "-"}
                     </TableCell>
                     <TableCell className="min-w-[200px] whitespace-normal">
                       {row.component}
@@ -502,7 +511,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                       {row.remainingAfter === null
                         ? "—"
                         : row.remainingAfter < 0
-                          ? `${-row.remainingAfter} extra`
+                          ? t("dc.list.extra", { count: -row.remainingAfter })
                           : row.remainingAfter}
                     </TableCell>
                     <TableCell>
@@ -519,7 +528,9 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                               : "bg-blue-100 text-blue-700"
                           }`}
                         >
-                          {row.remainingAfter === 0 ? "Completed" : "Pending"}
+                          {row.remainingAfter === 0
+                            ? t("dc.lifecycle.completed")
+                            : t("dcDetail.pendingStatus")}
                         </Badge>
                       )}
                     </TableCell>
@@ -530,16 +541,16 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                         size="sm"
                         className="h-11 sm:h-7"
                       >
-                        View
+                        {t("common.view")}
                       </Button>
                       <Button
                         render={<Link href={`/dashboard/dc/${row.dcId}/print`} />}
                         variant="outline"
                         size="sm"
                         className="h-11 sm:h-7"
-                        aria-label={`Print ${row.dcNumber}`}
+                        aria-label={t("dc.list.printDc", { dc: row.dcNumber })}
                       >
-                        <Printer className="h-4 w-4" /> Print
+                        <Printer className="h-4 w-4" /> {t("common.print")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -548,7 +559,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                     above. A draft is listed so it is not forgotten, but it has
                     not gone out yet. */}
                 <TableRow className="border-t-2 font-medium">
-                  <TableCell colSpan={4}>Confirmed against this challan</TableCell>
+                  <TableCell colSpan={4}>{t("dcDetail.confirmedAgainst")}</TableCell>
                   <TableCell className="text-right">
                     {related
                       .filter((row) => !row.draft)
@@ -568,7 +579,7 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                 </TableRow>
                 {related.some((row) => row.draft) && (
                   <TableRow className="text-muted-foreground">
-                    <TableCell colSpan={4}>On drafts, not yet counted</TableCell>
+                    <TableCell colSpan={4}>{t("dcDetail.onDraftsNotCounted")}</TableCell>
                     <TableCell className="text-right">
                       {related
                         .filter((row) => row.draft)
@@ -594,7 +605,9 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
       )}
 
       <Card>
-        <CardContent className="text-sm font-medium">Sent after machining</CardContent>
+        <CardContent className="text-sm font-medium">
+          {t("dcDetail.sentAfterMachining")}
+        </CardContent>
       </Card>
     </div>
   );
