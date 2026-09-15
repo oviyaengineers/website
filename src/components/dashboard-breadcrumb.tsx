@@ -51,7 +51,17 @@ function labelFor(segment: string): string {
     .join(" ");
 }
 
-export type Crumb = { label: string; href: string; isRecord: boolean };
+/** href is null for a folder with no page of its own, so the crumb is plain text. */
+export type Crumb = { label: string; href: string | null; isRecord: boolean };
+
+// Folders that only group pages beneath them. Linking them led to a 404, and
+// the browser's prefetch of the link logged one on every page under them.
+const NO_PAGE = [
+  /^\/dashboard\/settings$/,
+  /^\/dashboard\/reports$/,
+  /^\/dashboard\/dc\/component$/,
+  /^\/dashboard\/customers\/[^/]+$/,
+];
 
 export function buildCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean);
@@ -62,9 +72,10 @@ export function buildCrumbs(pathname: string): Crumb[] {
     const isRecord = !recordSeen && UUID.test(segment);
     if (isRecord) recordSeen = true;
 
+    const href = `/${segments.slice(0, i + 1).join("/")}`;
     return {
       label: labelFor(segment),
-      href: `/${segments.slice(0, i + 1).join("/")}`,
+      href: NO_PAGE.some((pattern) => pattern.test(href)) ? null : href,
       isRecord,
     };
   });
@@ -132,12 +143,14 @@ export function DashboardBreadcrumb() {
           const isLast = i === crumbs.length - 1;
           const text = crumb.isRecord && label ? label : crumb.label;
           return (
-            <li key={crumb.href} className="flex items-center gap-1">
+            <li key={`${i}-${crumb.label}`} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-50" />}
               {isLast ? (
                 <span aria-current="page" className="font-medium text-foreground">
                   {text}
                 </span>
+              ) : crumb.href === null ? (
+                <span>{text}</span>
               ) : (
                 <Link href={crumb.href} className="rounded transition-colors hover:text-foreground">
                   {text}
