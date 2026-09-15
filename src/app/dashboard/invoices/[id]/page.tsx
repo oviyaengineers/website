@@ -8,7 +8,7 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentStatusBadge } from "@/components/status-badge";
-import { InvoiceStatusBadge } from "@/components/billing-badges";
+import { BillTypeBadge, InvoiceStatusBadge } from "@/components/billing-badges";
 import { InvoiceCancelButton } from "@/components/invoice-cancel-button";
 import { InvoicePaymentForm } from "@/components/invoice-payment-form";
 import { BreadcrumbRecordLabel } from "@/components/dashboard-breadcrumb";
@@ -36,6 +36,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const buyer = invoice.buyer_snapshot;
   const seller = invoice.seller_snapshot;
   const cancelled = invoice.status === "cancelled";
+  const gst = invoice.gst_bill;
   const work = workLines.reduce((sum, l) => sum + Number(l.amount), 0);
 
   return (
@@ -50,6 +51,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
+          <BillTypeBadge gstBill={gst} />
           <InvoiceStatusBadge status={invoice.status} />
           {!cancelled ? <PaymentStatusBadge status={invoice.payment_status} /> : null}
           <Button
@@ -86,23 +88,38 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <p className="whitespace-pre-line text-muted-foreground">{buyer.address}</p>
             ) : null}
             <p className="text-muted-foreground">State: {buyer?.state ?? "-"}</p>
-            <p className="text-muted-foreground">GSTIN: {buyer?.gstin ?? "-"}</p>
+            {gst ? <p className="text-muted-foreground">GSTIN: {buyer?.gstin ?? "-"}</p> : null}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Invoice</CardTitle>
+            <CardTitle className="text-base">
+              {gst ? "GST tax invoice" : "Normal bill (no GST)"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <p>Billing month: {formatBillingMonth(invoice.billing_month)}</p>
-            <p>Invoice date: {day(invoice.invoice_date)}</p>
-            <p>Due date: {day(invoice.due_date)}</p>
             <p>
-              Tax:{" "}
-              {invoice.tax_type === "inter" ? "IGST (inter-state)" : "CGST + SGST (intra-state)"}
+              {gst ? "Invoice" : "Bill"} date: {day(invoice.invoice_date)}
             </p>
-            <p>Place of supply: {invoice.place_of_supply ?? "-"}</p>
-            <p className="text-muted-foreground">Seller GSTIN: {seller?.gstin ?? "-"}</p>
+            <p>Due date: {day(invoice.due_date)}</p>
+            {gst ? (
+              <>
+                <p>
+                  Tax:{" "}
+                  {invoice.tax_type === "inter"
+                    ? "IGST (inter-state)"
+                    : "CGST + SGST (intra-state)"}
+                </p>
+                <p>Place of supply: {invoice.place_of_supply ?? "-"}</p>
+                <p className="text-muted-foreground">Seller GSTIN: {seller?.gstin ?? "-"}</p>
+              </>
+            ) : (
+              <p className="text-muted-foreground">
+                GST Bill OFF: no CGST, SGST or IGST. To make it a GST invoice, cancel it and create
+                a new one.
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -294,13 +311,18 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               ["Other charges", Number(invoice.other_charges)],
               ["Subtotal", Number(invoice.subtotal)],
               ["Discount", -Number(invoice.discount)],
-              ["Taxable value", Number(invoice.taxable_value)],
-              ...(invoice.tax_type === "inter"
-                ? [[`IGST ${Number(invoice.igst_rate)}%`, Number(invoice.igst_amount)]]
-                : [
-                    [`CGST ${Number(invoice.cgst_rate)}%`, Number(invoice.cgst_amount)],
-                    [`SGST ${Number(invoice.sgst_rate)}%`, Number(invoice.sgst_amount)],
-                  ]),
+              ...(gst
+                ? [
+                    ["Taxable value", Number(invoice.taxable_value)],
+                    ...(invoice.tax_type === "inter"
+                      ? [[`IGST ${Number(invoice.igst_rate)}%`, Number(invoice.igst_amount)]]
+                      : [
+                          [`CGST ${Number(invoice.cgst_rate)}%`, Number(invoice.cgst_amount)],
+                          [`SGST ${Number(invoice.sgst_rate)}%`, Number(invoice.sgst_amount)],
+                        ]),
+                    ["Total tax", Number(invoice.gst_amount)],
+                  ]
+                : []),
             ].map(([label, value]) => (
               <p key={label as string} className="flex justify-between gap-4">
                 <span className="text-muted-foreground">{label}</span>

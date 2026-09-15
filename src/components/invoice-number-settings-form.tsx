@@ -10,8 +10,9 @@ import { formatInvoiceNumber } from "@/lib/billing";
 import type { InvoiceNumberSeriesRow } from "@/types/database";
 
 /**
- * Where the invoice series goes next. Separate from DC numbering. Numbers
- * already on an invoice are never rewritten and are skipped if reached again.
+ * Where one series goes next: GST tax invoices or normal bills. Separate from
+ * DC numbering and from each other. Numbers already on an invoice are never
+ * rewritten and are skipped if reached again.
  */
 export function InvoiceNumberSettingsForm({ series }: { series: InvoiceNumberSeriesRow }) {
   const [state, formAction, pending] = useActionState(saveInvoiceSeriesAction, { error: null });
@@ -19,12 +20,14 @@ export function InvoiceNumberSettingsForm({ series }: { series: InvoiceNumberSer
   const [fyLabel, setFyLabel] = useState(series.fy_label);
   const [padding, setPadding] = useState(series.padding);
   const [nextSerial, setNextSerial] = useState(series.next_serial);
+  const label = series.kind === "gst" ? "GST tax invoice" : "normal bill";
   useEffect(() => {
-    if (state.saved) toast.success("Invoice numbering saved.");
-  }, [state]);
+    if (state.saved) toast.success(`Numbering for ${label}s saved.`);
+  }, [state, label]);
 
+  const id = (name: string) => `${series.kind}-${name}`;
   const preview = formatInvoiceNumber({
-    prefix,
+    prefix: prefix.toUpperCase(),
     fy_label: fyLabel,
     padding: Number.isFinite(padding) && padding > 0 ? padding : 3,
     next_serial: Number.isFinite(nextSerial) && nextSerial > 0 ? nextSerial : 1,
@@ -32,29 +35,31 @@ export function InvoiceNumberSettingsForm({ series }: { series: InvoiceNumberSer
 
   return (
     <form action={formAction} className="space-y-5">
+      <input type="hidden" name="kind" value={series.kind} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
-          <Label htmlFor="prefix">Prefix</Label>
+          <Label htmlFor={id("prefix")}>Prefix</Label>
           <Input
-            id="prefix"
+            id={id("prefix")}
             name="prefix"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
           />
+          <p className="text-xs text-muted-foreground">Capital letters then /, e.g. BILL/</p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="fy_label">Financial year</Label>
+          <Label htmlFor={id("fy_label")}>Financial year</Label>
           <Input
-            id="fy_label"
+            id={id("fy_label")}
             name="fy_label"
             value={fyLabel}
             onChange={(e) => setFyLabel(e.target.value)}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="next_serial">Next serial</Label>
+          <Label htmlFor={id("next_serial")}>Next serial</Label>
           <Input
-            id="next_serial"
+            id={id("next_serial")}
             name="next_serial"
             type="number"
             min="1"
@@ -63,9 +68,9 @@ export function InvoiceNumberSettingsForm({ series }: { series: InvoiceNumberSer
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="padding">Serial digits</Label>
+          <Label htmlFor={id("padding")}>Serial digits</Label>
           <Input
-            id="padding"
+            id={id("padding")}
             name="padding"
             type="number"
             min="1"
@@ -77,7 +82,7 @@ export function InvoiceNumberSettingsForm({ series }: { series: InvoiceNumberSer
       </div>
       <div className="rounded-lg border bg-muted/40 p-4">
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Next invoice will be numbered
+          Next {label} will be numbered
         </p>
         <p className="mt-1 font-mono text-xl font-semibold text-[#10233f]">{preview}</p>
       </div>

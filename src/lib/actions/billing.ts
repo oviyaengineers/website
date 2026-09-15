@@ -16,6 +16,8 @@ export type IssueInvoicePayload = {
   billing_month: string;
   invoice_date: string;
   due_date: string | null;
+  /** GST Bill ON or OFF, chosen for this invoice. */
+  gst_bill: boolean;
   gst_rate: number | null;
   discount: number;
   notes: string | null;
@@ -61,6 +63,9 @@ export async function issueInvoiceAction(
   if (!/^\d{4}-\d{2}-01$/.test(payload.billing_month ?? "")) {
     return { error: "Select the billing month." };
   }
+  if (typeof payload.gst_bill !== "boolean") {
+    return { error: "Choose GST Bill ON or OFF for this invoice." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_invoice", {
@@ -70,7 +75,11 @@ export async function issueInvoiceAction(
     p_header: {
       invoice_date: payload.invoice_date,
       due_date: payload.due_date ?? "",
-      gst_rate: payload.gst_rate === null || Number.isNaN(payload.gst_rate) ? "" : payload.gst_rate,
+      gst_bill: payload.gst_bill,
+      gst_rate:
+        !payload.gst_bill || payload.gst_rate === null || Number.isNaN(payload.gst_rate)
+          ? ""
+          : payload.gst_rate,
       discount: payload.discount || 0,
       notes: payload.notes ?? "",
     },
@@ -187,19 +196,29 @@ export async function saveCompanySettingsAction(
   return { error: null, saved: true };
 }
 
-/** Where the invoice series goes next. Issued numbers are never rewritten. */
+/**
+ * Where one series goes next: GST tax invoices or normal bills. Issued numbers
+ * are never rewritten, and the database keeps the two prefixes different so
+ * the series can never produce the same number.
+ */
 export async function saveInvoiceSeriesAction(
   _prev: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
-  const prefix = String(formData.get("prefix") ?? "").trim();
+  const kind = String(formData.get("kind") ?? "");
+  if (kind !== "gst" && kind !== "non_gst") return { error: "Choose which series to change." };
+  const prefix = String(formData.get("prefix") ?? "")
+    .trim()
+    .toUpperCase();
   const fyLabel = String(formData.get("fy_label") ?? "").trim();
   const padding = Number(formData.get("padding") ?? 3);
   const nextSerial = Number(formData.get("next_serial") ?? 1);
   if (!fyLabel || !/^[A-Za-z0-9-]{2,12}$/.test(fyLabel)) {
     return { error: "Enter the financial year, for example 26-27." };
   }
-  if (prefix.length > 12) return { error: "Keep the prefix to 12 characters or fewer." };
+  if (!/^[A-Z]{1,10}\/$/.test(prefix)) {
+    return { error: "The prefix is 1 to 10 capital letters followed by /, for example BILL/." };
+  }
   if (!Number.isInteger(padding) || padding < 1 || padding > 8) {
     return { error: "Serial digits must be between 1 and 8." };
   }
@@ -220,9 +239,16 @@ export async function saveInvoiceSeriesAction(
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     })
-    .eq("id", true)
-    .select("id");
-  if (error) return { error: error.message };
+    .eq("kind", kind)
+    .select("kind");
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "GST invoices and normal bills need different prefixes, so their numbers never overlap."
+          : error.message,
+    };
+  }
   if (!data || data.length === 0) {
     return { error: "Nothing was saved. Only an admin can change invoice numbering." };
   }

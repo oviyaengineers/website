@@ -53,6 +53,7 @@ export function invoiceErrorMessage(
   const fixed: [string, string][] = [
     ["INVOICE_NO_CUSTOMER", "Select the customer to bill." + nothing],
     ["BILLING_MONTH_INVALID", "Select the billing month." + nothing],
+    ["GST_BILL_CHOICE_MISSING", "Choose GST Bill ON or OFF for this invoice." + nothing],
     ["INVOICE_DATE_MISSING", "Enter the invoice date." + nothing],
     [
       "INVOICE_DATE_BEFORE_MONTH",

@@ -258,7 +258,10 @@ export function AppSidebar({
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      {/* The menu is longer than a laptop screen for an admin, and the kit
+          hides the scroll bar, so there was no sign more entries sat below.
+          sidebar-scroll brings back a slim bar (globals.css). */}
+      <SidebarContent className="sidebar-scroll">
         {groups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

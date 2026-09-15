@@ -50,6 +50,8 @@ export type InvoiceTotalsInput = {
   discount: number;
   gstRate: number;
   intra: boolean;
+  /** GST Bill ON (default). OFF is a normal bill: no CGST, SGST or IGST at all. */
+  gstBill?: boolean;
 };
 
 export type InvoiceTotals = {
@@ -71,9 +73,11 @@ export type InvoiceTotals = {
 /**
  * The invoice's figures: each line rounded to paise, discount taken before
  * tax, then CGST + SGST at half the rate each within the state or IGST at the
- * full rate outside it.
+ * full rate outside it. A normal bill (GST Bill OFF) stops at the taxable
+ * value: the grand total is the bill value with no tax added.
  */
 export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotals {
+  const gstBill = input.gstBill ?? true;
   const work = roundMoney(
     input.lines.reduce((sum, line) => sum + roundMoney(line.quantity * line.rate), 0)
   );
@@ -83,9 +87,10 @@ export function computeInvoiceTotals(input: InvoiceTotalsInput): InvoiceTotals {
   const subtotal = roundMoney(work + otherCharges);
   const discount = roundMoney(input.discount);
   const taxable = roundMoney(subtotal - discount);
-  const cgstRate = input.intra ? input.gstRate / 2 : 0;
-  const sgstRate = input.intra ? input.gstRate / 2 : 0;
-  const igstRate = input.intra ? 0 : input.gstRate;
+  const rate = gstBill ? input.gstRate : 0;
+  const cgstRate = input.intra ? rate / 2 : 0;
+  const sgstRate = input.intra ? rate / 2 : 0;
+  const igstRate = input.intra ? 0 : rate;
   const cgst = roundMoney((taxable * cgstRate) / 100);
   const sgst = roundMoney((taxable * sgstRate) / 100);
   const igst = roundMoney((taxable * igstRate) / 100);

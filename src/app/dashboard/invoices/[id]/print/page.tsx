@@ -13,7 +13,8 @@ const day = (value: string | null) =>
 const CELL = "border border-[#222] px-1.5 py-1";
 
 /**
- * The customer-facing tax invoice, one A4 page.
+ * The customer-facing document, one A4 page: a TAX INVOICE when GST Bill is
+ * ON, or a plain BILL when it is OFF, with no GSTIN, HSN/SAC or tax rows.
  *
  * Seller and buyer come from the snapshots taken when the invoice was issued,
  * so a reprint matches the original even after Settings or the customer change.
@@ -29,6 +30,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
   const buyer = invoice.buyer_snapshot;
   const intra = invoice.tax_type !== "inter";
   const cancelled = invoice.status === "cancelled";
+  const gst = invoice.gst_bill;
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
@@ -45,60 +47,65 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
 
           <div className="border border-[#222]">
             <div className="border-b border-[#222] px-3 py-1 text-center text-base font-bold tracking-wide">
-              TAX INVOICE
+              {gst ? "TAX INVOICE" : "BILL"}
             </div>
             <div className="grid grid-cols-[1.4fr_1fr] text-[10.5px]">
               <div className="border-r border-[#222] p-2">
                 <p className="text-sm font-bold">{seller?.legal_name ?? ""}</p>
                 {seller?.address ? <p className="whitespace-pre-line">{seller.address}</p> : null}
                 <p>State: {seller?.state ?? ""}</p>
-                <p>GSTIN: {seller?.gstin ?? ""}</p>
+                {gst ? <p>GSTIN: {seller?.gstin ?? ""}</p> : null}
                 {seller?.phone || seller?.email ? (
                   <p>{[seller?.phone, seller?.email].filter(Boolean).join(" · ")}</p>
                 ) : null}
               </div>
               <div className="grid grid-cols-[auto_1fr] content-start gap-x-2 p-2">
-                <span className="font-semibold">Invoice No.</span>
+                <span className="font-semibold">{gst ? "Invoice No." : "Bill No."}</span>
                 <span className="font-bold">{invoice.invoice_number}</span>
-                <span className="font-semibold">Invoice Date</span>
+                <span className="font-semibold">{gst ? "Invoice Date" : "Bill Date"}</span>
                 <span>{day(invoice.invoice_date)}</span>
                 <span className="font-semibold">Billing Month</span>
                 <span>{formatBillingMonth(invoice.billing_month)}</span>
                 <span className="font-semibold">Due Date</span>
                 <span>{day(invoice.due_date)}</span>
-                <span className="font-semibold">Place of Supply</span>
-                <span>{invoice.place_of_supply ?? "-"}</span>
+                {gst ? (
+                  <>
+                    <span className="font-semibold">Place of Supply</span>
+                    <span>{invoice.place_of_supply ?? "-"}</span>
+                  </>
+                ) : null}
               </div>
             </div>
             <div className="border-t border-[#222] p-2 text-[10.5px]">
               <p className="font-semibold">Bill To</p>
               <p className="text-sm font-bold">{buyer?.name ?? detail.customerName}</p>
               {buyer?.address ? <p className="whitespace-pre-line">{buyer.address}</p> : null}
-              <p>
-                State: {buyer?.state ?? "-"} · GSTIN: {buyer?.gstin ?? "Unregistered"}
-              </p>
+              {gst ? (
+                <p>
+                  State: {buyer?.state ?? "-"} · GSTIN: {buyer?.gstin ?? "Unregistered"}
+                </p>
+              ) : buyer?.state ? (
+                <p>State: {buyer.state}</p>
+              ) : null}
             </div>
           </div>
 
           <table className="mt-2 w-full border-collapse text-[10px]">
             <colgroup>
-              <col style={{ width: "5%" }} />
-              <col style={{ width: "39%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "16%" }} />
+              {(gst ? [5, 39, 10, 10, 9, 11, 16] : [5, 49, 10, 9, 11, 16]).map((width, i) => (
+                <col key={i} style={{ width: `${width}%` }} />
+              ))}
             </colgroup>
             <thead>
               <tr>
-                {["S.No", "Description", "Material", "HSN/SAC", "Qty", "Rate", "Amount"].map(
-                  (h) => (
-                    <th key={h} className={`${CELL} text-center font-semibold`}>
-                      {h}
-                    </th>
-                  )
-                )}
+                {(gst
+                  ? ["S.No", "Description", "Material", "HSN/SAC", "Qty", "Rate", "Amount"]
+                  : ["S.No", "Description", "Material", "Qty", "Rate", "Amount"]
+                ).map((h) => (
+                  <th key={h} className={`${CELL} text-center font-semibold`}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -108,7 +115,7 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
                     <td className={`${CELL} text-center`}>{index + 1}</td>
                     <td className={CELL}>{line.description}</td>
                     <td className={`${CELL} text-center`}>{line.material ?? "-"}</td>
-                    <td className={`${CELL} text-center`}>{line.hsn_sac ?? "-"}</td>
+                    {gst ? <td className={`${CELL} text-center`}>{line.hsn_sac ?? "-"}</td> : null}
                     <td className={`${CELL} text-right`}>{Number(line.quantity)}</td>
                     <td className={`${CELL} text-right`}>
                       {formatRupees(Number(line.unit_price))}
@@ -123,7 +130,9 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
                     <td className={`${CELL} text-center`}>{workLines.length + index + 1}</td>
                     <td className={CELL}>{charge.description}</td>
                     <td className={`${CELL} text-center`}>-</td>
-                    <td className={`${CELL} text-center`}>{charge.hsn_sac ?? "-"}</td>
+                    {gst ? (
+                      <td className={`${CELL} text-center`}>{charge.hsn_sac ?? "-"}</td>
+                    ) : null}
                     <td className={`${CELL} text-right`}>-</td>
                     <td className={`${CELL} text-right`}>-</td>
                     <td className={`${CELL} text-right`}>{formatRupees(Number(charge.amount))}</td>
@@ -186,13 +195,29 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
                     ["Subtotal", Number(invoice.subtotal)],
                     ["Other charges (included above)", Number(invoice.other_charges)],
                     ["Discount", -Number(invoice.discount)],
-                    ["Taxable value", Number(invoice.taxable_value)],
-                    ...(intra
+                    ...(gst
                       ? [
-                          [`CGST @ ${Number(invoice.cgst_rate)}%`, Number(invoice.cgst_amount)],
-                          [`SGST @ ${Number(invoice.sgst_rate)}%`, Number(invoice.sgst_amount)],
+                          ["Taxable value", Number(invoice.taxable_value)],
+                          ...(intra
+                            ? [
+                                [
+                                  `CGST @ ${Number(invoice.cgst_rate)}%`,
+                                  Number(invoice.cgst_amount),
+                                ],
+                                [
+                                  `SGST @ ${Number(invoice.sgst_rate)}%`,
+                                  Number(invoice.sgst_amount),
+                                ],
+                              ]
+                            : [
+                                [
+                                  `IGST @ ${Number(invoice.igst_rate)}%`,
+                                  Number(invoice.igst_amount),
+                                ],
+                              ]),
+                          ["Total tax", Number(invoice.gst_amount)],
                         ]
-                      : [[`IGST @ ${Number(invoice.igst_rate)}%`, Number(invoice.igst_amount)]]),
+                      : []),
                   ].map(([label, value]) => (
                     <tr key={label as string}>
                       <td className={CELL}>{label}</td>

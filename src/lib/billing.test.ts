@@ -147,3 +147,26 @@ test("grouping: same component, material, rate and HSN combine and keep every so
   assert.equal(groups[1].rate, 12);
   assert.equal(groups[1].quantity, 20);
 });
+
+test("a normal bill (GST Bill OFF) adds no CGST, SGST or IGST", async () => {
+  const { computeInvoiceTotals } = await import("./billing.ts");
+  const input = {
+    lines: [
+      { quantity: 450, rate: 10 },
+      { quantity: 200, rate: 5 },
+    ],
+    charges: [{ amount: 100 }],
+    discount: 50,
+    gstRate: 18,
+    intra: true,
+  };
+  const normal = computeInvoiceTotals({ ...input, gstBill: false });
+  assert.equal(normal.taxable, 5550);
+  assert.equal(normal.cgst + normal.sgst + normal.igst, 0);
+  assert.equal(normal.tax, 0);
+  assert.equal(normal.grandTotal, 5550);
+  const gst = computeInvoiceTotals({ ...input, gstBill: true });
+  assert.equal(gst.cgst, 499.5);
+  assert.equal(gst.sgst, 499.5);
+  assert.equal(gst.grandTotal, 6549);
+});

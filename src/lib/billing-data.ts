@@ -34,21 +34,26 @@ export async function fetchCompanySettings(
   return data ?? null;
 }
 
-export async function fetchInvoiceSeries(
-  supabase?: Supabase
-): Promise<InvoiceNumberSeriesRow | null> {
+/** Both number series: GST tax invoices (gst) and normal bills (non_gst). */
+export async function fetchInvoiceSeries(supabase?: Supabase): Promise<InvoiceNumberSeriesRow[]> {
   const db = supabase ?? (await createClient());
-  const { data } = await db.from("invoice_number_series").select("*").maybeSingle();
-  return data ?? null;
+  const { data } = await db.from("invoice_number_series").select("*").order("kind");
+  return data ?? [];
 }
 
-/** What the company must have entered before an invoice can be issued. */
-export function missingCompanyDetails(settings: CompanyBillingSettingsRow | null): string[] {
+/**
+ * What the company must have entered before issuing: the legal name for any
+ * bill, and GSTIN and state as well for a GST tax invoice.
+ */
+export function missingCompanyDetails(
+  settings: CompanyBillingSettingsRow | null,
+  gstBill = true
+): string[] {
   if (!settings) return ["billing settings"];
   const missing: string[] = [];
   if (!settings.legal_name?.trim()) missing.push("company legal name");
-  if (!settings.gstin?.trim()) missing.push("company GSTIN");
-  if (!settings.state?.trim()) missing.push("company state");
+  if (gstBill && !settings.gstin?.trim()) missing.push("company GSTIN");
+  if (gstBill && !settings.state?.trim()) missing.push("company state");
   return missing;
 }
 
@@ -201,6 +206,8 @@ export type MonthSummary = {
   unbilled: number;
   issuedInvoices: number;
   cancelledInvoices: number;
+  issuedGst: number;
+  issuedNormal: number;
   issuedTotal: number;
   paidTotal: number;
   status: MonthBillingStatus;
@@ -233,6 +240,8 @@ export async function fetchMonthSummaries(
         unbilled,
         issuedInvoices: Number(row.issued_invoices) || 0,
         cancelledInvoices: Number(row.cancelled_invoices) || 0,
+        issuedGst: Number(row.issued_gst_invoices) || 0,
+        issuedNormal: Number(row.issued_non_gst_invoices) || 0,
         issuedTotal: Number(row.issued_total) || 0,
         paidTotal: Number(row.paid_total) || 0,
         status: monthBillingStatus(sent, billed, unbilled),
@@ -293,6 +302,8 @@ export type InvoiceFilters = {
   material?: string;
   status?: string;
   payment?: string;
+  /** "gst" for GST tax invoices, "normal" for normal bills. */
+  billType?: string;
 };
 
 /** Invoices matching the filters, newest first, with the DCs they bill. */
@@ -306,6 +317,8 @@ export async function fetchInvoiceList(filters: InvoiceFilters = {}): Promise<In
   if (filters.from) query = query.gte("invoice_date", filters.from);
   if (filters.to) query = query.lte("invoice_date", filters.to);
   if (filters.billingMonth) query = query.eq("billing_month", filters.billingMonth);
+  if (filters.billType === "gst") query = query.eq("gst_bill", true);
+  if (filters.billType === "normal") query = query.eq("gst_bill", false);
   if (filters.status === "issued" || filters.status === "cancelled") {
     query = query.eq("status", filters.status);
   }

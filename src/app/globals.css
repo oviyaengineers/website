@@ -585,3 +585,23 @@
     break-inside: avoid;
   }
 }
+
+/* Sidebar menu: a visible, slim scroll bar. The kit's no-scrollbar utility
+   lives in the utilities layer, so this unlayered rule wins over it. */
+.sidebar-scroll {
+  -ms-overflow-style: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.35) transparent;
+  overscroll-behavior: contain;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.35);
+  border-radius: 9999px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}

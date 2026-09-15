@@ -53,3 +53,7 @@ test("monthly billing refusals are explained", () => {
   assert.match(invoiceErrorMessage("DC_OTHER_MONTH:26-27-020|October 2026"), /October 2026 work/);
   assert.match(invoiceErrorMessage("INVOICE_DATE_BEFORE_MONTH"), /before the billing month/);
 });
+
+test("the GST Bill choice is never assumed", () => {
+  assert.match(invoiceErrorMessage("GST_BILL_CHOICE_MISSING"), /GST Bill ON or OFF/);
+});

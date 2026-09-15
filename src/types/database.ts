@@ -212,6 +212,8 @@ export type InvoiceRow = {
   created_at: string;
   /** The calendar month billed, always its first day (0026). */
   billing_month: string;
+  /** GST Bill ON (tax invoice, INV/) or OFF (normal bill, BILL/). Fixed once issued (0027). */
+  gst_bill: boolean;
   /** issued or cancelled (0025). A cancelled invoice keeps its number. */
   status: InvoiceStatus;
   cancelled_at: string | null;
@@ -332,8 +334,9 @@ export type ComponentRateRow = {
   updated_by: string | null;
 };
 
+/** One row per series: GST tax invoices and normal bills never share numbers (0027). */
 export type InvoiceNumberSeriesRow = {
-  id: boolean;
+  kind: "gst" | "non_gst";
   prefix: string;
   fy_label: string;
   padding: number;
@@ -361,6 +364,8 @@ export type CustomerMonthBillingRow = {
   cancelled_invoices: number;
   issued_total: number;
   paid_total: number;
+  issued_gst_invoices: number;
+  issued_non_gst_invoices: number;
 };
 
 export type DcLineBillingRow = {
@@ -645,11 +650,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
-      generate_invoice_number: {
-        Args: Record<PropertyKey, never>;
+      /** Next number of one series without consuming it: GST (INV/) or normal bill (BILL/) (0027). */
+      peek_bill_number: {
+        Args: { p_gst_bill: boolean };
         Returns: string;
       };
-      /** Reads the next invoice number without consuming it (migration 0011). */
+      /** Reads the next GST tax invoice number without consuming it (0011, 0027). */
       peek_invoice_number: {
         Args: Record<PropertyKey, never>;
         Returns: string;

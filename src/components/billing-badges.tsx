@@ -44,6 +44,22 @@ export function MonthStatusBadge({ status }: { status: MonthBillingStatus }) {
   );
 }
 
+/** GST tax invoice or normal bill (no GST). Fixed once issued. */
+export function BillTypeBadge({ gstBill }: { gstBill: boolean }) {
+  return (
+    <Badge
+      variant="outline"
+      className={`border-transparent whitespace-nowrap ${
+        gstBill
+          ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+      }`}
+    >
+      {gstBill ? "GST invoice" : "Normal bill"}
+    </Badge>
+  );
+}
+
 export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   return (
     <Badge

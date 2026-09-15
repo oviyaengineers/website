@@ -60,7 +60,9 @@ export function InvoiceBuilder({
   defaultGstRate,
   defaultHsn,
   missingCompany,
+  missingCompanyAll,
   nextInvoiceNumber,
+  nextBillNumber,
   preselectDcId,
 }: {
   customers: BuilderCustomer[];
@@ -73,8 +75,14 @@ export function InvoiceBuilder({
   companyState: string | null;
   defaultGstRate: number | null;
   defaultHsn: string | null;
+  /** Company details a GST tax invoice needs that are not entered yet. */
   missingCompany: string[];
+  /** Company details any bill needs that are not entered yet. */
+  missingCompanyAll: string[];
+  /** Next GST tax invoice number (INV/ series), not yet consumed. */
   nextInvoiceNumber: string | null;
+  /** Next normal bill number (BILL/ series), not yet consumed. */
+  nextBillNumber: string | null;
   preselectDcId: string | null;
 }) {
   const router = useRouter();
@@ -95,6 +103,8 @@ export function InvoiceBuilder({
     )
   );
   const [charges, setCharges] = useState<Charge[]>([]);
+  // OFF unless the operator explicitly chooses a GST tax invoice.
+  const [gstBill, setGstBill] = useState(false);
   const [invoiceDate, setInvoiceDate] = useState(() => defaultInvoiceDate(billingMonth, today));
   const [dueDate, setDueDate] = useState("");
   const [gstRate, setGstRate] = useState(defaultGstRate === null ? "" : String(defaultGstRate));
@@ -126,11 +136,13 @@ export function InvoiceBuilder({
 
   const problems: string[] = [];
   if (!customer) problems.push("Select the customer.");
-  if (missingCompany.length > 0) {
-    problems.push(`Enter the ${missingCompany.join(", ")} in Settings → Billing Details.`);
+  // A normal bill needs only the company name; GSTIN and states only matter for GST.
+  const missingNow = gstBill ? missingCompany : missingCompanyAll;
+  if (missingNow.length > 0) {
+    problems.push(`Enter the ${missingNow.join(", ")} in Settings → Billing Details.`);
   }
-  if (customer && !customer.state?.trim()) {
-    problems.push(`Enter the state for ${customer.name} in Customers.`);
+  if (gstBill && customer && !customer.state?.trim()) {
+    problems.push(`Enter the state for ${customer.name} in Customers (needed for a GST invoice).`);
   }
   if (chosen.length === 0 && charges.length === 0) {
     problems.push("Select at least one DC line or add a charge.");
@@ -144,7 +156,9 @@ export function InvoiceBuilder({
       problems.push(`${label} has ${c.line.unbilled} left to bill, but ${q} is entered.`);
     }
     if (!(r >= 0)) problems.push(`Enter the rate for ${label}.`);
-    if (!c.hsn.trim()) problems.push(`Enter the HSN/SAC for ${label}.`);
+    if (gstBill && !c.hsn.trim()) {
+      problems.push(`Enter the HSN/SAC for ${label} (needed for a GST invoice).`);
+    }
   }
   for (const charge of charges) {
     if (!charge.description.trim()) problems.push("Give each other charge a description.");
@@ -153,7 +167,7 @@ export function InvoiceBuilder({
     }
   }
   const gst = num(gstRate);
-  if (!(gst >= 0 && gst <= 100)) problems.push("Enter the GST rate (0 to 100).");
+  if (gstBill && !(gst >= 0 && gst <= 100)) problems.push("Enter the GST rate (0 to 100).");
   const discountValue = num(discount || "0");
   if (!(discountValue >= 0)) problems.push("The discount cannot be negative.");
   if (!invoiceDate) problems.push("Enter the invoice date.");
@@ -183,6 +197,7 @@ export function InvoiceBuilder({
     discount: discountValue || 0,
     gstRate: gst || 0,
     intra,
+    gstBill,
   });
   if (totals.discount > totals.subtotal)
     problems.push("The discount cannot be more than the subtotal.");
@@ -192,7 +207,8 @@ export function InvoiceBuilder({
     billing_month: billingMonth,
     invoice_date: invoiceDate,
     due_date: dueDate || null,
-    gst_rate: Number.isNaN(gst) ? null : gst,
+    gst_bill: gstBill,
+    gst_rate: gstBill && !Number.isNaN(gst) ? gst : null,
     discount: discountValue || 0,
     notes: notes.trim() || null,
     lines: chosen.map((c) => ({
@@ -243,9 +259,11 @@ export function InvoiceBuilder({
   const goTo = (nextCustomer: string, month: string) =>
     router.push(`/dashboard/invoices/new?customer=${nextCustomer}&month=${month.slice(0, 7)}`);
 
-  const taxLabel = intra
-    ? `CGST ${totals.cgstRate}% + SGST ${totals.sgstRate}%`
-    : `IGST ${totals.igstRate}%`;
+  const taxLabel = !gstBill
+    ? "no GST"
+    : intra
+      ? `CGST ${totals.cgstRate}% + SGST ${totals.sgstRate}%`
+      : `IGST ${totals.igstRate}%`;
   const dcLabel = new Map(
     lines.map((l) => [
       l.dcItemId,
@@ -266,10 +284,20 @@ export function InvoiceBuilder({
             </p>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
+            <GstBillSwitch
+              value={gstBill}
+              onChange={setGstBill}
+              disabled={pending}
+              detail={gstBill ? `Tax: ${taxLabel}.` : "Grand total is the bill value only."}
+            />
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
               <p>
-                <span className="text-muted-foreground">Invoice number </span>
-                <span className="font-medium">{nextInvoiceNumber ?? "Assigned on issue"}</span>
+                <span className="text-muted-foreground">
+                  {gstBill ? "Invoice number " : "Bill number "}
+                </span>
+                <span className="font-medium">
+                  {(gstBill ? nextInvoiceNumber : nextBillNumber) ?? "Assigned on issue"}
+                </span>
               </p>
               <p>
                 <span className="text-muted-foreground">Customer </span>
@@ -315,7 +343,7 @@ export function InvoiceBuilder({
                             {group.material ?? "-"}
                           </span>
                         </td>
-                        <td className="p-2">{group.hsn}</td>
+                        <td className="p-2">{group.hsn || "-"}</td>
                         <td className="p-2 text-right tabular-nums">{group.quantity}</td>
                         <td className="p-2 text-right tabular-nums">{formatRupees(group.rate)}</td>
                         <td className="p-2 text-right tabular-nums">
@@ -345,7 +373,7 @@ export function InvoiceBuilder({
                 </tbody>
               </table>
             </div>
-            <Totals totals={totals} taxLabel={taxLabel} intra={intra} />
+            <Totals totals={totals} taxLabel={taxLabel} intra={intra} gstBill={gstBill} />
             <p className="text-sm">
               <span className="text-muted-foreground">Amount in words: </span>
               {amountInWords(totals.grandTotal)}
@@ -357,6 +385,13 @@ export function InvoiceBuilder({
             </p>
           </CardContent>
         </Card>
+        {problems.length > 0 ? (
+          <ul className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            {[...new Set(problems)].map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        ) : null}
         {state.error && (
           <p className="rounded-md border border-destructive bg-destructive/5 p-3 text-sm text-destructive">
             {state.error}
@@ -376,7 +411,7 @@ export function InvoiceBuilder({
             disabled={pending || !requestKey || problems.length > 0}
             className="bg-[#10233f] hover:bg-[#10233f]/90"
           >
-            {pending ? "Issuing..." : "Issue invoice"}
+            {pending ? "Issuing..." : gstBill ? "Issue GST tax invoice" : "Issue bill (no GST)"}
           </Button>
         </div>
       </form>
@@ -441,21 +476,21 @@ export function InvoiceBuilder({
         </CardContent>
       </Card>
 
-      {missingCompany.length > 0 || (customer && !customer.state?.trim()) ? (
+      {missingNow.length > 0 || (gstBill && customer && !customer.state?.trim()) ? (
         <div className="space-y-1 rounded-lg border border-amber-500 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
           <p className="flex items-center gap-2 font-medium">
             <AlertTriangle className="h-4 w-4" /> Details needed before issuing
           </p>
-          {missingCompany.length > 0 ? (
+          {missingNow.length > 0 ? (
             <p>
-              Enter the {missingCompany.join(", ")} in{" "}
+              Enter the {missingNow.join(", ")} in{" "}
               <Link href="/dashboard/settings/billing" className="underline">
                 Settings → Billing Details
               </Link>
               .
             </p>
           ) : null}
-          {customer && !customer.state?.trim() ? (
+          {gstBill && customer && !customer.state?.trim() ? (
             <p>
               Enter the state for {customer.name} in{" "}
               <Link href={`/dashboard/customers/${customer.id}/edit`} className="underline">
@@ -594,6 +629,7 @@ export function InvoiceBuilder({
                             value={pick.hsn}
                             onChange={(e) => patch(line.dcItemId, { hsn: e.target.value })}
                             className="h-9 w-28"
+                            placeholder={gstBill ? "Required" : "Optional"}
                             aria-label="HSN or SAC"
                           />
                         ) : null}
@@ -703,30 +739,35 @@ export function InvoiceBuilder({
       {customer ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base text-[#10233f]">Tax, discount and totals</CardTitle>
+            <CardTitle className="text-base text-[#10233f]">GST, discount and totals</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-6 lg:grid-cols-2">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="gst_rate">GST rate (%) *</Label>
-                <Input
-                  id="gst_rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="any"
-                  value={gstRate}
-                  onChange={(e) => setGstRate(e.target.value)}
-                  placeholder={defaultGstRate === null ? "Enter rate" : undefined}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {customer.state?.trim()
-                    ? intra
-                      ? "Same state as your company: CGST + SGST."
-                      : "Different state from your company: IGST."
-                    : "Enter the customer's state to choose the tax."}
-                </p>
+              <div className="sm:col-span-2">
+                <GstBillSwitch value={gstBill} onChange={setGstBill} />
               </div>
+              {gstBill ? (
+                <div className="space-y-2">
+                  <Label htmlFor="gst_rate">GST rate (%) *</Label>
+                  <Input
+                    id="gst_rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="any"
+                    value={gstRate}
+                    onChange={(e) => setGstRate(e.target.value)}
+                    placeholder={defaultGstRate === null ? "Enter rate" : undefined}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {customer.state?.trim()
+                      ? intra
+                        ? "Same state as your company: CGST + SGST."
+                        : "Different state from your company: IGST."
+                      : "Enter the customer's state to choose the tax."}
+                  </p>
+                </div>
+              ) : null}
               <div className="space-y-2">
                 <Label htmlFor="discount">Discount (₹)</Label>
                 <Input
@@ -750,7 +791,7 @@ export function InvoiceBuilder({
               </div>
             </div>
             <div>
-              <Totals totals={totals} taxLabel={taxLabel} intra={intra} />
+              <Totals totals={totals} taxLabel={taxLabel} intra={intra} gstBill={gstBill} />
               {groups.length > 0 ? (
                 <p className="mt-2 text-right text-xs text-muted-foreground">
                   {chosen.length} DC line{chosen.length === 1 ? "" : "s"} become {groups.length}{" "}
@@ -788,10 +829,12 @@ function Totals({
   totals,
   taxLabel,
   intra,
+  gstBill,
 }: {
   totals: ReturnType<typeof computeInvoiceTotals>;
   taxLabel: string;
   intra: boolean;
+  gstBill: boolean;
 }) {
   const row = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between gap-4 ${strong ? "border-t pt-1 font-semibold" : ""}`}>
@@ -805,17 +848,85 @@ function Totals({
       {row("Other charges", formatRupees(totals.otherCharges))}
       {row("Subtotal", formatRupees(totals.subtotal))}
       {row("Discount", `-${formatRupees(totals.discount)}`)}
-      {row("Taxable value", formatRupees(totals.taxable))}
-      {intra ? (
+      {gstBill ? (
         <>
-          {row(`CGST ${totals.cgstRate}%`, formatRupees(totals.cgst))}
-          {row(`SGST ${totals.sgstRate}%`, formatRupees(totals.sgst))}
+          {row("Taxable value", formatRupees(totals.taxable))}
+          {intra ? (
+            <>
+              {row(`CGST ${totals.cgstRate}%`, formatRupees(totals.cgst))}
+              {row(`SGST ${totals.sgstRate}%`, formatRupees(totals.sgst))}
+            </>
+          ) : (
+            row(`IGST ${totals.igstRate}%`, formatRupees(totals.igst))
+          )}
+          {row("Total tax", formatRupees(totals.tax))}
         </>
       ) : (
-        row(`IGST ${totals.igstRate}%`, formatRupees(totals.igst))
+        <p className="text-xs text-muted-foreground">Normal bill: no GST is added.</p>
       )}
       <p className="sr-only">{taxLabel}</p>
       {row("Grand total", formatRupees(totals.grandTotal), true)}
+    </div>
+  );
+}
+
+/**
+ * GST Bill ON / OFF for this one invoice. OFF (the default) is a normal bill
+ * with no tax; ON is a GST tax invoice. Changing it never touches DC data.
+ */
+function GstBillSwitch({
+  value,
+  onChange,
+  disabled = false,
+  detail,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  detail?: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg border-2 p-3 ${
+        value
+          ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/30"
+          : "border-slate-400 bg-slate-50 dark:bg-slate-900/40"
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-base font-semibold">
+            GST Bill: {value ? "ON — GST tax invoice" : "OFF — normal bill, no GST"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {value
+              ? "CGST + SGST or IGST is added. Company GSTIN, both states, GST rate and HSN/SAC are required."
+              : "No CGST, SGST or IGST. GSTIN, HSN/SAC and GST rate are not needed."}
+            {detail ? ` ${detail}` : ""}
+          </p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="GST Bill"
+          className="inline-flex shrink-0 overflow-hidden rounded-md border bg-background"
+        >
+          {[false, true].map((option) => (
+            <button
+              key={String(option)}
+              type="button"
+              role="radio"
+              aria-checked={value === option}
+              disabled={disabled}
+              onClick={() => onChange(option)}
+              className={`h-11 min-w-16 px-4 text-sm font-semibold sm:h-9 ${
+                value === option ? "bg-[#10233f] text-white" : "text-foreground hover:bg-muted"
+              }`}
+            >
+              {option ? "ON" : "OFF"}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

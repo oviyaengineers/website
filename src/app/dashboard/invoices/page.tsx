@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PaymentStatusBadge } from "@/components/status-badge";
-import { InvoiceStatusBadge, MonthStatusBadge } from "@/components/billing-badges";
+import { BillTypeBadge, InvoiceStatusBadge, MonthStatusBadge } from "@/components/billing-badges";
 import { fetchInvoiceList, fetchMonthSummaries, type InvoiceFilters } from "@/lib/billing-data";
 import { formatBillingMonth, formatRupees, parseMonthInput } from "@/lib/billing";
 import { shortCustomerName } from "@/lib/customer-name";
@@ -29,6 +29,7 @@ function clean(params: Record<string, string | undefined>): InvoiceFilters {
     material: t(params.material),
     status: t(params.status),
     payment: t(params.payment),
+    billType: t(params.bill),
   };
 }
 
@@ -175,6 +176,18 @@ export default async function InvoicesPage({
           </select>
         </div>
         <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Bill type</label>
+          <select
+            name="bill"
+            defaultValue={filters.billType ?? ""}
+            className={`${selectClass} w-40`}
+          >
+            <option value="">All</option>
+            <option value="gst">GST invoices</option>
+            <option value="normal">Normal bills</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Payment</label>
           <select
             name="payment"
@@ -248,6 +261,11 @@ export default async function InvoicesPage({
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">
                       {m.issuedInvoices}
+                      {m.issuedInvoices > 0 ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {m.issuedGst} GST · {m.issuedNormal} normal
+                        </span>
+                      ) : null}
                       {m.cancelledInvoices > 0 ? (
                         <span className="text-xs text-muted-foreground">
                           {" "}
@@ -327,6 +345,9 @@ export default async function InvoicesPage({
                 >
                   <td className="px-3 py-2.5 font-medium whitespace-nowrap">
                     {inv.invoice_number}
+                    <span className="mt-1 block">
+                      <BillTypeBadge gstBill={inv.gst_bill} />
+                    </span>
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     {format(new Date(`${inv.invoice_date}T00:00:00`), "dd MMM yyyy")}
@@ -394,6 +415,7 @@ export default async function InvoicesPage({
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-medium">{inv.invoice_number}</p>
+                  <BillTypeBadge gstBill={inv.gst_bill} />
                   <p className="text-muted-foreground">
                     {formatBillingMonth(inv.billing_month)} ·{" "}
                     {format(new Date(`${inv.invoice_date}T00:00:00`), "dd MMM yyyy")} ·{" "}

@@ -20,10 +20,11 @@ export default async function NewInvoicePage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const [{ data: customers }, settings, { data: nextNumber }] = await Promise.all([
+  const [{ data: customers }, settings, { data: nextGst }, { data: nextBill }] = await Promise.all([
     supabase.from("customers").select("id, name, state, gst_number").order("name"),
     fetchCompanySettings(supabase),
-    supabase.rpc("peek_invoice_number"),
+    supabase.rpc("peek_bill_number", { p_gst_bill: true }),
+    supabase.rpc("peek_bill_number", { p_gst_bill: false }),
   ]);
 
   const list = customers ?? [];
@@ -74,8 +75,8 @@ export default async function NewInvoicePage({
       <div>
         <h1 className="text-2xl font-semibold">New Invoice</h1>
         <p className="text-sm text-muted-foreground">
-          Bill Sent quantity from one month&apos;s issued delivery challans. Only what is still
-          unbilled can be selected.
+          Bill Sent quantity from one month&apos;s issued delivery challans. Choose GST Bill ON for
+          a GST tax invoice, or leave it OFF for a normal bill with no GST.
         </p>
       </div>
       {/* Keyed on customer and month, so switching either starts a fresh selection. */}
@@ -94,8 +95,10 @@ export default async function NewInvoicePage({
             : Number(settings.default_gst_rate)
         }
         defaultHsn={settings?.default_hsn_sac ?? null}
-        missingCompany={missingCompanyDetails(settings)}
-        nextInvoiceNumber={typeof nextNumber === "string" ? nextNumber : null}
+        missingCompany={missingCompanyDetails(settings, true)}
+        missingCompanyAll={missingCompanyDetails(settings, false)}
+        nextInvoiceNumber={typeof nextGst === "string" ? nextGst : null}
+        nextBillNumber={typeof nextBill === "string" ? nextBill : null}
         preselectDcId={preselectDcId}
       />
     </div>
