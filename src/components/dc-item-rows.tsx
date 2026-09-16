@@ -60,6 +60,9 @@ export function isBlankDcItemRow(row: DcItemRow): boolean {
   );
 }
 
+/** A small caption above a field on a phone; the column heading serves on a laptop. */
+const PHONE_LABEL = "text-[11px] font-medium text-muted-foreground sm:hidden";
+
 export function DcItemRows({
   rows,
   onRowsChange,
@@ -127,10 +130,12 @@ export function DcItemRows({
             return (
               <div
                 key={row.key}
-                className="grid gap-2 rounded-lg border p-3 [&_[data-slot=select-trigger]]:h-11 sm:[&_[data-slot=select-trigger]]:h-8 sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px] sm:items-center sm:border-0 sm:p-0"
+                className="relative grid gap-2 rounded-lg border p-3 [&_[data-slot=select-trigger]]:h-11 sm:relative sm:grid-cols-[1fr_1fr_80px_80px_100px_80px_80px_90px_36px] sm:items-center sm:border-0 sm:p-0 sm:[&_[data-slot=select-trigger]]:h-8"
               >
-                <div className="space-y-1">
-                  <Label className="sm:hidden">{t("dc.cols.description")}</Label>
+                {/* On a phone the remove button sits in the row's own corner
+                    rather than taking a line of its own at the bottom. */}
+                <div className="space-y-1 pr-10 sm:pr-0">
+                  <Label className={PHONE_LABEL}>{t("dc.cols.description")}</Label>
                   <input type="hidden" name="item_component" value={row.component} />
                   {/* The stored line's id when editing, empty on a new row. An
                       edited line keeps its id, which is what any follow-up DC
@@ -165,7 +170,7 @@ export function DcItemRows({
                   <ComponentPendingDcs component={row.component} excludeDcId={excludeDcId} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="sm:hidden">{t("common.material")}</Label>
+                  <Label className={PHONE_LABEL}>{t("common.material")}</Label>
                   <input type="hidden" name="item_material" value={row.material ?? ""} />
                   <SearchableSelect
                     options={materials}
@@ -181,10 +186,15 @@ export function DcItemRows({
                     ariaLabel={t("common.material")}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
+                {/* All four quantities on one line on a phone, so a row is a
+                    few taps tall instead of a screenful. Full height is kept
+                    for the boxes themselves: they are typed into. */}
+                {/* Bottom-aligned: a caption that wraps to two lines in Tamil
+                    must not push its box below the other three. */}
+                <div className="grid grid-cols-4 items-end gap-1.5 [&_input]:h-11 [&_input]:px-1 [&_input]:text-center sm:contents sm:[&_input]:h-8 sm:[&_input]:px-3 sm:[&_input]:text-left">
                   <div className="space-y-1">
-                    <Label className="sm:hidden">
-                      {owed === undefined ? t("dcDetail.receivedQty") : t("dc.qty.pending")}
+                    <Label className={PHONE_LABEL}>
+                      {owed === undefined ? t("dc.qty.recd") : t("dc.qty.pending")}
                     </Label>
                     {owed === undefined ? (
                       <Input
@@ -213,7 +223,7 @@ export function DcItemRows({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="sm:hidden">{t("dcDetail.sentQty")}</Label>
+                    <Label className={PHONE_LABEL}>{t("dc.qty.sent")}</Label>
                     <Input
                       name="item_sent_qty"
                       type="number"
@@ -223,10 +233,8 @@ export function DcItemRows({
                       onChange={(e) => updateRow(row.key, { sent_qty: Number(e.target.value) })}
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 [&_input]:h-11 sm:contents sm:[&_input]:h-8">
                   <div className="space-y-1">
-                    <Label className="sm:hidden">{t("dcDetail.materialProblem")}</Label>
+                    <Label className={PHONE_LABEL}>{t("dc.qty.matProblem")}</Label>
                     <Input
                       name="item_material_problem_qty"
                       type="number"
@@ -241,7 +249,7 @@ export function DcItemRows({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="sm:hidden">{t("dc.qty.rejection")}</Label>
+                    <Label className={PHONE_LABEL}>{t("dc.qty.rejection")}</Label>
                     <Input
                       name="item_rejection_qty"
                       type="number"
@@ -256,12 +264,14 @@ export function DcItemRows({
                     />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="sm:hidden">{t("dc.qty.total")}</Label>
+                {/* Total and Balance are worked out, never typed. On a phone
+                    they read as one line instead of two more boxes. */}
+                <div className="hidden space-y-1 sm:block">
+                  <Label className={PHONE_LABEL}>{t("dc.qty.total")}</Label>
                   <Input disabled value={total} className="bg-muted" />
                 </div>
-                <div className="space-y-1">
-                  <Label className="sm:hidden">{t("dc.qty.balance")}</Label>
+                <div className="hidden space-y-1 sm:block">
+                  <Label className={PHONE_LABEL}>{t("dc.qty.balance")}</Label>
                   <Input
                     disabled
                     value={overDelivered ? t("dc.list.extra", { count: balance }) : balance}
@@ -272,11 +282,26 @@ export function DcItemRows({
                     }
                   />
                 </div>
+                <div
+                  className={`flex items-center justify-between gap-2 rounded-md px-2 py-1 text-xs sm:hidden ${
+                    overDelivered ? "bg-destructive/10 text-destructive" : "bg-muted/60"
+                  }`}
+                >
+                  <span>
+                    {t("dc.qty.total")} <span className="font-semibold tabular-nums">{total}</span>
+                  </span>
+                  <span>
+                    {t("dc.qty.balance")}{" "}
+                    <span className="font-semibold tabular-nums">
+                      {overDelivered ? t("dc.list.extra", { count: balance }) : balance}
+                    </span>
+                  </span>
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="text-destructive sm:justify-self-center"
+                  className="absolute right-2 top-2 size-8 text-destructive sm:static sm:size-9 sm:justify-self-center"
                   aria-label={t("dcForm.removeRow")}
                   onClick={() => removeRow(row.key)}
                   disabled={rows.length === 1}
