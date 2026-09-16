@@ -154,7 +154,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       {/* The items grow to fill the page, so the totals and signature sit at
           the foot of the sheet whatever the number of lines. */}
       <div className="invoice-items mt-2 flex flex-1 flex-col">
-        <table className="w-full border-collapse text-[10.5px]">
+        <table className="w-full table-fixed border-collapse text-[10.5px]">
           <colgroup>
             {widths.map((width, i) => (
               <col key={i} style={{ width: `${width}%` }} />
@@ -199,7 +199,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
             book instead of stopping short. A table of its own with the same
             columns, stretched to fill, so its lines fall exactly under the
             ones above. */}
-        <table className="invoice-items-filler w-full flex-1 border-collapse">
+        <table className="invoice-items-filler w-full flex-1 table-fixed border-collapse">
           <colgroup>
             {widths.map((width, i) => (
               <col key={i} style={{ width: `${width}%` }} />
