@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useI18n } from "@/components/i18n-provider";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
+  const { t } = useI18n();
   const [state, formAction, pending] = useActionState(loginAction, {
     error: null,
   });
@@ -15,14 +17,14 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
   return (
     <Card className="border-slate-800 bg-slate-900/60 backdrop-blur">
       <CardHeader>
-        <CardTitle className="text-slate-100">Sign in</CardTitle>
+        <CardTitle className="text-slate-100">{t("auth.signIn")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="redirectTo" value={redirectTo} />
           <div className="space-y-2">
             <Label htmlFor="email" className="text-slate-300">
-              Email
+              {t("auth.email")}
             </Label>
             <Input
               id="email"
@@ -36,7 +38,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-slate-300">
-              Password
+              {t("auth.password")}
             </Label>
             <Input
               id="password"
@@ -53,7 +55,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
             </p>
           )}
           <Button type="submit" className="h-11 w-full" disabled={pending}>
-            {pending ? "Signing in..." : "Sign in"}
+            {pending ? t("auth.signingIn") : t("auth.signIn")}
           </Button>
         </form>
       </CardContent>

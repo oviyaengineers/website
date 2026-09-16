@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getTranslator } from "@/lib/i18n/server";
 
 export type CostFormState = { error: string | null };
 
@@ -25,14 +26,16 @@ export async function createCostAction(
   formData: FormData
 ): Promise<CostFormState> {
   const values = extractCost(formData);
-  if (!values.job_name) return { error: "Job name is required." };
+  if (!values.job_name) return { error: (await getTranslator()).t("costs.jobNameRequiredError") };
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("job_costs").insert({ ...values, created_by: user?.id ?? null });
+  const { error } = await supabase
+    .from("job_costs")
+    .insert({ ...values, created_by: user?.id ?? null });
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/costs");

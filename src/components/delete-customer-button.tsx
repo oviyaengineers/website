@@ -14,25 +14,33 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { deleteCustomerAction } from "@/lib/actions/customers";
+import { useI18n } from "@/components/i18n-provider";
 import { Trash2 } from "lucide-react";
 
 export function DeleteCustomerButton({ id, name }: { id: string; name: string }) {
+  const { t } = useI18n();
   const [pending, startTransition] = useTransition();
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="destructive" size="sm" />}>
+      <DialogTrigger
+        render={
+          <Button
+            variant="destructive"
+            size="sm"
+            aria-label={t("customers.deleteAria", { name })}
+          />
+        }
+      >
         <Trash2 className="h-4 w-4" />
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent closeLabel={t("common.close")}>
         <DialogHeader>
-          <DialogTitle>Delete customer</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete &quot;{name}&quot;? This cannot be undone.
-          </DialogDescription>
+          <DialogTitle>{t("customers.deleteTitle")}</DialogTitle>
+          <DialogDescription>{t("customers.deleteBody", { name })}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t("common.cancel")}</DialogClose>
           <Button
             variant="destructive"
             disabled={pending}
@@ -40,14 +48,14 @@ export function DeleteCustomerButton({ id, name }: { id: string; name: string })
               startTransition(async () => {
                 try {
                   await deleteCustomerAction(id);
-                  toast.success("Customer deleted");
+                  toast.success(t("customers.deleted"));
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to delete");
+                  toast.error(e instanceof Error ? e.message : t("customers.deleteFailed"));
                 }
               })
             }
           >
-            Delete
+            {t("common.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -6,6 +6,7 @@ import { Check, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeletePicklistItemButton } from "@/components/delete-picklist-item-button";
+import { useI18n } from "@/components/i18n-provider";
 import { renamePicklistItemAction } from "@/lib/actions/dc-picklists";
 import type { DcPicklistKind } from "@/types/database";
 
@@ -26,6 +27,7 @@ export function PicklistItemChip({
   name: string;
   kind: DcPicklistKind;
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
   const [pending, startTransition] = useTransition();
@@ -33,7 +35,7 @@ export function PicklistItemChip({
   function save() {
     const next = draft.trim();
     if (!next) {
-      toast.error("Name cannot be empty.");
+      toast.error(t("settings.nameEmpty"));
       return;
     }
     if (next === name) {
@@ -48,11 +50,11 @@ export function PicklistItemChip({
       }
       setEditing(false);
       toast.success(
-        result.renamedRows > 0
-          ? `Renamed, and updated ${result.renamedRows} challan row${
-              result.renamedRows === 1 ? "" : "s"
-            } that used it.`
-          : "Renamed."
+        result.renamedRows === 0
+          ? t("settings.renamed")
+          : result.renamedRows === 1
+            ? t("settings.renamedRowsOne")
+            : t("settings.renamedRows", { count: result.renamedRows })
       );
     });
   }
@@ -64,7 +66,7 @@ export function PicklistItemChip({
           value={draft}
           autoFocus
           disabled={pending}
-          aria-label={`Rename ${name}`}
+          aria-label={t("settings.renameAria", { name })}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -83,7 +85,7 @@ export function PicklistItemChip({
           size="icon"
           variant="ghost"
           className="h-6 w-6 text-emerald-700"
-          aria-label="Save name"
+          aria-label={t("settings.saveName")}
           disabled={pending}
           onClick={save}
         >
@@ -94,7 +96,7 @@ export function PicklistItemChip({
           size="icon"
           variant="ghost"
           className="h-6 w-6 text-muted-foreground"
-          aria-label="Cancel rename"
+          aria-label={t("settings.cancelRename")}
           disabled={pending}
           onClick={() => {
             setDraft(name);
@@ -115,7 +117,7 @@ export function PicklistItemChip({
         size="icon"
         variant="ghost"
         className="h-6 w-6 text-muted-foreground hover:text-foreground"
-        aria-label={`Rename ${name}`}
+        aria-label={t("settings.renameAria", { name })}
         onClick={() => {
           setDraft(name);
           setEditing(true);

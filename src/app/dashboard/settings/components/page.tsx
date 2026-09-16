@@ -7,8 +7,12 @@ import { ImportUnlistedNames } from "@/components/import-unlisted-names";
 import { DuplicatePicklistGroups } from "@/components/duplicate-picklist-groups";
 import { findDuplicatePicklistNames, findUnlistedDcNames } from "@/lib/actions/dc-picklists";
 import { SearchBox } from "@/components/search-box";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Component & Material Settings | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("settings.picklistTitle")} | Oviya Engineers` };
+}
 
 export default async function DcPicklistSettingsPage({
   searchParams,
@@ -17,7 +21,10 @@ export default async function DcPicklistSettingsPage({
 }) {
   const { q } = await searchParams;
   const supabase = await createClient();
-  const { data: items } = await supabase.from("dc_picklist_items").select("*").order("name");
+  const [{ data: items }, { t }] = await Promise.all([
+    supabase.from("dc_picklist_items").select("*").order("name"),
+    getTranslator(),
+  ]);
 
   // Filtering only decides what is listed. Nothing is renamed, added or
   // removed by looking for it.
@@ -36,13 +43,11 @@ export default async function DcPicklistSettingsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Component &amp; Material Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage the dropdown options used on Delivery Challan item rows.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("settings.picklistTitle")}</h1>
+        <p className="text-sm text-muted-foreground">{t("settings.picklistIntro")}</p>
       </div>
 
-      <SearchBox placeholder="Search component or material names..." />
+      <SearchBox placeholder={t("settings.picklistSearch")} />
 
       <ImportUnlistedNames components={unlisted.components} materials={unlisted.materials} />
 
@@ -52,14 +57,16 @@ export default async function DcPicklistSettingsPage({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Components</CardTitle>
+            <CardTitle className="text-base">{t("settings.components")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <PicklistAddForm kind="component" label="Component" />
+            <PicklistAddForm kind="component" />
             <div className="flex flex-wrap gap-2">
               {components.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  {needle ? `No component matches "${q}".` : "No components added yet."}
+                  {needle
+                    ? t("settings.noComponentMatch", { q: q ?? "" })
+                    : t("settings.noComponents")}
                 </p>
               )}
               {components.map((c) => (
@@ -71,14 +78,16 @@ export default async function DcPicklistSettingsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Materials</CardTitle>
+            <CardTitle className="text-base">{t("settings.materials")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <PicklistAddForm kind="material" label="Material" />
+            <PicklistAddForm kind="material" />
             <div className="flex flex-wrap gap-2">
               {materials.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  {needle ? `No material matches "${q}".` : "No materials added yet."}
+                  {needle
+                    ? t("settings.noMaterialMatch", { q: q ?? "" })
+                    : t("settings.noMaterials")}
                 </p>
               )}
               {materials.map((m) => (

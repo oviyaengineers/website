@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n-provider";
 import { mergePicklistItemsAction, type DuplicateEntry } from "@/lib/actions/dc-picklists";
 import type { DcPicklistKind } from "@/types/database";
 
@@ -25,6 +26,7 @@ export function DuplicatePicklistGroups({
   kind: DcPicklistKind;
   groups: DuplicateEntry[][];
 }) {
+  const { t } = useI18n();
   const [dismissed, setDismissed] = useState<string[]>([]);
   const visible = groups.filter((group) => !dismissed.includes(group[0].id));
 
@@ -35,12 +37,14 @@ export function DuplicatePicklistGroups({
       <div>
         <h2 className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
           <Copy className="h-4 w-4" />
-          {visible.length} possible duplicate{visible.length === 1 ? "" : " sets"} in this list
+          {visible.length === 1
+            ? t("settings.duplicatesOne")
+            : t("settings.duplicates", { count: visible.length })}
         </h2>
         <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-          These read as the same {kind} spelled differently. Keep the correct spelling and the rest
-          are removed, with any challan rows moved across. Check each one — two genuinely different
-          parts can differ by a single character.
+          {t("settings.duplicatesNote", {
+            kind: kind === "component" ? t("settings.kindComponent") : t("settings.kindMaterial"),
+          })}
         </p>
       </div>
 
@@ -65,6 +69,7 @@ function DuplicateGroup({
   group: DuplicateEntry[];
   onDone: () => void;
 }) {
+  const { t } = useI18n();
   // Defaults to the most-used spelling, which is usually the right one.
   const [keepId, setKeepId] = useState(group[0].id);
   const [pending, startTransition] = useTransition();
@@ -80,10 +85,10 @@ function DuplicateGroup({
       onDone();
       toast.success(
         result.movedRows > 0
-          ? `Removed ${result.removed}, and moved ${result.movedRows} challan row${
-              result.movedRows === 1 ? "" : "s"
-            } onto the kept spelling.`
-          : `Removed ${result.removed} duplicate${result.removed === 1 ? "" : "s"}.`
+          ? t("settings.removedAndMoved", { removed: result.removed, rows: result.movedRows })
+          : result.removed === 1
+            ? t("settings.removedDuplicatesOne")
+            : t("settings.removedDuplicates", { count: result.removed })
       );
     });
   }
@@ -104,8 +109,10 @@ function DuplicateGroup({
             <span className="break-all font-mono text-xs">{entry.name}</span>
             <span className="block text-[11px] text-muted-foreground">
               {entry.usedOnRows === 0
-                ? "not used on any challan"
-                : `used on ${entry.usedOnRows} challan row${entry.usedOnRows === 1 ? "" : "s"}`}
+                ? t("settings.notUsed")
+                : entry.usedOnRows === 1
+                  ? t("settings.usedOne")
+                  : t("settings.used", { count: entry.usedOnRows })}
             </span>
           </span>
         </label>
@@ -119,10 +126,10 @@ function DuplicateGroup({
           onClick={merge}
           className="bg-[#10233f] hover:bg-[#10233f]/90"
         >
-          {pending ? "Merging…" : `Keep this, remove ${group.length - 1}`}
+          {pending ? t("settings.merging") : t("settings.keepRemove", { count: group.length - 1 })}
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={onDone}>
-          Not duplicates
+          {t("settings.notDuplicates")}
         </Button>
       </div>
     </div>

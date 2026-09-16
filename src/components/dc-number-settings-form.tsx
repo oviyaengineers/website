@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n-provider";
 import { updateDcNumberSeriesAction } from "@/lib/actions/dc-numbering";
 import { financialYearLabel, previewDcNumber } from "@/lib/dc-numbering";
 import type { DcNumberSeriesRow } from "@/types/database";
@@ -18,6 +19,7 @@ import type { DcNumberSeriesRow } from "@/types/database";
  * anything already taken.
  */
 export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) {
+  const { t } = useI18n();
   const [state, formAction, pending] = useActionState(updateDcNumberSeriesAction, {
     error: null,
   });
@@ -37,14 +39,16 @@ export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) 
   // The page does not navigate on save, so the toast is the only confirmation
   // that the series actually moved.
   useEffect(() => {
-    if (state.saved) toast.success("DC numbering saved.");
+    if (state.saved) toast.success(t("settings.numberingSaved"));
+    // The translator only changes with the language, which reloads the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (
     <form action={formAction} className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
-          <Label htmlFor="fy_label">Financial year</Label>
+          <Label htmlFor="fy_label">{t("settings.financialYear")}</Label>
           <Input
             id="fy_label"
             name="fy_label"
@@ -53,11 +57,11 @@ export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) 
             placeholder="26-27"
           />
           <p className="text-xs text-muted-foreground">
-            This year is {thisYear}. April starts a new one.
+            {t("settings.financialYearHelp", { year: thisYear })}
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="next_serial">Next serial</Label>
+          <Label htmlFor="next_serial">{t("settings.nextSerial")}</Label>
           <Input
             id="next_serial"
             name="next_serial"
@@ -66,12 +70,10 @@ export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) 
             value={nextSerial}
             onChange={(e) => setNextSerial(Number(e.target.value))}
           />
-          <p className="text-xs text-muted-foreground">
-            The number the next challan takes. Already-issued numbers are skipped.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("settings.nextSerialHelp")}</p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="padding">Serial digits</Label>
+          <Label htmlFor="padding">{t("settings.serialDigits")}</Label>
           <Input
             id="padding"
             name="padding"
@@ -81,24 +83,24 @@ export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) 
             value={padding}
             onChange={(e) => setPadding(Number(e.target.value))}
           />
-          <p className="text-xs text-muted-foreground">3 prints 1 as 001.</p>
+          <p className="text-xs text-muted-foreground">{t("settings.serialDigitsHelp")}</p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="prefix">Prefix (optional)</Label>
+          <Label htmlFor="prefix">{t("settings.prefix")}</Label>
           <Input
             id="prefix"
             name="prefix"
             value={prefix}
             onChange={(e) => setPrefix(e.target.value)}
-            placeholder="none"
+            placeholder={t("settings.prefixPlaceholder")}
           />
-          <p className="text-xs text-muted-foreground">Printed before the year.</p>
+          <p className="text-xs text-muted-foreground">{t("settings.prefixHelp")}</p>
         </div>
       </div>
 
       <div className="rounded-lg border bg-muted/40 p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Next challan will be numbered
+          {t("settings.nextNumbered")}
         </p>
         <p className="mt-1 font-mono text-xl font-semibold text-[#10233f]">{preview}</p>
       </div>
@@ -106,7 +108,7 @@ export function DcNumberSettingsForm({ series }: { series: DcNumberSeriesRow }) 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
       <Button type="submit" disabled={pending} className="bg-[#10233f] hover:bg-[#10233f]/90">
-        {pending ? "Saving..." : "Save numbering"}
+        {pending ? t("common.saving") : t("settings.saveNumbering")}
       </Button>
     </form>
   );

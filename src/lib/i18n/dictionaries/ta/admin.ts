@@ -1,0 +1,63 @@
+import type { Dictionary } from "@/lib/i18n/types";
+
+/** வாடிக்கையாளர் பதிவுகள், வேலைச் செலவுகள், அமைப்புகள். பில்லிங் ஆங்கிலத்திலேயே. */
+
+export const customers: Dictionary["customers"] = {
+  title: "வாடிக்கையாளர்கள்",
+  count: "{count} வாடிக்கையாளர்(கள்)",
+  newCustomer: "புதிய வாடிக்கையாளர்",
+  search: "பெயரால் வாடிக்கையாளர்களைத் தேடு...",
+  name: "பெயர்",
+  contactPerson: "தொடர்பு நபர்",
+  phone: "தொலைபேசி",
+  email: "மின்னஞ்சல்",
+  gstNo: "GST எண்",
+  none: "வாடிக்கையாளர்கள் எவரும் இல்லை.",
+  newIntro: "புதிய வாடிக்கையாளர் பதிவைச் சேர்க்கவும்.",
+  editTitle: "வாடிக்கையாளரைத் திருத்து",
+  editIntro: "{name} இன் விவரங்களைப் புதுப்பிக்கவும்.",
+  nameRequired: "வாடிக்கையாளர் பெயர் *",
+  gstin: "GSTIN",
+  state: "மாநிலம்",
+  statePlaceholder: "எடுத்துக்காட்டாக Tamil Nadu",
+  stateHelp:
+    "இன்வாய்ஸ்களில் வரியைத் தீர்மானிக்கிறது: உங்கள் நிறுவனத்தின் அதே மாநிலம் என்றால் CGST + SGST, வேறு மாநிலம் என்றால் IGST.",
+  address: "முகவரி",
+  createCustomer: "வாடிக்கையாளரை உருவாக்கு",
+  deleteTitle: "வாடிக்கையாளரை நீக்கு",
+  deleteBody: "“{name}” ஐ நீக்க வேண்டுமா? இதைத் திரும்பப் பெற முடியாது.",
+  deleteAria: "{name} ஐ நீக்கு",
+  deleted: "வாடிக்கையாளர் நீக்கப்பட்டார்",
+  deleteFailed: "நீக்க முடியவில்லை",
+  nameRequiredError: "வாடிக்கையாளர் பெயர் தேவை.",
+};
+
+export const costs: Dictionary["costs"] = {
+  title: "வேலைச் செலவுகள்",
+  intro:
+    "ஒவ்வொரு வேலைக்கும் பொருள், இயந்திரம், கூலி, கருவி, மேல்நிலைச் செலவுகளைப் பதிவு செய்யவும்.",
+  newEntry: "புதிய செலவுப் பதிவு",
+  totalLogged: "மொத்தப் பதிவு செலவு",
+  job: "வேலை",
+  linked: "இணைக்கப்பட்டவை",
+  totalCost: "மொத்தச் செலவு",
+  noEntries: "செலவுப் பதிவுகள் எதுவும் இல்லை.",
+  jobNameRequired: "வேலைப் பெயர் *",
+  linkedDc: "இணைக்கப்பட்ட டெலிவரி சலான்",
+  linkedInvoice: "இணைக்கப்பட்ட இன்வாய்ஸ்",
+  none: "எதுவுமில்லை",
+  materialCost: "பொருள் செலவு (₹)",
+  laborCost: "கூலி செலவு (₹)",
+  machineHours: "இயந்திர மணிநேரம்",
+  machineRate: "இயந்திர விலை (₹/மணி)",
+  toolingCost: "கருவிச் செலவு (₹)",
+  overheadCost: "மேல்நிலைச் செலவு (₹)",
+  totalJobCost: "மொத்த வேலைச் செலவு",
+  logCost: "வேலைச் செலவைப் பதிவு செய்",
+  deleteTitle: "வேலைச் செலவை நீக்கு",
+  deleteBody: "“{jobName}” க்கான செலவுப் பதிவை நீக்க வேண்டுமா?",
+  deleteAria: "{jobName} க்கான செலவுப் பதிவை நீக்கு",
+  deleted: "வேலைச் செலவு நீக்கப்பட்டது",
+  deleteFailed: "நீக்க முடியவில்லை",
+  jobNameRequiredError: "வேலைப் பெயர் தேவை.",
+};

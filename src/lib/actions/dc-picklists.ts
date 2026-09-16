@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { cleanComponentName, foldOcrConfusables, namesLookAlike } from "@/lib/ocr/parse-inward-dc";
 import type { DcPicklistKind } from "@/types/database";
+import { getTranslator } from "@/lib/i18n/server";
 
 export type PicklistFormState = { error: string | null };
 
@@ -14,7 +15,7 @@ export async function createPicklistItemAction(
 ): Promise<PicklistFormState> {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
-    return { error: "Name is required." };
+    return { error: (await getTranslator()).t("settings.errorNameRequired") };
   }
 
   const supabase = await createClient();
@@ -29,7 +30,10 @@ export async function createPicklistItemAction(
     const same = (existing ?? []).find(
       (row) => foldOcrConfusables(row.name) === foldOcrConfusables(name)
     );
-    if (same) return { error: `Already listed as "${same.name}".` };
+    if (same)
+      return {
+        error: (await getTranslator()).t("settings.errorAlreadyListed", { name: same.name }),
+      };
   }
 
   const {
@@ -41,7 +45,12 @@ export async function createPicklistItemAction(
     .insert({ kind, name, created_by: user?.id ?? null });
 
   if (error) {
-    return { error: error.code === "23505" ? "That name already exists." : error.message };
+    return {
+      error:
+        error.code === "23505"
+          ? (await getTranslator()).t("settings.errorNameExists")
+          : error.message,
+    };
   }
 
   revalidatePath("/dashboard/settings/components");
@@ -236,7 +245,8 @@ export async function renamePicklistItemAction(
   rawName: string
 ): Promise<{ renamedRows: number; error: string | null }> {
   const name = rawName?.trim();
-  if (!name) return { renamedRows: 0, error: "Name is required." };
+  if (!name)
+    return { renamedRows: 0, error: (await getTranslator()).t("settings.errorNameRequired") };
 
   const supabase = await createClient();
 
@@ -245,7 +255,8 @@ export async function renamePicklistItemAction(
     .select("name, kind")
     .eq("id", id)
     .single();
-  if (!current) return { renamedRows: 0, error: "That entry no longer exists." };
+  if (!current)
+    return { renamedRows: 0, error: (await getTranslator()).t("settings.errorEntryGone") };
   if (current.name === name) return { renamedRows: 0, error: null };
 
   const { data: updated, error } = await supabase
@@ -270,7 +281,7 @@ export async function renamePicklistItemAction(
   if (!updated || updated.length === 0) {
     return {
       renamedRows: 0,
-      error: "The database refused the rename. Migration 0012 may not be applied yet.",
+      error: (await getTranslator()).t("settings.errorRenameRefused"),
     };
   }
 
@@ -367,14 +378,19 @@ export async function mergePicklistItemsAction(
     .select("name")
     .eq("id", keepId)
     .single();
-  if (!keep) return { movedRows: 0, removed: 0, error: "The entry to keep no longer exists." };
+  if (!keep)
+    return { movedRows: 0, removed: 0, error: (await getTranslator()).t("settings.errorKeepGone") };
 
   const { data: drops } = await supabase
     .from("dc_picklist_items")
     .select("id, name")
     .in("id", dropIds);
   if (!drops || drops.length === 0) {
-    return { movedRows: 0, removed: 0, error: "Nothing to remove." };
+    return {
+      movedRows: 0,
+      removed: 0,
+      error: (await getTranslator()).t("settings.errorNothingToRemove"),
+    };
   }
 
   let movedRows = 0;

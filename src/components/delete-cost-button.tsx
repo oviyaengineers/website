@@ -14,25 +14,29 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { deleteCostAction } from "@/lib/actions/costs";
+import { useI18n } from "@/components/i18n-provider";
 import { Trash2 } from "lucide-react";
 
 export function DeleteCostButton({ id, jobName }: { id: string; jobName: string }) {
+  const { t } = useI18n();
   const [pending, startTransition] = useTransition();
 
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="destructive" size="sm" />}>
+      <DialogTrigger
+        render={
+          <Button variant="destructive" size="sm" aria-label={t("costs.deleteAria", { jobName })} />
+        }
+      >
         <Trash2 className="h-4 w-4" />
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent closeLabel={t("common.close")}>
         <DialogHeader>
-          <DialogTitle>Delete job cost</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete the cost entry for &quot;{jobName}&quot;?
-          </DialogDescription>
+          <DialogTitle>{t("costs.deleteTitle")}</DialogTitle>
+          <DialogDescription>{t("costs.deleteBody", { jobName })}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t("common.cancel")}</DialogClose>
           <Button
             variant="destructive"
             disabled={pending}
@@ -40,14 +44,14 @@ export function DeleteCostButton({ id, jobName }: { id: string; jobName: string 
               startTransition(async () => {
                 try {
                   await deleteCostAction(id);
-                  toast.success("Job cost deleted");
+                  toast.success(t("costs.deleted"));
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to delete");
+                  toast.error(e instanceof Error ? e.message : t("costs.deleteFailed"));
                 }
               })
             }
           >
-            Delete
+            {t("common.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

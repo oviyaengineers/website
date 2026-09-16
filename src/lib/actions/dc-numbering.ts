@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { DcNumberSeriesRow } from "@/types/database";
+import { getTranslator } from "@/lib/i18n/server";
 
 export type DcNumberSeriesState = { error: string | null; saved?: boolean };
 
@@ -28,16 +29,16 @@ export async function updateDcNumberSeriesAction(
   const padding = Number(formData.get("padding") ?? 3);
   const nextSerial = Number(formData.get("next_serial") ?? 1);
 
-  if (!fyLabel) return { error: "Enter the financial year, for example 26-27." };
+  if (!fyLabel) return { error: (await getTranslator()).t("settings.errorEnterFy") };
   if (!/^[A-Za-z0-9\-/]{2,12}$/.test(fyLabel)) {
-    return { error: "The financial year may only contain letters, digits, - and /." };
+    return { error: (await getTranslator()).t("settings.errorFyChars") };
   }
-  if (prefix.length > 12) return { error: "Keep the prefix to 12 characters or fewer." };
+  if (prefix.length > 12) return { error: (await getTranslator()).t("settings.errorPrefixLong") };
   if (!Number.isInteger(padding) || padding < 1 || padding > 8) {
-    return { error: "Serial digits must be between 1 and 8." };
+    return { error: (await getTranslator()).t("settings.errorDigitsRange") };
   }
   if (!Number.isInteger(nextSerial) || nextSerial < 1) {
-    return { error: "The next serial must be 1 or more." };
+    return { error: (await getTranslator()).t("settings.errorSerialMin") };
   }
 
   const supabase = await createClient();
@@ -63,7 +64,7 @@ export async function updateDcNumberSeriesAction(
 
   if (error) return { error: error.message };
   if (!data || data.length === 0) {
-    return { error: "Nothing was saved. Only an admin can change DC numbering." };
+    return { error: (await getTranslator()).t("settings.errorAdminOnly") };
   }
 
   revalidatePath("/dashboard/settings/dc-numbers");

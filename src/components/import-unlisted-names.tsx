@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n-provider";
 import { addUnlistedDcNamesAction } from "@/lib/actions/dc-picklists";
 
 /**
@@ -19,6 +20,7 @@ export function ImportUnlistedNames({
   components: string[];
   materials: string[];
 }) {
+  const { t } = useI18n();
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
   const total = components.length + materials.length;
@@ -33,18 +35,19 @@ export function ImportUnlistedNames({
         return;
       }
       setDone(true);
-      toast.success(`Added ${result.added} name${result.added === 1 ? "" : "s"} to the dropdowns.`);
+      toast.success(
+        result.added === 1 ? t("settings.addedOne") : t("settings.added", { count: result.added })
+      );
     });
   }
 
   return (
     <div className="space-y-2 rounded-lg border border-amber-500 bg-amber-50 p-4 dark:bg-amber-950/20">
       <h2 className="text-sm font-medium text-amber-900 dark:text-amber-200">
-        {total} name{total === 1 ? "" : "s"} used on challans but missing from these lists
+        {total === 1 ? t("settings.missingOne") : t("settings.missing", { count: total })}
       </h2>
       <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
-        These are recorded on stored challans, so they cannot be picked on a new one until they are
-        added here. Nothing already listed is touched and nothing is duplicated.
+        {t("settings.missingNote")}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {[...components, ...materials].map((name) => (
@@ -61,7 +64,7 @@ export function ImportUnlistedNames({
         className="bg-[#10233f] hover:bg-[#10233f]/90"
       >
         <Download className="h-4 w-4" />
-        {pending ? "Adding…" : `Add all ${total}`}
+        {pending ? t("settings.adding") : t("settings.addAll", { count: total })}
       </Button>
     </div>
   );

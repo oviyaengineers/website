@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getTranslator } from "@/lib/i18n/server";
 
 export type CustomerFormState = { error: string | null };
 
@@ -29,7 +30,7 @@ export async function createCustomerAction(
   const values = extractCustomer(formData);
 
   if (!values.name) {
-    return { error: "Customer name is required." };
+    return { error: (await getTranslator()).t("customers.nameRequiredError") };
   }
 
   const {
@@ -57,7 +58,7 @@ export async function updateCustomerAction(
   const values = extractCustomer(formData);
 
   if (!values.name) {
-    return { error: "Customer name is required." };
+    return { error: (await getTranslator()).t("customers.nameRequiredError") };
   }
 
   const { error } = await supabase.from("customers").update(values).eq("id", id);

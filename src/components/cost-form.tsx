@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n-provider";
 import type { CostFormState } from "@/lib/actions/costs";
 
 export function CostForm({
@@ -15,6 +16,7 @@ export function CostForm({
   invoices: { id: string; invoice_number: string }[];
   action: (state: CostFormState, formData: FormData) => Promise<CostFormState>;
 }) {
+  const { t } = useI18n();
   const [state, formAction, pending] = useActionState(action, { error: null });
   const [material, setMaterial] = useState(0);
   const [hours, setHours] = useState(0);
@@ -31,19 +33,19 @@ export function CostForm({
   return (
     <form action={formAction} className="space-y-4 max-w-xl">
       <div className="space-y-2">
-        <Label htmlFor="job_name">Job Name *</Label>
+        <Label htmlFor="job_name">{t("costs.jobNameRequired")}</Label>
         <Input id="job_name" name="job_name" required />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="dc_id">Linked Delivery Challan</Label>
+          <Label htmlFor="dc_id">{t("costs.linkedDc")}</Label>
           <select
             id="dc_id"
             name="dc_id"
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
           >
-            <option value="">None</option>
+            <option value="">{t("costs.none")}</option>
             {dcs.map((dc) => (
               <option key={dc.id} value={dc.id}>
                 {dc.dc_number}
@@ -52,13 +54,13 @@ export function CostForm({
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="invoice_id">Linked Invoice</Label>
+          <Label htmlFor="invoice_id">{t("costs.linkedInvoice")}</Label>
           <select
             id="invoice_id"
             name="invoice_id"
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
           >
-            <option value="">None</option>
+            <option value="">{t("costs.none")}</option>
             {invoices.map((inv) => (
               <option key={inv.id} value={inv.id}>
                 {inv.invoice_number}
@@ -70,7 +72,7 @@ export function CostForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="material_cost">Material Cost (₹)</Label>
+          <Label htmlFor="material_cost">{t("costs.materialCost")}</Label>
           <Input
             id="material_cost"
             name="material_cost"
@@ -82,7 +84,7 @@ export function CostForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="labor_cost">Labor Cost (₹)</Label>
+          <Label htmlFor="labor_cost">{t("costs.laborCost")}</Label>
           <Input
             id="labor_cost"
             name="labor_cost"
@@ -97,7 +99,7 @@ export function CostForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="machine_hours">Machine Hours</Label>
+          <Label htmlFor="machine_hours">{t("costs.machineHours")}</Label>
           <Input
             id="machine_hours"
             name="machine_hours"
@@ -109,7 +111,7 @@ export function CostForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="machine_rate">Machine Rate (₹/hr)</Label>
+          <Label htmlFor="machine_rate">{t("costs.machineRate")}</Label>
           <Input
             id="machine_rate"
             name="machine_rate"
@@ -124,7 +126,7 @@ export function CostForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="tooling_cost">Tooling Cost (₹)</Label>
+          <Label htmlFor="tooling_cost">{t("costs.toolingCost")}</Label>
           <Input
             id="tooling_cost"
             name="tooling_cost"
@@ -136,7 +138,7 @@ export function CostForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="overhead_cost">Overhead Cost (₹)</Label>
+          <Label htmlFor="overhead_cost">{t("costs.overheadCost")}</Label>
           <Input
             id="overhead_cost"
             name="overhead_cost"
@@ -151,14 +153,14 @@ export function CostForm({
 
       <div className="rounded-lg border p-4 text-sm">
         <div className="flex justify-between font-semibold">
-          <span>Total Job Cost</span>
+          <span>{t("costs.totalJobCost")}</span>
           <span>₹{total.toFixed(2)}</span>
         </div>
       </div>
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving..." : "Log job cost"}
+        {pending ? t("common.saving") : t("costs.logCost")}
       </Button>
     </form>
   );

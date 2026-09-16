@@ -13,13 +13,20 @@ import {
 import { CostForm } from "@/components/cost-form";
 import { DeleteCostButton } from "@/components/delete-cost-button";
 import { createCostAction } from "@/lib/actions/costs";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/i18n/dates";
+import { getTranslator } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Job Costs | Oviya Engineers" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getTranslator();
+  return { title: `${t("costs.title")} | Oviya Engineers` };
+}
 
 export default async function CostsPage() {
   const supabase = await createClient();
-  const { profile } = await getCurrentUserAndProfile();
+  const [{ profile }, { lang, t }] = await Promise.all([
+    getCurrentUserAndProfile(),
+    getTranslator(),
+  ]);
   const isAdmin = profile?.role === "admin";
 
   const [{ data: costs }, { data: dcs }, { data: invoices }] = await Promise.all([
@@ -41,16 +48,14 @@ export default async function CostsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Job Costs</h1>
-        <p className="text-sm text-muted-foreground">
-          Log material, machine, labor, tooling, and overhead costs per job.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("costs.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("costs.intro")}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle className="text-base">New Cost Entry</CardTitle>
+            <CardTitle className="text-base">{t("costs.newEntry")}</CardTitle>
           </CardHeader>
           <CardContent>
             <CostForm dcs={dcs ?? []} invoices={invoices ?? []} action={createCostAction} />
@@ -61,7 +66,7 @@ export default async function CostsPage() {
           {isAdmin && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Total Logged Cost</CardTitle>
+                <CardTitle className="text-base">{t("costs.totalLogged")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -76,11 +81,11 @@ export default async function CostsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Job</TableHead>
-                    <TableHead>Linked</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Date</TableHead>
-                    {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                    <TableHead>{t("costs.job")}</TableHead>
+                    <TableHead>{t("costs.linked")}</TableHead>
+                    <TableHead>{t("costs.totalCost")}</TableHead>
+                    <TableHead>{t("common.date")}</TableHead>
+                    {isAdmin && <TableHead className="text-right">{t("common.actions")}</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -94,7 +99,7 @@ export default async function CostsPage() {
                         {!c.dc_id && !c.invoice_id && "-"}
                       </TableCell>
                       <TableCell>₹{Number(c.total_cost).toLocaleString("en-IN")}</TableCell>
-                      <TableCell>{format(new Date(c.created_at), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{formatDate(c.created_at, "dd MMM yyyy", lang)}</TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">
                           <DeleteCostButton id={c.id} jobName={c.job_name} />
@@ -108,7 +113,7 @@ export default async function CostsPage() {
                         colSpan={isAdmin ? 5 : 4}
                         className="text-center text-muted-foreground py-8"
                       >
-                        No cost entries yet.
+                        {t("costs.noEntries")}
                       </TableCell>
                     </TableRow>
                   )}
