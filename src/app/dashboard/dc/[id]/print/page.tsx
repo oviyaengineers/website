@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { DcPrintActions } from "@/components/dc-print-actions";
-import { DcPrintSheet, MAX_PRINT_TOGETHER, type PrintItem } from "@/components/dc-print-sheet";
+import { DcPrintSheet, type PrintItem } from "@/components/dc-print-sheet";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
+import { isDraftDc } from "@/lib/dc-combined-print";
 import { dcQrCode } from "@/lib/dc-public-link";
 import { getTranslator } from "@/lib/i18n/server";
 
@@ -31,15 +32,15 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     // The QR opens a public, read-only copy of this challan. Printing
     // still works without it if the link cannot be made.
     dcQrCode(supabase, id),
-    // Other challans for the same customer on the same date, which can be
-    // printed on this sheet together with this one.
+    // Other issued challans for the same customer on the same date, which
+    // Combined DC Print can put on one sheet with this one.
     supabase
       .from("delivery_challans")
-      .select("id, dc_number")
+      .select("id, status")
       .eq("customer_id", dc.customer_id)
       .eq("dc_date", dc.dc_date)
       .neq("id", id)
-      .order("dc_number"),
+      .neq("status", "draft"),
   ]);
   // The printed challan is the document the customer signs, so it must carry
   // the part's current name rather than the spelling stored at entry.
@@ -63,7 +64,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     .map((i) => ({
       ...i,
       component: componentNameOf(i, componentNames),
-      dcNumber: dc.dc_number,
     }));
 
   const pdfData = {
@@ -77,8 +77,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
     qr_png: qr?.png ?? null,
   };
 
-  const others = sameDay ?? [];
-  const canPrintTogether = others.length > 0 && others.length < MAX_PRINT_TOGETHER;
+  const canCombine = !isDraftDc(dc) && (sameDay ?? []).some((other) => !isDraftDc(other));
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
@@ -89,17 +88,16 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           <X className="h-4 w-4" /> {t("common.close")}
         </Button>
         <div className="flex flex-wrap gap-2">
-          {canPrintTogether && (
+          {canCombine && (
             <Button
               render={
                 <Link
-                  href={`/dashboard/dc/print-together?ids=${[dc.id, ...others.map((o) => o.id)].join(",")}`}
+                  href={`/dashboard/dc/combined-print?date=${dc.dc_date}&customer=${dc.customer_id}`}
                 />
               }
               variant="outline"
             >
-              <Layers className="h-4 w-4" />{" "}
-              {t("dcPrint.printTogether", { dcs: others.map((o) => o.dc_number).join(", ") })}
+              <Layers className="h-4 w-4" /> {t("dcCombined.openCombined")}
             </Button>
           )}
           <DcPrintActions dc={pdfData} />
@@ -112,17 +110,15 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           showing it. */}
       <div className="dc-print-stage">
         <DcPrintSheet
-          challans={[
-            {
-              id: dc.id,
-              dcNumber: dc.dc_number,
-              dcDate: dc.dc_date,
-              customerDcNumber: dc.customer_dc_number,
-              customerDcDate: dc.customer_dc_date,
-              authorizedBy: dc.authorized_by,
-              qrSvg: qr?.svg ?? null,
-            },
-          ]}
+          challan={{
+            id: dc.id,
+            dcNumber: dc.dc_number,
+            dcDate: dc.dc_date,
+            customerDcNumber: dc.customer_dc_number,
+            customerDcDate: dc.customer_dc_date,
+            authorizedBy: dc.authorized_by,
+            qrSvg: qr?.svg ?? null,
+          }}
           customer={customer}
           items={printItems}
           lang={lang}

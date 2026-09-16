@@ -11,6 +11,7 @@ import { dcViews } from "@/lib/i18n/dictionaries/en/dcViews";
 import { dcErrors, dcForm } from "@/lib/i18n/dictionaries/en/dcForm";
 import { dcPrint, dcScan } from "@/lib/i18n/dictionaries/en/dcScan";
 import { dcPublic } from "@/lib/i18n/dictionaries/en/dcPublic";
+import { dcCombined } from "@/lib/i18n/dictionaries/en/dcCombined";
 
 /** The English dictionary: the source every other language must match. */
 export const en = {
@@ -31,4 +32,5 @@ export const en = {
   dcScan,
   dcPrint,
   dcPublic,
+  dcCombined,
 };

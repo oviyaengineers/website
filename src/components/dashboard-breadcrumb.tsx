@@ -39,6 +39,7 @@ const SEGMENT_LABELS: Record<string, TranslationKey> = {
   edit: "common.edit",
   print: "nav.print",
   "print-list": "nav.printList",
+  "combined-print": "dcCombined.menu",
 };
 
 /** The label for a "new" page, by the section it sits in. */

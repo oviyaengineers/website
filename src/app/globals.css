@@ -650,3 +650,142 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   width: 100%;
   height: 100%;
 }
+
+/* --- Combined DC Print ---------------------------------------------------------
+   Several DCs of one customer and date on one sheet. Tighter than a single
+   challan so more lines fit in each half; the single-challan sheet above is
+   untouched. The print page measures the real sheet and blocks printing if a
+   half still overflows, so nothing is ever cut off silently. */
+.dc-print-sheet-combined header,
+.dc-print-sheet-combined section {
+  margin-bottom: 1mm !important;
+  padding: 1mm 2mm !important;
+}
+.dc-print-sheet-combined .dc-print-logo {
+  height: 7mm !important;
+  width: 10mm !important;
+  margin-bottom: 0.3mm !important;
+  padding: 0.3mm !important;
+}
+.dc-print-sheet-combined .dc-print-company {
+  font-size: 11pt !important;
+}
+.dc-print-sheet-combined .dc-print-title {
+  font-size: 10pt !important;
+  margin-bottom: 1mm !important;
+}
+.dc-print-sheet-combined .dc-print-cell {
+  padding: 0.6mm 1.2mm;
+}
+.dc-print-sheet-combined .dc-print-cell-tall {
+  min-height: 11mm;
+}
+.dc-print-sheet-combined th,
+.dc-print-sheet-combined td {
+  padding: 0.6mm 0.6mm !important;
+}
+.dc-print-qr-code-combined {
+  width: 13mm;
+  height: 13mm;
+}
+.dc-print-qr-code-combined svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dc-print-source-note {
+  font-size: 5.6pt;
+  color: #5b6472;
+}
+
+/* Only printed when the sheet overflows: a warning in place of a cropped challan. */
+.dc-print-overflow-note {
+  display: none;
+}
+@media print {
+  html[data-dc-print-overflow] .dc-print-stage {
+    display: none !important;
+  }
+  html[data-dc-print-overflow] .dc-print-overflow-note {
+    display: block !important;
+  }
+}
+
+/* Combined DC Print, full-page layout: ORIGINAL on one A4 page, DUPLICATE on
+   the next, at readable sizes. Each page is the same box as the half-page
+   sheet, with a single copy filling it. */
+.dc-print-stage:has(.dc-print-page-full) {
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+.dc-print-sheet-full {
+  font-size: 9pt;
+}
+.dc-print-sheet-full .text-xs {
+  font-size: 8.2pt !important;
+}
+.dc-print-sheet-full .text-sm {
+  font-size: 9pt !important;
+}
+.dc-print-sheet-full header,
+.dc-print-sheet-full section {
+  margin-bottom: 2.5mm !important;
+  padding: 2.5mm 3mm !important;
+}
+.dc-print-sheet-full .dc-print-logo {
+  height: 14mm !important;
+  width: 20mm !important;
+}
+.dc-print-sheet-full .dc-print-company {
+  font-size: 15pt !important;
+}
+.dc-print-sheet-full .dc-print-copy-label {
+  font-size: 8.5pt !important;
+}
+.dc-print-sheet-full .dc-print-title {
+  font-size: 13pt !important;
+  margin-bottom: 2.5mm !important;
+}
+.dc-print-sheet-full .dc-print-cell {
+  padding: 1.4mm 2mm;
+}
+.dc-print-sheet-full .dc-print-cell-label {
+  font-size: 6.6pt;
+}
+.dc-print-sheet-full .dc-print-cell-value {
+  font-size: 8.8pt;
+}
+.dc-print-sheet-full .dc-print-cell-tall {
+  min-height: 20mm;
+}
+.dc-print-sheet-full table {
+  font-size: 8.6pt !important;
+}
+.dc-print-sheet-full th,
+.dc-print-sheet-full td {
+  padding: 1.3mm 1mm !important;
+}
+.dc-print-sheet-full .dc-print-qr-caption {
+  font-size: 7.5px;
+}
+.dc-print-qr-code-full {
+  width: 18mm;
+  height: 18mm;
+}
+.dc-print-qr-code-full svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@media print {
+  .dc-print-page-full + .dc-print-page-full {
+    break-before: page;
+    page-break-before: always;
+  }
+}
+/* Full-page rows: readable type, but no more padding than a line needs. */
+.dc-print-sheet-full th,
+.dc-print-sheet-full td {
+  padding: 0.9mm 0.9mm !important;
+}

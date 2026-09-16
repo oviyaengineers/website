@@ -7,9 +7,6 @@ import type { CustomerRow } from "@/types/database";
 /** Rows shown in the items table, padded with blanks when a DC is short. */
 const MIN_TABLE_ROWS = 4;
 
-/** Most challans that can share one printed sheet and still fit one A4 page. */
-export const MAX_PRINT_TOGETHER = 3;
-
 export type PrintItem = {
   id: string;
   component: string;
@@ -20,8 +17,6 @@ export type PrintItem = {
   material_problem_qty: number;
   rejection_qty: number;
   total_qty: number;
-  /** Our DC number the line belongs to, shown when several challans share a sheet. */
-  dcNumber: string;
 };
 
 export type PrintChallan = {
@@ -38,25 +33,24 @@ export type PrintChallan = {
 /**
  * The printed delivery challan: ORIGINAL above DUPLICATE on one A4 page.
  *
- * Usually one challan. Several challans for the same customer and date can
- * share the sheet: each keeps its own DC number, every number and customer
- * reference is listed, each line says which of our DCs it is on, and each DC
- * has its own QR code. Nothing is merged in the data.
+ * One challan. Several challans of one customer and date are printed together
+ * by CombinedDcPrintSheet, which has its own layout, so this one stays exactly
+ * as it was.
  */
 export function DcPrintSheet({
-  challans,
+  challan,
   customer,
   items,
   lang,
   t,
 }: {
-  challans: PrintChallan[];
+  challan: PrintChallan;
   customer: CustomerRow | null;
   items: PrintItem[];
   lang: Lang;
   t: Translate;
 }) {
-  const copy = { challans, customer, items, lang, t };
+  const copy = { challan, customer, items, lang, t };
   return (
     <div className="dc-print-page">
       <DcCopy label={t("dcPrint.original")} {...copy} />
@@ -75,7 +69,7 @@ export function DcPrintSheet({
  * not anything was typed into it, because a signature box that collapses when
  * empty is no use on a form somebody has to sign.
  */
-function Field({
+export function PrintField({
   label,
   span,
   tall = false,
@@ -97,43 +91,49 @@ function Field({
   );
 }
 
+/** The letterhead. Never translated. */
+export function PrintLetterhead() {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center p-1">
+        <LogoMark className="h-full w-full" />
+      </div>
+      <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
+      <div className="mt-1 text-xs">
+        40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
+      </div>
+      <div className="mt-0.5 text-xs">Ph: 9965902970, 9965702970</div>
+    </div>
+  );
+}
+
 /** Every cell of the items table: a plain ruled box, the same line as the form's. */
-const CELL = "border border-[#222] p-1.5";
+export const PRINT_CELL = "border border-[#222] p-1.5";
+const CELL = PRINT_CELL;
 
 function DcCopy({
   label,
-  challans,
+  challan,
   customer,
   items,
   lang,
   t,
 }: {
   label: string;
-  challans: PrintChallan[];
+  challan: PrintChallan;
   customer: CustomerRow | null;
   items: PrintItem[];
   lang: Lang;
   t: Translate;
 }) {
-  const together = challans.length > 1;
   const date = (value: string) => formatDate(value, "dd MMM yyyy", lang);
-  const dates = [...new Set(challans.map((dc) => dc.dcDate))];
-  // Every customer reference across the challans, each listed once.
-  const refs = challans
-    .flatMap((dc) =>
-      (dc.customerDcNumber ?? []).map((number, i) => ({
-        number,
-        date: dc.customerDcDate?.[i] ?? null,
-      }))
-    )
+  // Each customer reference listed once.
+  const refs = (challan.customerDcNumber ?? [])
+    .map((number, i) => ({ number, date: challan.customerDcDate?.[i] ?? null }))
     .filter(
       (ref, i, all) => all.findIndex((r) => r.number === ref.number && r.date === ref.date) === i
     );
-  const authorizedBy = [
-    ...new Set(challans.map((dc) => dc.authorizedBy?.trim()).filter(Boolean)),
-  ].join(", ");
-  const qrs = challans.filter((dc) => dc.qrSvg);
-  const columns = together ? 8 : 7;
+  const authorizedBy = challan.authorizedBy?.trim() ?? "";
 
   return (
     <div className="dc-print-sheet break-inside-avoid">
@@ -143,20 +143,16 @@ function DcCopy({
       <header className="relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033] print:py-2">
         {/* Top left, balancing the copy label on the right, and absolutely
             placed so the header keeps its height and the page stays one A4. */}
-        {qrs.length > 0 && (
+        {challan.qrSvg && (
           <div className="dc-print-qr absolute left-4 top-2 flex gap-1">
-            {qrs.map((dc) => (
-              <div key={dc.id} className="flex flex-col items-center">
-                <div
-                  className={qrs.length > 2 ? "dc-print-qr-code-sm" : "dc-print-qr-code"}
-                  // Generated on the server by the qrcode library, never user input.
-                  dangerouslySetInnerHTML={{ __html: dc.qrSvg as string }}
-                />
-                <p className="dc-print-qr-caption">
-                  {together ? dc.dcNumber : t("dcPublic.scanToView")}
-                </p>
-              </div>
-            ))}
+            <div className="flex flex-col items-center">
+              <div
+                className="dc-print-qr-code"
+                // Generated on the server by the qrcode library, never user input.
+                dangerouslySetInnerHTML={{ __html: challan.qrSvg }}
+              />
+              <p className="dc-print-qr-caption">{t("dcPublic.scanToView")}</p>
+            </div>
           </div>
         )}
         <div className="absolute right-4 top-4 text-xs">
@@ -164,16 +160,7 @@ function DcCopy({
             {label}
           </p>
         </div>
-        <div className="flex flex-col items-center text-center">
-          <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center p-1">
-            <LogoMark className="h-full w-full" />
-          </div>
-          <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
-          <div className="mt-1 text-xs">
-            40, Ashok Metha Street, K.K. Palayam, Vellalore, Coimbatore - 641111
-          </div>
-          <div className="mt-0.5 text-xs">Ph: 9965902970, 9965702970</div>
-        </div>
+        <PrintLetterhead />
       </header>
 
       <section className="dc-print-block mb-3">
@@ -184,13 +171,13 @@ function DcCopy({
             is laid out: the container carries the top and left edges and each
             cell its right and bottom, so the rules meet with no doubling. */}
         <div className="dc-print-fields">
-          <Field label={together ? t("dcPrint.ourDcNumbers") : t("dcPrint.ourDcNumber")} span={1}>
-            {challans.map((dc) => dc.dcNumber).join(", ")}
-          </Field>
-          <Field label={t("dcPrint.date")} span={1}>
-            {dates.map(date).join(", ")}
-          </Field>
-          <Field label={t("dcPrint.customerDcNumbers")} span={2}>
+          <PrintField label={t("dcPrint.ourDcNumber")} span={1}>
+            {challan.dcNumber}
+          </PrintField>
+          <PrintField label={t("dcPrint.date")} span={1}>
+            {date(challan.dcDate)}
+          </PrintField>
+          <PrintField label={t("dcPrint.customerDcNumbers")} span={2}>
             {refs.length > 0
               ? refs.map((ref, i) => (
                   <span key={i} className="block">
@@ -199,18 +186,18 @@ function DcCopy({
                   </span>
                 ))
               : "-"}
-          </Field>
-          <Field label={t("dcPrint.customerName")} span={2}>
+          </PrintField>
+          <PrintField label={t("dcPrint.customerName")} span={2}>
             <span className="font-medium">{customer?.name ?? "-"}</span>
             {customer?.address ? <span className="block">{customer.address}</span> : null}
-          </Field>
-          <Field label={t("dcPrint.contactGst")} span={2}>
+          </PrintField>
+          <PrintField label={t("dcPrint.contactGst")} span={2}>
             {customer?.phone ? <span className="block">{customer.phone}</span> : null}
             {customer?.gst_number ? (
               <span className="block">{t("dcPrint.gst", { gst: customer.gst_number })}</span>
             ) : null}
             {!customer?.phone && !customer?.gst_number ? "-" : null}
-          </Field>
+          </PrintField>
         </div>
       </section>
 
@@ -225,40 +212,23 @@ function DcCopy({
                 row is the single merged caption, which squeezed the
                 description down to a two-line wrap. A colgroup is immune to
                 that. */}
-            {together ? (
-              <colgroup>
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "33%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-              </colgroup>
-            ) : (
-              <colgroup>
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "38%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "9%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "12%" }} />
-              </colgroup>
-            )}
+            <colgroup>
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "38%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "12%" }} />
+            </colgroup>
             <thead>
               <tr>
-                <th
-                  colSpan={columns}
-                  className={`${CELL} text-center text-sm font-bold text-[#172033]`}
-                >
+                <th colSpan={7} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
                   {t("dcPrint.materialDetails")}
                 </th>
               </tr>
               <tr>
                 <th className={`${CELL} text-center`}>{t("dcPrint.sNo")}</th>
-                {together && <th className={`${CELL} text-center`}>{t("dcPrint.ourDc")}</th>}
                 <th className={`${CELL} text-center`}>{t("dcPrint.description")}</th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.material")}</th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.qty")}</th>
@@ -271,7 +241,6 @@ function DcCopy({
               {items.map((item, idx) => (
                 <tr key={item.id}>
                   <td className={`${CELL} text-center`}>{idx + 1}</td>
-                  {together && <td className={`${CELL} text-center`}>{item.dcNumber}</td>}
                   <td className={`${CELL} text-center`}>{item.component}</td>
                   <td className={`${CELL} text-center`}>{item.material ?? "-"}</td>
                   {/* The "Qty" column on the printed challan is the sent quantity. */}
@@ -287,7 +256,7 @@ function DcCopy({
                 length: Math.max(0, MIN_TABLE_ROWS - items.length),
               }).map((_, i) => (
                 <tr key={`blank-${i}`}>
-                  {Array.from({ length: columns }).map((__, c) => (
+                  {Array.from({ length: 7 }).map((__, c) => (
                     <td key={c} className={CELL}>
                       &nbsp;
                     </td>
@@ -304,19 +273,19 @@ function DcCopy({
           three separate cards. */}
       <section className="dc-print-block dc-print-foot">
         <div className="dc-print-fields">
-          <Field label={t("dcPrint.note")} span={4}>
+          <PrintField label={t("dcPrint.note")} span={4}>
             {t("dcPrint.noteText")}
-          </Field>
-          <Field label={t("dcPrint.receiverSignature")} span={2} tall>
+          </PrintField>
+          <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
-          </Field>
-          <Field
+          </PrintField>
+          <PrintField
             label={authorizedBy ? t("dcPrint.authorizedBy") : t("dcPrint.authorizedSignatory")}
             span={2}
             tall
           >
             {authorizedBy}
-          </Field>
+          </PrintField>
         </div>
       </section>
     </div>

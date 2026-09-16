@@ -15,6 +15,7 @@ import {
   Hash,
   LayoutDashboard,
   Inbox,
+  Layers,
   ListChecks,
   LogOut,
   Receipt,
@@ -119,6 +120,13 @@ const NAV: NavGroup[] = [
         labelKey: "nav.dispatchedDcs",
         icon: Send,
         color: "text-indigo-300",
+      },
+      // Print only: several issued DCs of one customer and one date on one sheet.
+      {
+        href: "/dashboard/dc/combined-print",
+        labelKey: "dcCombined.menu",
+        icon: Layers,
+        color: "text-cyan-300",
       },
       {
         href: "/dashboard/stock",
