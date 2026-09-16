@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Inbox,
   Layers,
+  Scale,
   ListChecks,
   LogOut,
   Receipt,
@@ -140,6 +141,12 @@ const NAV: NavGroup[] = [
         labelKey: "nav.completedDcs",
         icon: CheckCircle2,
         color: "text-lime-400",
+      },
+      {
+        href: "/dashboard/weight",
+        labelKey: "nav.weightScrap",
+        icon: Scale,
+        color: "text-teal-300",
       },
       {
         href: "/dashboard/dc/history",

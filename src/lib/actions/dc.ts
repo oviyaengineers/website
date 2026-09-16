@@ -433,6 +433,15 @@ export async function updateDcStatusAction(id: string, lifecycle: "draft" | "act
 export async function deleteDcAction(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("delivery_challans").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // A line with weight/scrap recorded keeps its DC (0029). Returned rather
+    // than thrown: a production build hides a thrown action's message.
+    if (error.message.includes("WEIGHED_LINE_REMOVED")) {
+      const { lang } = await getTranslator();
+      return { error: saveErrorMessage(error.message, error.code, lang) };
+    }
+    throw new Error(error.message);
+  }
   revalidateDcScreens();
+  return { error: null };
 }

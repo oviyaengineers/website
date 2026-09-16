@@ -48,7 +48,11 @@ export function DeleteDcButton({ id, dcNumber }: { id: string; dcNumber: string 
             onClick={() =>
               startTransition(async () => {
                 try {
-                  await deleteDcAction(id);
+                  const result = await deleteDcAction(id);
+                  if (result.error) {
+                    toast.error(result.error);
+                    return;
+                  }
                   toast.success(t("dc.delete.deleted"));
                   // replace, not push: the deleted challan must not be sitting
                   // in history for the back button to return to.

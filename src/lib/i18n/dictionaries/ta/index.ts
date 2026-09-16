@@ -14,6 +14,7 @@ import { dcPrint, dcScan } from "@/lib/i18n/dictionaries/ta/dcScan";
 import { dcPublic } from "@/lib/i18n/dictionaries/ta/dcPublic";
 import { dcCombined } from "@/lib/i18n/dictionaries/ta/dcCombined";
 import { costs, customers } from "@/lib/i18n/dictionaries/ta/admin";
+import { weight } from "@/lib/i18n/dictionaries/ta/weight";
 import { auth, settings } from "@/lib/i18n/dictionaries/ta/settings";
 
 /** தமிழ் அகராதி: ஆங்கில அகராதியின் அதே விசைகள். */
@@ -40,4 +41,5 @@ export const ta: Dictionary = {
   costs,
   settings,
   auth,
+  weight,
 };

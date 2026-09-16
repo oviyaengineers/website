@@ -119,6 +119,8 @@ export const dcErrors = {
     "{component}: {qty} is already billed on issued invoices, so Sent cannot be reduced below that. Cancel the invoice first if it is wrong. Nothing was saved.",
   billedLineRemoved:
     "{component} is billed on an invoice, so it cannot be removed from this DC. Nothing was saved.",
+  weighedLineRemoved:
+    "{component}: This line has weight/scrap recorded. Remove its weight on the Weight / Scrap screen first. Nothing was saved.",
   billedMonthLocked:
     "{dc} is billed for {month}, so its date cannot move to another month. Cancel the invoice first if the date is wrong. Nothing was saved.",
   billedCustomerLocked:

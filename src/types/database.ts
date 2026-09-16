@@ -334,6 +334,36 @@ export type ComponentRateRow = {
   updated_by: string | null;
 };
 
+/** Rough and finished weight per piece for one challan line, in grams (0029). */
+export type DcLineWeightRow = {
+  id: string;
+  dc_item_id: string;
+  rough_weight_g: number;
+  rough_unit: "g" | "kg";
+  finished_weight_g: number;
+  finished_unit: "g" | "kg";
+  /** Rupees per kg, typed by hand. Null when not entered. */
+  scrap_rate_per_kg: number | null;
+  /** Sent Qty when the weights were last saved, to flag a later change. */
+  sent_qty_at_save: number;
+  created_by: string | null;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+/** Every change to a weight record, written only by a trigger (0029). */
+export type DcLineWeightHistoryRow = {
+  id: number;
+  weight_id: string;
+  dc_item_id: string;
+  action: "insert" | "update" | "delete";
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  changed_by: string | null;
+  changed_at: string;
+};
+
 /** One row per series: GST tax invoices and normal bills never share numbers (0027). */
 export type InvoiceNumberSeriesRow = {
   kind: "gst" | "non_gst";
@@ -623,6 +653,18 @@ export type Database = {
         Update: Partial<InvoiceItemSourceRow>;
         Relationships: [];
       };
+      dc_line_weights: {
+        Row: DcLineWeightRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      dc_line_weight_history: {
+        Row: DcLineWeightHistoryRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       invoice_number_series: {
         Row: InvoiceNumberSeriesRow;
         Insert: Partial<InvoiceNumberSeriesRow> & { fy_label: string };
@@ -641,6 +683,11 @@ export type Database = {
       };
     };
     Functions: {
+      /** Saves or removes the weights of several lines on one challan, atomically. Admin only (0029). */
+      save_dc_line_weights: {
+        Args: { p_dc_id: string; p_lines: unknown };
+        Returns: { saved: number; removed: number }[];
+      };
       /** The public link token for a challan, made on first use. Staff only (0028). */
       ensure_dc_public_link: {
         Args: { p_dc_id: string };

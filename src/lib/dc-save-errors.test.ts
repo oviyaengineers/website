@@ -24,6 +24,16 @@ test("removing a line with follow-ups is explained", () => {
   );
 });
 
+test("removing a line with weight/scrap recorded is explained", () => {
+  const text = saveErrorMessage("WEIGHED_LINE_REMOVED:WCB Casting", "P0001");
+  assert.match(text, /^WCB Casting: This line has weight\/scrap recorded\./);
+  assert.match(text, /Nothing was saved/);
+  assert.match(
+    saveErrorMessage("WEIGHED_LINE_REMOVED:WCB Casting", null, "ta"),
+    /எடை\/ஸ்கிராப் பதிவு/
+  );
+});
+
 test("anything else still says nothing was kept", () => {
   assert.match(saveErrorMessage("network down"), /nothing was kept.*network down/);
 });

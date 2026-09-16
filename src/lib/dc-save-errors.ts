@@ -52,6 +52,12 @@ export function saveErrorMessage(
     return t("dcErrors.billedLineRemoved", { component: billedRemoved[1].trim() });
   }
 
+  // Raised when a line with weight/scrap recorded is removed or its DC deleted (0029).
+  const weighedRemoved = text.match(/WEIGHED_LINE_REMOVED:(.*)/);
+  if (weighedRemoved) {
+    return t("dcErrors.weighedLineRemoved", { component: weighedRemoved[1].trim() });
+  }
+
   const monthLocked = text.match(/DC_BILLED_MONTH_LOCKED: (\S+) is billed for ([^,]+),/);
   if (monthLocked) {
     return t("dcErrors.billedMonthLocked", { dc: monthLocked[1], month: monthLocked[2] });

@@ -50,6 +50,7 @@ export const nav = {
   dispatchedDcs: "Dispatched DCs",
   stockBalance: "Stock / Balance",
   completedDcs: "Completed DCs",
+  weightScrap: "Weight / Scrap",
   dcHistory: "DC History",
   records: "Records",
   customers: "Customers",

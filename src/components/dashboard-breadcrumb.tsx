@@ -24,6 +24,7 @@ const SEGMENT_LABELS: Record<string, TranslationKey> = {
   component: "common.component",
   stock: "nav.stockBalance",
   completed: "nav.completedDcs",
+  weight: "nav.weightScrap",
   invoices: "nav.billing",
   costs: "nav.costs",
   reports: "nav.reports",
