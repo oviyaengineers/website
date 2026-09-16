@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
@@ -62,6 +62,14 @@ export function WeightFilters({
 
   const preset = presetFor(values.from, values.to, today);
   const anySet = KEYS.some((key) => Boolean(values[key]));
+  // On a phone the full set of filters filled the first screen, so the lines
+  // started below it. They fold behind one button there; the search box and
+  // the quick dates stay in view. A wider screen always shows them.
+  const [open, setOpen] = useState(false);
+  const activeCount =
+    (["dc", "weight", "customer", "dcNo", "customerDcNo", "component", "material"] as const).filter(
+      (key) => Boolean(values[key])
+    ).length + (!preset && (values.from || values.to) ? 1 : 0);
 
   return (
     <div className="space-y-3">
@@ -91,9 +99,28 @@ export function WeightFilters({
         >
           {t("weight.anyDate")}
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-expanded={open}
+          className="h-11 sm:hidden"
+          onClick={() => setOpen((value) => !value)}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {t("common.filters")}
+          {activeCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#10233f] px-1 text-[11px] font-semibold text-white">
+              {activeCount}
+            </span>
+          )}
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap [&_input]:h-11 sm:[&_input]:h-9">
+      <div
+        className={`${open ? "grid" : "hidden"} grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap [&_input]:h-11 sm:[&_input]:h-9`}
+      >
         <Field label={t("common.from")}>
           <Input
             type="date"
