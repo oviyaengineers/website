@@ -58,14 +58,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <SidebarTrigger className="-ml-1 size-11 md:size-8" label={t("nav.toggleSidebar")} />
               <Separator orientation="vertical" className="mx-1 h-4" />
               <HistoryNav />
-              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Separator orientation="vertical" className="mr-2 hidden h-4 sm:block" />
               {/* The label yields space before the scan button does: min-w-0 plus
                   truncate lets it shrink on a narrow phone, and shrink-0 keeps the
                   button at full size instead of being squeezed out of the bar. */}
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
+              <span className="hidden min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground sm:block">
                 {t("header.title")}
               </span>
-              <LanguageSwitcher />
+              {/* On a phone the title is hidden, so this keeps the buttons on the right. */}
+              <div className="flex-1 sm:hidden" />
+              <LanguageSwitcher compact />
               {/* In the shell rather than on the DC form, so a challan can be
                   scanned from any page at any point. */}
               <div className="shrink-0">

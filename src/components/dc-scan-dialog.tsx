@@ -613,7 +613,9 @@ export function DcScanDialog({
         )}
 
         {stage === "review" && scan && (
-          <div className="space-y-5">
+          // min-w-0: this is a grid item, and the one-line raw text under each
+          // item otherwise set its width, cutting the review off on a phone.
+          <div className="min-w-0 space-y-5">
             {previewUrl && (
               /* eslint-disable-next-line @next/next/no-img-element -- transient
                  canvas data: URL, never a stored asset */
@@ -717,7 +719,7 @@ export function DcScanDialog({
                     />
                     <span className="w-36 shrink-0 text-muted-foreground">{field.label}</span>
                     {field.value ? (
-                      <span className="font-medium">
+                      <span className="min-w-0 break-words font-medium">
                         {field.key === "customerDcDate"
                           ? formatDcDate(field.value, lang)
                           : field.value}
@@ -737,7 +739,10 @@ export function DcScanDialog({
                   <span className="text-muted-foreground">{t("dcScan.receivedQtyParen")}</span>
                 </h3>
                 {items.map((item) => (
-                  <div key={item.key} className="flex items-center gap-3 rounded-md border p-2">
+                  <div
+                    key={item.key}
+                    className="flex items-center gap-2 rounded-md border p-2 sm:gap-3"
+                  >
                     <input
                       type="checkbox"
                       className="h-6 w-6 shrink-0 accent-[#10233f] sm:h-4 sm:w-4"
@@ -789,7 +794,7 @@ export function DcScanDialog({
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{item.rawLine}</p>
                     </div>
-                    <div className="w-20 shrink-0 [&_input]:h-11 sm:[&_input]:h-8">
+                    <div className="w-14 shrink-0 [&_input]:h-11 [&_input]:px-1 [&_input]:text-center sm:w-20 sm:[&_input]:h-8 sm:[&_input]:px-3 sm:[&_input]:text-left">
                       <Label className="sr-only" htmlFor={`${inputId}-qty-${item.key}`}>
                         {t("dcScan.receivedQtyFor", { component: item.component })}
                       </Label>
