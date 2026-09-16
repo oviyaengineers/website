@@ -10,14 +10,14 @@ import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/render
 // whichever of the two a customer received looked nothing like the other.
 
 const NAVY = "#10233f";
-const RULE = "#222222";
+const RULE = NAVY;
 
 const styles = StyleSheet.create({
   page: {
     padding: 22,
     fontSize: 7.5,
     fontFamily: "Helvetica",
-    color: "#172033",
+    color: NAVY,
   },
   // Each copy takes exactly half the page, whatever it contains, so the cut
   // line always falls at the middle of the sheet.
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   cellLabel: {
     fontSize: 5.2,
     fontFamily: "Helvetica-Bold",
-    color: "#5b6472",
+    color: NAVY,
     marginBottom: 1,
   },
   cellValue: { fontSize: 7 },
@@ -127,11 +127,11 @@ const styles = StyleSheet.create({
 
   cut: {
     borderTopWidth: 0.5,
-    borderTopColor: "#9aa3b0",
+    borderTopColor: NAVY,
     borderStyle: "dashed",
     textAlign: "center",
     fontSize: 5.5,
-    color: "#9aa3b0",
+    color: NAVY,
     paddingTop: 2,
     marginVertical: 4,
   },

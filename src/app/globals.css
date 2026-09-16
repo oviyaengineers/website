@@ -536,14 +536,18 @@
 .invoice-print-page {
   position: relative;
   box-sizing: border-box;
+  /* A column the height of the sheet: the items stretch, so the totals and
+     signature sit at the foot of the page like a printed bill book. */
+  display: flex;
+  flex-direction: column;
   width: 210mm;
   min-height: 297mm;
   padding: 10mm;
   background: #fff;
   color: #172033;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-  font-size: 10.5px;
-  line-height: 1.35;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .invoice-cancelled-mark {
@@ -561,9 +565,11 @@
 }
 
 @media print {
+  /* The margin belongs to the page, so a bill long enough to run on keeps
+     the same margin at the top of its second sheet. */
   @page invoice-a4 {
     size: A4 portrait;
-    margin: 0;
+    margin: 10mm;
   }
 
   body:has(.invoice-print-page) {
@@ -577,9 +583,11 @@
 
   .invoice-print-page {
     width: 100%;
-    min-height: auto;
-    /* A little tighter than on screen, so a busy GST invoice stays on one A4. */
-    padding: 8mm 9mm;
+    /* The sheet less its 10mm margins, and a hair under it, so rounding
+       never spills a blank second page. Taller content is never clipped: it
+       flows on rather than being cut. */
+    min-height: 276mm;
+    padding: 0;
     box-shadow: none !important;
   }
 
@@ -788,4 +796,19 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .dc-print-sheet-full th,
 .dc-print-sheet-full td {
   padding: 0.9mm 0.9mm !important;
+}
+
+/* Every printed document in dark navy blue: text, ruled lines and table
+   borders on the delivery challan, the combined challan, the bill and the
+   printed lists, the same #10233f as the brand. Applied on screen too, so the
+   preview is the page. The CANCELLED / PREVIEW mark keeps its own faint
+   colour, and the QR code stays black so every phone can scan it. */
+:root {
+  --print-ink: #10233f;
+}
+:is(.dc-print-page, .invoice-print-page, .dc-list-print),
+:is(.dc-print-page, .invoice-print-page, .dc-list-print)
+  *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *) {
+  color: var(--print-ink) !important;
+  border-color: var(--print-ink) !important;
 }
