@@ -144,8 +144,8 @@ function DcCopy({
         {/* Top left, balancing the copy label on the right, and absolutely
             placed so the header keeps its height and the page stays one A4. */}
         {challan.qrSvg && (
-          <div className="dc-print-qr absolute left-4 top-2 flex gap-1">
-            <div className="flex flex-col items-center">
+          <div className="dc-print-qr absolute left-3 top-0.5 flex gap-1">
+            <div className="flex items-center gap-0.5">
               <div
                 className="dc-print-qr-code"
                 // Generated on the server by the qrcode library, never user input.

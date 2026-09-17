@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
+import Link from "next/link";
+import { ScanQrCode } from "lucide-react";
 import { DashboardScanButton } from "@/components/dashboard-scan-button";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 import { HistoryNav } from "@/components/history-nav";
@@ -70,6 +72,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <LanguageSwitcher compact />
               {/* In the shell rather than on the DC form, so a challan can be
                   scanned from any page at any point. */}
+              <Link
+                href="/dashboard/scan-qr"
+                aria-label={t("qrScan.headerButton")}
+                title={t("qrScan.headerButton")}
+                className="flex size-11 shrink-0 items-center justify-center rounded-md border bg-background text-[#10233f] shadow-sm hover:bg-accent md:size-9 dark:text-white"
+              >
+                <ScanQrCode className="h-5 w-5" />
+              </Link>
               <div className="shrink-0">
                 <DashboardScanButton
                   customers={customers ?? []}

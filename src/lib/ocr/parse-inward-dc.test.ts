@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   cleanComponentName,
+  matchFoldedComponent,
+  tidyOcrText,
   namesLookAlike,
   parseInwardDc,
   withoutRevision,
@@ -290,4 +292,34 @@ test("revision is ignored when comparing names, class number is not", () => {
   assert.equal(namesLookAlike(listed, "3P DN40FB/50RB WCB Body Casting"), false);
   // Words that merely start with "rev" are left alone.
   assert.equal(withoutRevision("Reverse Flange REV 2"), "Reverse Flange");
+});
+
+test("letters and digits swapped by OCR still find the listed part, and only that part", () => {
+  const list = [
+    "3P DN40FB/50RB CF8M Body Casting REV 2",
+    "3P DN50RB CF8M #150 Flg Connector Casting",
+    "3P DN80RB CF8M #150 Flg Connector Casting",
+    "2P DN25FB CF8M Body Casting #150 REV 04",
+  ];
+  assert.equal(
+    matchFoldedComponent("3P DN4OFB/S50RB CF8M Body Casting REV 2", list),
+    "3P DN40FB/50RB CF8M Body Casting REV 2"
+  );
+  assert.equal(
+    matchFoldedComponent("3P DN5ORB CF8M #150 Fig Cornnecior Casting", list),
+    "3P DN50RB CF8M #150 Flg Connector Casting"
+  );
+  // A different code is never a slip, however alike the rest reads.
+  assert.equal(matchFoldedComponent("3P DN60RB CF8M #150 Flg Connector Casting", list), null);
+  assert.equal(matchFoldedComponent("2P DN40FB CF8M Body Casting #150 REV 04", list), null);
+  // An extra or missing word is a different part.
+  assert.equal(matchFoldedComponent("3P DN50RB CF8M #150 Flg Connector", list), null);
+});
+
+test("border marks and a misread unit are tidied before reading", () => {
+  assert.equal(
+    tidyOcrText("SW   2P DN25FB CF8M Body Casting #150 REV 04   | 84819090   \   80.000€A |"),
+    "2P DN25FB CF8M Body Casting #150 REV 04      84819090      80.000EA   "
+  );
+  assert.equal(tidyOcrText("1   3P DN50RB Casting body item"), "1   3P DN50RB Casting body item");
 });

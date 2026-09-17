@@ -207,7 +207,7 @@ function DcCopy({ label, dc }: { label: string; dc: DcPdfData }) {
           // eslint-disable-next-line jsx-a11y/alt-text
           <Image
             src={dc.qr_png}
-            style={{ position: "absolute", top: 4, left: 8, width: 36, height: 36 }}
+            style={{ position: "absolute", top: 3, left: 6, width: 50, height: 50 }}
           />
         ) : null}
         {/* A 220px copy of the logo rather than the 1280px original. It is

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FilePlus2, ImageOff, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { FilePlus2, ImageOff, Pencil, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,45 @@ export function ScannedDcEditor({
       router.push(`/dashboard/dc/scanned/${scan.id}`);
       router.refresh();
     });
+  }
+
+  const [rereading, setRereading] = useState(false);
+
+  async function reread() {
+    if (!imageUrl) return;
+    setRereading(true);
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error(String(response.status));
+      const { scanChallan } = await import("@/lib/ocr/recognize");
+      const { reading } = await scanChallan(await response.blob(), {
+        customers,
+        components,
+        materials,
+        thorough: true,
+      });
+      if (reading.customerId) setCustomerId(reading.customerId);
+      if (reading.customerDcNumber) setNumber(reading.customerDcNumber);
+      if (reading.customerDcDate) setDate(reading.customerDcDate);
+      if (reading.items.length > 0) {
+        setItems(
+          reading.items.map(({ component, material, received_qty }) => ({
+            component,
+            material,
+            received_qty,
+          }))
+        );
+      }
+      toast.success(t("dcScan.rereadDone"));
+    } catch (error) {
+      toast.error(
+        t("dcScan.rereadFailed", {
+          error: error instanceof Error ? error.message : t("dcScan.unknownError"),
+        })
+      );
+    } finally {
+      setRereading(false);
+    }
   }
 
   function discard() {
@@ -199,6 +238,21 @@ export function ScannedDcEditor({
       </div>
 
       <div className="space-y-6">
+        {canEdit && imageUrl && (
+          // Reads the stored original again with the improved pipeline. Only the
+          // values on this form change, and only when saved; the photograph and
+          // the first OCR record are never touched.
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full sm:h-9 sm:w-auto"
+            disabled={rereading}
+            onClick={() => void reread()}
+          >
+            <RefreshCw className={`h-4 w-4 ${rereading ? "animate-spin" : ""}`} />
+            {rereading ? t("dcScan.rereading") : t("dcScan.tryOcrAgainEditor")}
+          </Button>
+        )}
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base text-[#10233f]">

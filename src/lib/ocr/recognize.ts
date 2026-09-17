@@ -1,15 +1,25 @@
 // Browser-side OCR for the inward-challan scanner.
 //
-// Tesseract runs entirely on the device, so the photo never leaves the phone.
-// The trade-off is that it is sensitive to image quality, hence the
-// preprocessing pass below — a flat, high-contrast greyscale image reads far
-// better than a raw phone snapshot.
+// Everything runs on the device, so the photograph is only uploaded when the
+// scan is kept. Preparation (straightening, shadow removal, thresholding)
+// runs in a background worker and Tesseract in its own, so the page stays
+// responsive. The same page is read from several prepared images and the
+// readings are combined (see pipeline.ts and combine.ts).
 
-/** Longest edge, in px, we hand to Tesseract. Roughly 300 DPI for an A4 page. */
-const TARGET_LONG_EDGE = 2000;
-const MIN_LONG_EDGE = 1200;
+import { readChallan, type ChallanReading, type ScanStage } from "@/lib/ocr/pipeline";
+import {
+  grayToRgba,
+  rgbaToGray,
+  prepareForOcr,
+  type Gray,
+  type OcrVariantName,
+  type PreparedForOcr,
+} from "@/lib/ocr/preprocess";
+import type { OcrWord } from "@/lib/ocr/layout-rows";
+import type { ParseInwardDcOptions } from "@/lib/ocr/parse-inward-dc";
+import type { PrepareRequest, PrepareResponse } from "@/lib/ocr/prepare.worker";
 
-export type OcrProgress = { status: string; progress: number };
+export type { ScanStage };
 
 /**
  * What the photograph itself was like, before any reading was attempted.
@@ -24,132 +34,198 @@ export type ImageQuality = {
   longEdge: number;
   /** Too few pixels across the page for the table text to survive. */
   tooSmall: boolean;
-};
-
-export type PreparedImage = {
-  canvas: HTMLCanvasElement;
-  /** data: URL for the review thumbnail. */
-  previewUrl: string;
-  quality: ImageQuality;
+  /** Measured as blurred after preparation. */
+  blurred: boolean;
 };
 
 /** Below this the page simply has too few pixels for the table to be read. */
 const MIN_USABLE_LONG_EDGE = 1500;
+/** Larger photos are scaled down to this before anything else: detail beyond it adds time, not text. */
+const MAX_WORKING_LONG_EDGE = 3000;
 
-/**
- * Narrowest percentile span worth stretching. Below it the photograph is
- * already high-contrast and stretching would only destroy it.
- */
-const MIN_STRETCHABLE_SPAN = 32;
+export type ScanProgress = { stage: ScanStage; pass?: number; passes?: number };
 
-/**
- * Downscale (or gently upscale) the photo, convert to greyscale, and stretch
- * the contrast so faint pen strokes separate from the paper.
- */
-export async function prepareImage(file: File): Promise<PreparedImage> {
-  const bitmap = await createImageBitmap(file);
+export type ChallanScan = {
+  reading: ChallanReading;
+  quality: ImageQuality;
+  /** data: URL of the photograph, for the review thumbnail. */
+  previewUrl: string;
+  /** The prepared image the reading came from, as a JPEG, stored beside the original. */
+  processedBlob: Blob | null;
+};
+
+async function loadGray(file: Blob): Promise<{ gray: Gray; longEdge: number; previewUrl: string }> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const longEdge = Math.max(bitmap.width, bitmap.height);
-  const scale =
-    longEdge > TARGET_LONG_EDGE
-      ? TARGET_LONG_EDGE / longEdge
-      : longEdge < MIN_LONG_EDGE
-        ? MIN_LONG_EDGE / longEdge
-        : 1;
-
+  const scale = longEdge > MAX_WORKING_LONG_EDGE ? MAX_WORKING_LONG_EDGE / longEdge : 1;
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("Could not read the image on this device.");
-
+  if (!ctx) {
+    bitmap.close();
+    throw new Error("Could not read the image on this device.");
+  }
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const gray = rgbaToGray(pixels.data, canvas.width, canvas.height);
 
-  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const pixels = image.data;
-
-  // Pass 1: greyscale, building a luminance histogram as we go.
-  const histogram = new Uint32Array(256);
-  for (let i = 0; i < pixels.length; i += 4) {
-    const grey = (pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114) | 0;
-    pixels[i] = grey;
-    pixels[i + 1] = grey;
-    pixels[i + 2] = grey;
-    histogram[grey] += 1;
-  }
-
-  // Pass 2: linear stretch between the 2nd and 98th percentiles, which ignores
-  // glare highlights and shadowed corners instead of letting them flatten the
-  // rest of the page.
-  const total = canvas.width * canvas.height;
-  const low = percentile(histogram, total, 0.02);
-  const high = percentile(histogram, total, 0.98);
-  const span = high - low;
-
-  // A sparse page is mostly paper: on a clean, evenly lit shot of this challan
-  // fewer than 2% of pixels are ink, so both percentiles land on white and the
-  // span collapses to nothing. Stretching by that mapped every pixel to black
-  // and Tesseract read an empty rectangle. The stretch only helps when there is
-  // a real spread to open up, so a collapsed one is left alone.
-  if (span >= MIN_STRETCHABLE_SPAN) {
-    for (let i = 0; i < pixels.length; i += 4) {
-      const stretched = Math.min(255, Math.max(0, ((pixels[i] - low) * 255) / span)) | 0;
-      pixels[i] = stretched;
-      pixels[i + 1] = stretched;
-      pixels[i + 2] = stretched;
-    }
-  }
-
-  ctx.putImageData(image, 0, 0);
-
-  return {
-    canvas,
-    previewUrl: canvas.toDataURL("image/jpeg", 0.7),
-    quality: {
-      longEdge,
-      tooSmall: longEdge < MIN_USABLE_LONG_EDGE,
-    },
-  };
+  const thumb = document.createElement("canvas");
+  const thumbScale = Math.min(1, 900 / Math.max(canvas.width, canvas.height));
+  thumb.width = Math.round(canvas.width * thumbScale);
+  thumb.height = Math.round(canvas.height * thumbScale);
+  thumb.getContext("2d")?.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+  return { gray, longEdge, previewUrl: thumb.toDataURL("image/jpeg", 0.7) };
 }
 
-function percentile(histogram: Uint32Array, total: number, fraction: number): number {
-  const target = total * fraction;
-  let seen = 0;
-  for (let value = 0; value < histogram.length; value += 1) {
-    seen += histogram[value];
-    if (seen >= target) return value;
+/** Runs preparation in a worker, or on the page when workers are unavailable. */
+function createPreparer(gray: Gray) {
+  let worker: Worker | null = null;
+  try {
+    worker = new Worker(new URL("./prepare.worker.ts", import.meta.url), { type: "module" });
+  } catch {
+    worker = null;
   }
-  return 255;
+  let nextId = 1;
+
+  const prepare = (options: {
+    thorough: boolean;
+    quarterTurns: number;
+  }): Promise<PreparedForOcr> => {
+    if (!worker) return Promise.resolve(prepareForOcr(gray, options));
+    const active = worker;
+    const id = nextId++;
+    // A copy each time: the buffer is transferred to the worker and gone from here.
+    const data = gray.data.slice().buffer;
+    return new Promise((resolve, reject) => {
+      const onMessage = (event: MessageEvent<PrepareResponse>) => {
+        if (event.data.id !== id) return;
+        active.removeEventListener("message", onMessage);
+        active.removeEventListener("error", onError);
+        const response = event.data;
+        if (!response.ok) {
+          reject(new Error(response.error));
+          return;
+        }
+        resolve({
+          report: response.report,
+          variants: response.variants.map((v) => ({
+            name: v.name as OcrVariantName,
+            image: { width: v.width, height: v.height, data: new Uint8ClampedArray(v.data) },
+          })),
+        });
+      };
+      const onError = () => {
+        active.removeEventListener("message", onMessage);
+        active.removeEventListener("error", onError);
+        // A worker that failed to load: do it here instead.
+        worker?.terminate();
+        worker = null;
+        try {
+          resolve(prepareForOcr(gray, options));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      active.addEventListener("message", onMessage);
+      active.addEventListener("error", onError);
+      const request: PrepareRequest = {
+        id,
+        width: gray.width,
+        height: gray.height,
+        data,
+        thorough: options.thorough,
+        quarterTurns: options.quarterTurns,
+      };
+      active.postMessage(request, [data]);
+    });
+  };
+  return { prepare, dispose: () => worker?.terminate() };
+}
+
+function grayCanvas(image: Gray): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not read the image on this device.");
+  const rgba = new Uint8ClampedArray(new ArrayBuffer(image.width * image.height * 4));
+  rgba.set(grayToRgba(image));
+  ctx.putImageData(new ImageData(rgba, image.width, image.height), 0, 0);
+  return canvas;
 }
 
 /**
- * Run Tesseract over a prepared image. The engine core and language data are
- * fetched from Tesseract's CDN on first use and then cached by the browser, so
- * the very first scan on a device needs a network connection.
+ * Reads one photographed customer challan.
+ *
+ * The engine core and language data are fetched from Tesseract's CDN on first
+ * use and then cached by the browser, so the very first scan on a device
+ * needs a network connection.
  */
-export async function recognizeText(
-  canvas: HTMLCanvasElement,
-  onProgress?: (progress: OcrProgress) => void
-): Promise<string> {
+export async function scanChallan(
+  file: Blob,
+  options: ParseInwardDcOptions & { thorough?: boolean },
+  onProgress?: (progress: ScanProgress) => void
+): Promise<ChallanScan> {
+  onProgress?.({ stage: "improving" });
+  const { gray, longEdge, previewUrl } = await loadGray(file);
+  const preparer = createPreparer(gray);
   const { createWorker, PSM } = await import("tesseract.js");
-
-  const worker = await createWorker("eng", 1, {
-    logger: (message) => onProgress?.({ status: message.status, progress: message.progress }),
-  });
+  const tesseract = await createWorker("eng", 1);
 
   try {
-    await worker.setParameters({
+    await tesseract.setParameters({
       // Full layout analysis: challans are boxed forms with a table, not one
       // uniform block of prose.
       tessedit_pageseg_mode: PSM.AUTO,
       // Keep column gaps in the output so each table row stays on one line.
       preserve_interword_spaces: "1",
+      user_defined_dpi: "300",
     });
 
-    const { data } = await worker.recognize(canvas);
-    return data.text;
+    const reading = await readChallan(
+      {
+        prepare: preparer.prepare,
+        recognize: async (image) => {
+          const { data } = await tesseract.recognize(
+            grayCanvas(image),
+            {},
+            { text: true, blocks: true }
+          );
+          const words: OcrWord[] = [];
+          for (const block of data.blocks ?? []) {
+            for (const paragraph of block.paragraphs) {
+              for (const line of paragraph.lines) {
+                for (const word of line.words) {
+                  words.push({ text: word.text, confidence: word.confidence, bbox: word.bbox });
+                }
+              }
+            }
+          }
+          return { text: data.text, words };
+        },
+        onStage: (stage, detail) => onProgress?.({ stage, ...detail }),
+      },
+      options
+    );
+
+    const processedBlob = await new Promise<Blob | null>((resolve) =>
+      grayCanvas(reading.processed).toBlob(resolve, "image/jpeg", 0.8)
+    ).catch(() => null);
+
+    return {
+      reading,
+      previewUrl,
+      processedBlob,
+      quality: {
+        longEdge,
+        tooSmall: longEdge < MIN_USABLE_LONG_EDGE,
+        blurred: reading.report.blurred,
+      },
+    };
   } finally {
-    await worker.terminate();
+    preparer.dispose();
+    await tesseract.terminate();
   }
 }

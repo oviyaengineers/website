@@ -599,6 +599,8 @@ export type PendingDcScanRow = {
   created_by: string | null;
   /** The original photograph in the private dc-scans bucket (0022). */
   image_path: string | null;
+  /** The prepared image OCR read, kept apart from the original (0032). */
+  processed_image_path: string | null;
   /** The raw text OCR returned (0022). */
   ocr_text: string | null;
   /** The values as first read, before any correction (0022). */
@@ -618,6 +620,7 @@ export type PendingDcScanInsert = {
   created_at?: string;
   created_by?: string | null;
   image_path?: string | null;
+  processed_image_path?: string | null;
   ocr_text?: string | null;
   ocr_result?: unknown;
   corrected_at?: string | null;

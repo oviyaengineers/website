@@ -45,10 +45,14 @@ export async function dcQrCode(
   if (error || typeof token !== "string" || !PUBLIC_DC_TOKEN.test(token)) return null;
 
   const url = `${await siteOrigin()}${publicDcPath(token)}`;
-  const options = { errorCorrectionLevel: "M" as const, margin: 1 };
+  // A four-module white border (the QR standard's quiet zone) is part of the
+  // code itself. With only one module, phone cameras kept missing the printed
+  // code against the ruled header: in a test with tilt, blur and shading,
+  // ZXing read 20 of 64 frames with a margin of 1 and 47 of 64 with 4.
+  const options = { errorCorrectionLevel: "M" as const, margin: 4 };
   const [svg, png] = await Promise.all([
     toQrString(url, { ...options, type: "svg" }),
-    toDataURL(url, { ...options, width: 240 }),
+    toDataURL(url, { ...options, width: 392 }),
   ]);
   return { url, svg, png };
 }

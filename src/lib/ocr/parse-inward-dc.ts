@@ -488,6 +488,59 @@ function matchComponent(description: string, components: string[]): CandidateMat
   return partsAgree(description, value) ? { value, score: found.score } : null;
 }
 
+/**
+ * A listed component whose every word matches the description once the
+ * characters OCR swaps are folded together: "DN4OFB/S50RB" for DN40FB/50RB,
+ * "DNSORB" for DN50RB, "Fig" for Flg.
+ *
+ * Stricter than it sounds. A word carrying a digit must fold to exactly the
+ * same code (a doubled digit collapsed), so DN25FB never matches DN40FB; only
+ * words without digits may differ by a slip. Every word on both sides must pair
+ * up, revisions aside, and exactly one listed component may qualify. A match
+ * found this way is returned with a lower score so it is always shown for the
+ * operator to verify.
+ */
+export const FOLDED_MATCH_SCORE = 0.75;
+
+export function matchFoldedComponent(description: string, components: string[]): string | null {
+  type Word = { folded: string; code: boolean };
+  // Folding is character by character, so the folded words line up with the
+  // plain ones. Whether a word is a code is judged on the plain word: folding
+  // turns o, s, i, l and b into digits, and "Casting" is not a part number.
+  const words = (value: string): Word[] => {
+    const plain = normalize(withoutRevision(value)).split(" ").filter(Boolean);
+    const folded = foldOcrConfusables(value).split(" ").filter(Boolean);
+    if (plain.length !== folded.length) return [];
+    return folded.map((word, i) => ({
+      folded: collapseDigitRuns(word),
+      code: /\d/.test(plain[i]),
+    }));
+  };
+  const wordsAgree = (a: Word, b: Word) =>
+    a.folded === b.folded ||
+    // A code on either side must fold to exactly the same code: DN50RB can
+    // never pass for DN80RB, however close the letters look.
+    (!a.code &&
+      !b.code &&
+      similarity(a.folded, b.folded) >=
+        (Math.min(a.folded.length, b.folded.length) >= 6 ? 0.7 : 0.8));
+
+  const left = words(description);
+  if (left.length < 2) return null;
+  const hits = components.filter((candidate) => {
+    const right = words(candidate);
+    if (right.length !== left.length) return false;
+    const taken = new Array(right.length).fill(false);
+    return left.every((word) => {
+      const at = right.findIndex((other, i) => !taken[i] && wordsAgree(word, other));
+      if (at === -1) return false;
+      taken[at] = true;
+      return true;
+    });
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+
 /** The stored spelling of a name that differs only by confusable characters. */
 export function matchStoredName(name: string, known: string[]): string | null {
   const target = foldOcrConfusables(name);
@@ -675,7 +728,27 @@ function extractQuantity(line: string, consumed: string[]): number {
   return toNumber(numbers[numbers.length - 1]);
 }
 
+/**
+ * Clears the marks OCR leaves where a table border was: a lone "|", "\" or
+ * bracket between columns becomes a plain column gap, and a unit misread as
+ * "€A" or "£A" after a quantity is read as EA again.
+ */
+export function tidyOcrText(text: string): string {
+  return (text ?? "")
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        // Letters left from the serial-number column ("Nn", "SW") ahead of a
+        // description, split off by a column gap. A real serial number stays.
+        .replace(/^\s*(?!\d{1,3}\s)\S{1,3}\s{2,}(?=\S.{14,})/, "")
+        .replace(/(^|\s)[|\\¦[\]{}!]+(?=\s|$)/g, "$1  ")
+        .replace(/(\d)\s?[€£]A\b/g, "$1EA")
+    )
+    .join("\n");
+}
+
 export function parseInwardDc(text: string, options: ParseInwardDcOptions): ScannedInwardDc {
+  text = tidyOcrText(text);
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -749,6 +822,18 @@ export function parseInwardDc(text: string, options: ParseInwardDcOptions): Scan
         material,
         received_qty: qty,
         confidence: 0.85,
+        rawLine: raw,
+      });
+      return;
+    }
+    // The same part read with letters and digits swapped.
+    const folded = matchFoldedComponent(stripTrailingColumns(description), options.components);
+    if (folded) {
+      items.push({
+        component: folded,
+        material,
+        received_qty: qty,
+        confidence: FOLDED_MATCH_SCORE,
         rawLine: raw,
       });
       return;

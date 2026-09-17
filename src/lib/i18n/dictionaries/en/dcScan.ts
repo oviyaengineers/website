@@ -1,6 +1,25 @@
 /** Scanning customer challans, the Scanned DCs screens, and the printed DC. */
 
 export const dcScan = {
+  progressImproving: "Improving image...",
+  progressReading: "Reading document... (pass {pass} of {passes})",
+  progressMatching: "Matching components...",
+  uploading: "Uploading...",
+  verifyField: "Please verify this field",
+  readClearly: "Read clearly",
+  readAs: "OCR read: {value}",
+  poorQualityTitle: "This photo is hard to read",
+  poorQualityBody:
+    "Some values could not be read confidently. Check the highlighted fields, or retake the photo flat, in good light, filling the frame.",
+  blurredBody:
+    "The photo looks blurred. Hold the phone steady and let it focus, then retake it. Everything read so far stays here until you do.",
+  retakePhoto: "Retake photo",
+  uploadBetter: "Upload better image",
+  tryOcrAgain: "Try OCR again",
+  tryOcrAgainEditor: "Read the original image again",
+  rereadDone: "Read again. Check the values below, then save the corrections.",
+  rereadFailed: "The image could not be read again: {error}",
+  rereading: "Reading the image again...",
   progressCore: "Loading the OCR engine",
   progressInit: "Starting the OCR engine",
   progressLang: "Loading the language data",

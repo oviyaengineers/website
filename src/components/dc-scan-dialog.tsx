@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Camera, ImageUp, Loader2, ScanLine } from "lucide-react";
+import { AlertTriangle, Camera, ImageUp, Loader2, RefreshCw, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -16,15 +16,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  prepareImage,
-  recognizeText,
-  type ImageQuality,
-  type OcrProgress,
-} from "@/lib/ocr/recognize";
-import { parseInwardDc, type ScannedInwardDc } from "@/lib/ocr/parse-inward-dc";
+import { scanChallan, type ImageQuality, type ScanProgress } from "@/lib/ocr/recognize";
+import type { ScannedInwardDc } from "@/lib/ocr/parse-inward-dc";
+import type { FieldConfidence } from "@/lib/ocr/combine";
 import { SearchableSelect } from "@/components/searchable-select";
-import { uploadScanImage } from "@/lib/scan-image";
+import { uploadProcessedScanImage, uploadScanImage } from "@/lib/scan-image";
 import { PENDING_SCAN_CHANGED } from "@/lib/dc-scan-handoff";
 import { countPendingScans, discardPendingScans } from "@/lib/actions/dc-scan-queue";
 import {
@@ -35,7 +31,6 @@ import {
 import { formatDcDate, StoredDcMatchList } from "@/components/dc-ref-lookup";
 import type { ComboboxCustomer } from "@/components/customer-combobox";
 import { useI18n } from "@/components/i18n-provider";
-import type { TranslationKey } from "@/lib/i18n/types";
 
 export type ScannedItemSelection = {
   component: string;
@@ -54,6 +49,8 @@ export type DcScanResult = {
 export type DcScanCapture = DcScanResult & {
   /** The original photograph in the private dc-scans bucket. */
   imagePath: string | null;
+  /** The prepared image OCR read, stored apart from the original. */
+  processedImagePath?: string | null;
   /** The raw text OCR returned. */
   ocrText: string | null;
   /** The values as OCR read them, before the operator changed anything. */
@@ -69,10 +66,11 @@ type ReviewItem = ScannedItemSelection & {
   key: number;
   include: boolean;
   confidence: number;
+  /** Readings did not agree, or the match was loose: shown for checking. */
+  verify: boolean;
   rawLine: string;
 };
 
-/** Which single-value fields the operator has ticked to apply. */
 type FieldKey = "customerId" | "customerDcNumber" | "customerDcDate";
 
 /** Shared look for the two capture tiles; each wraps its own file input. */
@@ -82,13 +80,14 @@ const TILE =
 /** Quoted in the warning, so the number the operator sees matches the check. */
 const MIN_READABLE_PX = 1500;
 
-const PROGRESS_LABEL_KEYS: Record<string, TranslationKey> = {
-  "loading tesseract core": "dcScan.progressCore",
-  "initializing tesseract": "dcScan.progressInit",
-  "loading language traineddata": "dcScan.progressLang",
-  "initializing api": "dcScan.progressApi",
-  "recognizing text": "dcScan.progressRecognizing",
-};
+/** How far along the bar each stage starts. */
+function progressShare(progress: ScanProgress | null): number {
+  if (!progress) return 0.03;
+  if (progress.stage === "improving") return 0.1;
+  if (progress.stage === "matching") return 0.92;
+  const passes = progress.passes ?? 1;
+  return 0.2 + (0.7 * ((progress.pass ?? 1) - 1)) / passes;
+}
 
 export function DcScanDialog({
   customers,
@@ -114,21 +113,31 @@ export function DcScanDialog({
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("idle");
-  const [progress, setProgress] = useState<OcrProgress | null>(null);
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   /** How good the photograph was, so a bad one can be called out. */
   const [quality, setQuality] = useState<ImageQuality | null>(null);
   const [rawText, setRawText] = useState("");
+  /** What OCR read, kept unchanged as the record of the first reading. */
   const [scan, setScan] = useState<ScannedInwardDc | null>(null);
-  const [fields, setFields] = useState<Record<FieldKey, boolean>>({
-    customerId: true,
-    customerDcNumber: true,
-    customerDcDate: true,
+  /** The values as the operator has them now; every one can be edited. */
+  const [values, setValues] = useState<Record<FieldKey, string>>({
+    customerId: "",
+    customerDcNumber: "",
+    customerDcDate: "",
   });
+  const [fieldConfidence, setFieldConfidence] = useState<Record<FieldKey, FieldConfidence>>({
+    customerId: "verify",
+    customerDcNumber: "verify",
+    customerDcDate: "verify",
+  });
+  const [poorQuality, setPoorQuality] = useState(false);
   const [items, setItems] = useState<ReviewItem[]>([]);
   /** The photograph as chosen, kept so the original can be stored with the scan. */
   const originalFile = useRef<File | null>(null);
+  /** The prepared image the reading came from, stored beside the original. */
+  const processedBlob = useRef<Blob | null>(null);
   const [storing, setStoring] = useState(false);
   const [dragging, setDragging] = useState(false);
   /** Challans captured since this dialog was opened. */
@@ -176,7 +185,10 @@ export function DcScanDialog({
     setRawText("");
     setScan(null);
     setItems([]);
+    setValues({ customerId: "", customerDcNumber: "", customerDcDate: "" });
+    setPoorQuality(false);
     originalFile.current = null;
+    processedBlob.current = null;
     setRefMatches(null);
     setCorrectedFrom(null);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -216,22 +228,33 @@ export function DcScanDialog({
     }
   }
 
-  async function handleFile(file: File | undefined) {
+  /**
+   * Reads a photograph. `thorough` is Try OCR again: the same original photo,
+   * read with the extra sharpened pass as well. A new photo (Retake, Upload a
+   * better image) replaces the original that will be stored.
+   */
+  async function handleFile(file: File | undefined, thorough = false) {
     if (!file) return;
     originalFile.current = file;
+    processedBlob.current = null;
 
     setStage("working");
     setError(null);
     setProgress(null);
 
     try {
-      const { canvas, previewUrl: preview, quality: measured } = await prepareImage(file);
-      setPreviewUrl(preview);
-      setQuality(measured);
+      const result = await scanChallan(
+        file,
+        { customers, components, materials, thorough },
+        setProgress
+      );
+      const parsed = result.reading;
+      setPreviewUrl(result.previewUrl);
+      setQuality(result.quality);
+      processedBlob.current = result.processedBlob;
+      setPoorQuality(parsed.poorQuality);
 
-      const text = await recognizeText(canvas, setProgress);
-      const parsed = parseInwardDc(text, { customers, components, materials });
-
+      const text = parsed.bestText;
       setRawText(text);
 
       // OCR reads a letter O as a zero often enough to leave the challan
@@ -250,6 +273,12 @@ export function DcScanDialog({
       const resolved = { ...parsed, customerDcNumber: dcNumber };
 
       setScan(resolved);
+      setValues({
+        customerId: resolved.customerId ?? "",
+        customerDcNumber: resolved.customerDcNumber ?? "",
+        customerDcDate: resolved.customerDcDate ?? "",
+      });
+      setFieldConfidence(parsed.fieldConfidence);
       void lookupExisting(resolved.customerDcNumber, resolved.customerDcDate);
       setItems([
         ...parsed.items.map((item, index) => ({
@@ -259,6 +288,7 @@ export function DcScanDialog({
           material: item.material,
           received_qty: item.received_qty,
           confidence: item.confidence,
+          verify: parsed.itemConfidence[index] !== "high",
           rawLine: item.rawLine,
         })),
         // A description that matches nothing in Settings becomes a row whose
@@ -271,6 +301,7 @@ export function DcScanDialog({
           material: candidate.material,
           received_qty: candidate.received_qty,
           confidence: 0,
+          verify: true,
           rawLine: candidate.rawLine,
         })),
       ]);
@@ -315,18 +346,26 @@ export function DcScanDialog({
       }
     }
 
+    // The prepared image goes beside it. Useful for checking a reading, but not
+    // what the scan depends on, so failing to store it does not stop the scan.
+    let processedImagePath: string | null = null;
+    if (processedBlob.current) {
+      processedImagePath = await uploadProcessedScanImage(processedBlob.current).catch(() => null);
+    }
+
     // Awaited: the queue is on the server, so this can fail, and reporting a
     // capture that did not happen is exactly how scans were lost before.
     const kept = await onApply({
-      customerId: fields.customerId ? scan.customerId : null,
-      customerDcNumber: fields.customerDcNumber ? scan.customerDcNumber : null,
-      customerDcDate: fields.customerDcDate ? scan.customerDcDate : null,
+      customerId: values.customerId || null,
+      customerDcNumber: values.customerDcNumber.trim() || null,
+      customerDcDate: values.customerDcDate || null,
       items: keptItems.map(({ component, material, received_qty }) => ({
         component,
         material,
         received_qty,
       })),
       imagePath,
+      processedImagePath,
       ocrText: rawText,
       // What OCR read, before anybody changed it. Kept beside the corrected
       // values so a correction can always be traced back.
@@ -598,14 +637,21 @@ export function DcScanDialog({
 
         {stage === "working" && (
           <div className="space-y-3 py-6">
-            <div className="flex items-center gap-2 text-sm">
+            <div role="status" aria-live="polite" className="flex items-center gap-2 text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {t(PROGRESS_LABEL_KEYS[progress?.status ?? ""] ?? "dcScan.preparingImage")}…
+              {!progress || progress.stage === "improving"
+                ? t("dcScan.progressImproving")
+                : progress.stage === "matching"
+                  ? t("dcScan.progressMatching")
+                  : t("dcScan.progressReading", {
+                      pass: progress.pass ?? 1,
+                      passes: progress.passes ?? 1,
+                    })}
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-[#10233f] transition-all"
-                style={{ width: `${Math.round((progress?.progress ?? 0) * 100)}%` }}
+                className="h-full rounded-full bg-[#10233f] transition-all duration-700"
+                style={{ width: `${Math.round(progressShare(progress) * 100)}%` }}
               />
             </div>
             <p className="text-xs text-muted-foreground">{t("dcScan.firstScanNote")}</p>
@@ -644,6 +690,62 @@ export function DcScanDialog({
                 {t("dcScan.nothingFound")}
               </p>
             )}
+
+            {/* A poor photo is best fixed now, with the paper still in front
+                of the operator. Nothing else on this screen is lost. */}
+            <div
+              className={cn(
+                "space-y-2 rounded-md border p-3",
+                (poorQuality || quality?.blurred) &&
+                  "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
+              )}
+            >
+              {(poorQuality || quality?.blurred) && (
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="h-4 w-4" />
+                    {t("dcScan.poorQualityTitle")}
+                  </h3>
+                  <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                    {quality?.blurred ? t("dcScan.blurredBody") : t("dcScan.poorQualityBody")}
+                  </p>
+                </div>
+              )}
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label className="relative flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-2 text-sm font-medium hover:bg-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring sm:h-9">
+                  <Camera className="h-4 w-4" /> {t("dcScan.retakePhoto")}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    onChange={(e) => {
+                      void handleFile(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="relative flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-2 text-sm font-medium hover:bg-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring sm:h-9">
+                  <ImageUp className="h-4 w-4" /> {t("dcScan.uploadBetter")}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    onChange={(e) => {
+                      void handleFile(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 sm:h-9"
+                  onClick={() => void handleFile(originalFile.current ?? undefined, true)}
+                >
+                  <RefreshCw className="h-4 w-4" /> {t("dcScan.tryOcrAgain")}
+                </Button>
+              </div>
+            </div>
 
             {refMatches && (
               <div className="overflow-hidden rounded-md border border-amber-500 bg-amber-50 dark:bg-amber-950/20">
@@ -702,33 +804,79 @@ export function DcScanDialog({
                 {/* Every field is listed even when it was not read. Dropping the
                     row made a failed read look identical to a challan that
                     simply had no such value, so the gap went unnoticed. */}
-                {detectedFields.map((field) => (
-                  <label
-                    key={field.key}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md border p-2 text-sm",
-                      !field.value && "border-dashed bg-muted/30"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[#10233f]"
-                      checked={Boolean(field.value) && fields[field.key]}
-                      disabled={!field.value}
-                      onChange={(e) => setFields((f) => ({ ...f, [field.key]: e.target.checked }))}
-                    />
-                    <span className="w-36 shrink-0 text-muted-foreground">{field.label}</span>
-                    {field.value ? (
-                      <span className="min-w-0 break-words font-medium">
-                        {field.key === "customerDcDate"
-                          ? formatDcDate(field.value, lang)
-                          : field.value}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground italic">{field.missingHint}</span>
-                    )}
-                  </label>
-                ))}
+                {detectedFields.map((field) => {
+                  const current = values[field.key];
+                  // Read confidently and not changed since: accepted as read.
+                  const accepted =
+                    Boolean(field.value) &&
+                    fieldConfidence[field.key] === "high" &&
+                    current ===
+                      (field.key === "customerId" ? (scan.customerId ?? "") : field.value);
+                  const fieldInputId = `${inputId}-${field.key}`;
+                  return (
+                    <div
+                      key={field.key}
+                      className={cn(
+                        "space-y-1.5 rounded-md border p-2 text-sm",
+                        !current && "border-dashed bg-muted/30",
+                        current && !accepted && "border-amber-500"
+                      )}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Label htmlFor={fieldInputId} className="text-muted-foreground">
+                          {field.label}
+                        </Label>
+                        {current && !accepted ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                            {t("dcScan.verifyField")}
+                          </span>
+                        ) : accepted ? (
+                          <span className="text-xs text-emerald-700 dark:text-emerald-400">
+                            {t("dcScan.readClearly")}
+                          </span>
+                        ) : null}
+                      </div>
+                      {field.key === "customerId" ? (
+                        <SearchableSelect
+                          options={customers.map((c) => c.name)}
+                          value={customers.find((c) => c.id === current)?.name ?? null}
+                          onChange={(name) =>
+                            setValues((v) => ({
+                              ...v,
+                              customerId: customers.find((c) => c.name === name)?.id ?? "",
+                            }))
+                          }
+                          placeholder={field.missingHint}
+                          ariaLabel={field.label}
+                          allowClear
+                        />
+                      ) : (
+                        <Input
+                          id={fieldInputId}
+                          type={field.key === "customerDcDate" ? "date" : "text"}
+                          value={current}
+                          placeholder={field.missingHint}
+                          onChange={(e) =>
+                            setValues((v) => ({ ...v, [field.key]: e.target.value }))
+                          }
+                          className="h-11 sm:h-9"
+                        />
+                      )}
+                      {field.value &&
+                        current !==
+                          (field.key === "customerId" ? (scan.customerId ?? "") : field.value) && (
+                          <p className="text-xs text-muted-foreground">
+                            {t("dcScan.readAs", {
+                              value:
+                                field.key === "customerDcDate"
+                                  ? formatDcDate(field.value, lang)
+                                  : field.value,
+                            })}
+                          </p>
+                        )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -765,7 +913,7 @@ export function DcScanDialog({
                           setItems((rows) =>
                             rows.map((row) =>
                               row.key === item.key
-                                ? { ...row, component: value ?? "", confidence: 1 }
+                                ? { ...row, component: value ?? "", confidence: 1, verify: false }
                                 : row
                             )
                           )
@@ -782,15 +930,19 @@ export function DcScanDialog({
                         )}
                         {!item.component ? (
                           <span className="text-destructive">{t("dcScan.notMatched")}</span>
-                        ) : item.confidence < LOW_CONFIDENCE ? (
-                          <span className="text-amber-600">
-                            {t("dcScan.matchCheck", { pct: Math.round(item.confidence * 100) })}
+                        ) : item.verify || item.confidence < LOW_CONFIDENCE ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                            {t("dcScan.verifyField")}
                           </span>
                         ) : item.confidence < 1 ? (
                           <span className="text-muted-foreground">
                             {t("dcScan.match", { pct: Math.round(item.confidence * 100) })}
                           </span>
-                        ) : null}
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400">
+                            {t("dcScan.readClearly")}
+                          </span>
+                        )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{item.rawLine}</p>
                     </div>
@@ -867,9 +1019,12 @@ export function DcScanDialog({
                 type="button"
                 className="bg-[#10233f] hover:bg-[#10233f]/90"
                 onClick={() => void apply()}
-                disabled={nothingFound || storing}
+                // Nothing read can still be kept once the operator has typed it in.
+                disabled={
+                  storing || (nothingFound && !values.customerDcNumber.trim() && items.length === 0)
+                }
               >
-                {storing ? t("common.saving") : t("dcScan.keepThisChallan")}
+                {storing ? t("dcScan.uploading") : t("dcScan.keepThisChallan")}
               </Button>
             </>
           )}

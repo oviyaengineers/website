@@ -14,6 +14,7 @@ import { dcPublic } from "@/lib/i18n/dictionaries/en/dcPublic";
 import { dcCombined } from "@/lib/i18n/dictionaries/en/dcCombined";
 import { costs, customers } from "@/lib/i18n/dictionaries/en/admin";
 import { security } from "@/lib/i18n/dictionaries/en/security";
+import { qrScan } from "@/lib/i18n/dictionaries/en/qrScan";
 import { auth, settings } from "@/lib/i18n/dictionaries/en/settings";
 
 /** The English dictionary: the source every other language must match. */
@@ -41,4 +42,5 @@ export const en = {
   settings,
   auth,
   security,
+  qrScan,
 };

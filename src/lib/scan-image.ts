@@ -57,3 +57,18 @@ export async function uploadScanImage(
   if (error) throw new Error(error.message);
   return path;
 }
+
+/**
+ * Stores the prepared image OCR read, beside the original and never in its
+ * place. Kept under its own folder so the two can never be confused.
+ */
+export async function uploadProcessedScanImage(blob: Blob): Promise<string> {
+  const now = new Date();
+  const path = `processed/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.jpg`;
+  const supabase = createClient();
+  const { error } = await supabase.storage
+    .from(SCAN_BUCKET)
+    .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}

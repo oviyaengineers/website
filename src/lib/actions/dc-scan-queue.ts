@@ -34,6 +34,8 @@ export type ScannedDc = {
   dcNumber: string | null;
   /** Where the original photograph is stored, or null for scans kept before 0022. */
   imagePath: string | null;
+  /** The prepared image OCR read (0032), kept apart from the original. */
+  processedImagePath: string | null;
   /** The raw text OCR returned. */
   ocrText: string | null;
   /** The values as OCR first read them, before any correction. */
@@ -45,6 +47,7 @@ export type ScannedDc = {
 /** What the scanner hands over when a scan is kept. */
 export type ScanCapture = DcScanResult & {
   imagePath?: string | null;
+  processedImagePath?: string | null;
   ocrText?: string | null;
   ocrResult?: DcScanResult | null;
 };
@@ -60,6 +63,7 @@ type Row = {
   converted_at: string | null;
   dc_id: string | null;
   image_path?: string | null;
+  processed_image_path?: string | null;
   ocr_text?: string | null;
   ocr_result?: unknown;
   corrected_at?: string | null;
@@ -78,6 +82,7 @@ function toScannedDc(row: Row): ScannedDc {
     dcId: row.dc_id,
     dcNumber: joined?.dc_number ?? null,
     imagePath: row.image_path ?? null,
+    processedImagePath: row.processed_image_path ?? null,
     ocrText: row.ocr_text ?? null,
     ocrResult:
       row.ocr_result && typeof row.ocr_result === "object"
@@ -149,6 +154,7 @@ export async function queuePendingScan(
       customer_dc_date: scan.customerDcDate,
       items,
       image_path: scan.imagePath ?? null,
+      ...(scan.processedImagePath ? { processed_image_path: scan.processedImagePath } : {}),
       ocr_text: scan.ocrText ?? null,
       ocr_result: scan.ocrResult ?? null,
       created_by: user.id,

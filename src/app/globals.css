@@ -633,9 +633,10 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 /* The QR code on the printed delivery challan (migration 0028). */
+/* 24 mm including the quiet zone: about 0.5 mm per module, up from 0.4 mm. */
 .dc-print-qr-code {
-  width: 64px;
-  height: 64px;
+  width: 24mm;
+  height: 24mm;
 }
 .dc-print-qr-code svg {
   display: block;
@@ -650,8 +651,8 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 /* Three challans printed together get smaller codes so they still fit. */
 .dc-print-qr-code-sm {
-  width: 44px;
-  height: 44px;
+  width: 13.5mm;
+  height: 13.5mm;
 }
 .dc-print-qr-code-sm svg {
   display: block;
@@ -693,8 +694,8 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   padding: 0.6mm 0.6mm !important;
 }
 .dc-print-qr-code-combined {
-  width: 13mm;
-  height: 13mm;
+  width: 15mm;
+  height: 15mm;
 }
 .dc-print-qr-code-combined svg {
   display: block;
@@ -778,8 +779,8 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   font-size: 7.5px;
 }
 .dc-print-qr-code-full {
-  width: 18mm;
-  height: 18mm;
+  width: 21mm;
+  height: 21mm;
 }
 .dc-print-qr-code-full svg {
   display: block;

@@ -18,6 +18,7 @@ const SEGMENT_LABELS: Record<string, TranslationKey> = {
   // Matches the menu, where these all sit under one DC group.
   dc: "nav.dc",
   scan: "nav.scanDc",
+  "scan-qr": "qrScan.title",
   scanned: "nav.scannedDcs",
   dispatched: "nav.dispatchedDcs",
   history: "nav.dcHistory",
