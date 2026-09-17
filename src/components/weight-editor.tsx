@@ -1,82 +1,70 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, Undo2, Trash2 } from "lucide-react";
+import { AlertTriangle, Settings2, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/components/i18n-provider";
 import { WeightStatusBadge } from "@/components/weight-status-badge";
 import { saveWeightsAction, type WeightLineInput } from "@/lib/actions/weight";
 import { formatDate } from "@/lib/i18n/dates";
 import type { WeightLine } from "@/lib/weight-lines";
 import {
-  calculateScrap,
   formatRupeesFromPaise,
   formatWeight,
   formatWeightIn,
-  gramsToMilligrams,
-  isWeightUnit,
-  milligramsInUnit,
+  NOT_CONFIGURED_TEXT,
+  RATE_PROBLEM_TEXT,
   rateText,
-  storedScrapFigures,
-  validateWeightEntry,
-  type WeightEntry,
-  type WeightProblem,
-  type WeightUnit,
+  scrapFigures,
+  SENT_CHANGED_TEXT,
+  toPaisePerKg,
+  validateRate,
+  type RateProblem,
 } from "@/lib/weight";
 
-type Draft = WeightEntry & { remove: boolean };
+type Draft = { rateText: string; accept: boolean; remove: boolean };
 
 function initialDraft(line: WeightLine): Draft {
-  const w = line.weight;
-  if (!w) {
-    return {
-      roughText: "",
-      roughUnit: "kg",
-      finishedText: "",
-      finishedUnit: "kg",
-      rateText: "",
-      remove: false,
-    };
-  }
-  const roughUnit: WeightUnit = isWeightUnit(w.rough_unit) ? w.rough_unit : "g";
-  const finishedUnit: WeightUnit = isWeightUnit(w.finished_unit) ? w.finished_unit : "g";
   return {
-    roughText: milligramsInUnit(gramsToMilligrams(w.rough_weight_g), roughUnit),
-    roughUnit,
-    finishedText: milligramsInUnit(gramsToMilligrams(w.finished_weight_g), finishedUnit),
-    finishedUnit,
-    rateText: rateText(w.scrap_rate_per_kg),
+    rateText: line.recorded ? rateText(line.recorded.ratePaisePerKg / 100) : "",
+    accept: false,
     remove: false,
   };
 }
 
-function sameDraft(a: Draft, b: Draft): boolean {
-  return (
-    a.remove === b.remove &&
-    a.roughText.trim() === b.roughText.trim() &&
-    a.finishedText.trim() === b.finishedText.trim() &&
-    a.rateText.trim() === b.rateText.trim() &&
-    // A unit change with nothing typed changes nothing worth saving.
-    (a.roughText.trim() === "" || a.roughUnit === b.roughUnit) &&
-    (a.finishedText.trim() === "" || a.finishedUnit === b.finishedUnit)
-  );
-}
-
-function isBlank(d: Draft): boolean {
-  return !d.roughText.trim() && !d.finishedText.trim() && !d.rateText.trim();
+/** What saving this line would do, or null when nothing changed. */
+function changeFor(line: WeightLine, draft: Draft): WeightLineInput | null {
+  if (line.recorded) {
+    if (draft.remove) return { dcItemId: line.itemId, kind: "remove" };
+    if (draft.accept) return { dcItemId: line.itemId, kind: "acceptSentQty" };
+    if (
+      toPaisePerKg(draft.rateText) === line.recorded.ratePaisePerKg &&
+      validateRate(draft.rateText) === null
+    ) {
+      return null;
+    }
+    return { dcItemId: line.itemId, kind: "rate", rateText: draft.rateText };
+  }
+  if (line.master && draft.rateText.trim() !== "") {
+    return { dcItemId: line.itemId, kind: "rate", rateText: draft.rateText };
+  }
+  return null;
 }
 
 const qty = (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 /**
- * Weight entry for every line of one DC.
+ * Weight / Scrap for every line of one DC.
  *
- * Nothing here can change a quantity: Sent Qty is shown from the DC and is
- * never sent back. Only lines that changed are saved, together, in one
- * database transaction, and the database checks every rule again.
+ * Weights are never typed here: a line not yet recorded shows the active
+ * master for its Component + Material, and recording copies those weights. A
+ * recorded line shows exactly what was recorded. The admin enters only the
+ * scrap rate, accepts a changed Sent Qty, or removes a record. Changed lines
+ * are saved together in one database transaction, and the database checks
+ * every rule again.
  */
 export function WeightEditor({
   dcId,
@@ -87,7 +75,6 @@ export function WeightEditor({
   lines: WeightLine[];
   canEdit: boolean;
 }) {
-  const { t, lang } = useI18n();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const initial = useMemo(
@@ -105,55 +92,40 @@ export function WeightEditor({
     });
   }
 
-  const changed = lines.filter((line) => {
-    const draft = drafts.get(line.itemId)!;
-    const start = initial.get(line.itemId)!;
-    if (sameDraft(draft, start)) return false;
-    // Typing then clearing a line that had no weight leaves nothing to save.
-    return !(line.weight === null && isBlank(draft) && !draft.remove);
-  });
-
-  const problemsFor = (line: WeightLine): WeightProblem[] => {
-    const draft = drafts.get(line.itemId)!;
-    if (draft.remove) return [];
-    if (line.weight === null && isBlank(draft)) return [];
-    return validateWeightEntry(draft);
+  const changes = lines
+    .map((line) => ({ line, change: changeFor(line, drafts.get(line.itemId)!) }))
+    .filter(
+      (entry): entry is { line: WeightLine; change: WeightLineInput } => entry.change !== null
+    );
+  const problemFor = (line: WeightLine): RateProblem | null => {
+    const change = changeFor(line, drafts.get(line.itemId)!);
+    return change?.kind === "rate" ? validateRate(change.rateText) : null;
   };
-  const invalid = changed.filter((line) => problemsFor(line).length > 0);
+  const invalid = changes.filter(({ line }) => problemFor(line) !== null);
 
   function save() {
     setAttempted(true);
-    if (changed.length === 0) {
-      toast.info(t("weight.nothingToSave"));
+    if (changes.length === 0) {
+      toast.info("Nothing to save.");
       return;
     }
     if (invalid.length > 0) {
-      toast.error(t("weight.fixLines"));
+      toast.error("Fix the highlighted scrap rates first.");
       return;
     }
-    const payload: WeightLineInput[] = changed.map((line) => {
-      const d = drafts.get(line.itemId)!;
-      return d.remove
-        ? { dcItemId: line.itemId, remove: true }
-        : {
-            dcItemId: line.itemId,
-            roughText: d.roughText,
-            roughUnit: d.roughUnit,
-            finishedText: d.finishedText,
-            finishedUnit: d.finishedUnit,
-            rateText: d.rateText,
-          };
-    });
     startTransition(async () => {
-      const result = await saveWeightsAction(dcId, payload);
+      const result = await saveWeightsAction(
+        dcId,
+        changes.map(({ change }) => change)
+      );
       if (result.error) {
         toast.error(result.error);
         return;
       }
       toast.success(
         result.removed > 0
-          ? t("weight.savedAndRemoved", { removed: result.removed })
-          : t("weight.saved")
+          ? `Saved. ${result.removed === 1 ? "1 record" : `${result.removed} records`} removed.`
+          : "Weight / Scrap saved."
       );
       setAttempted(false);
       router.refresh();
@@ -161,57 +133,43 @@ export function WeightEditor({
   }
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className={`space-y-4 ${canEdit ? "pb-24" : ""}`}>
       {lines.map((line, index) => {
         const draft = drafts.get(line.itemId)!;
-        const isChanged = changed.includes(line);
-        const problems = problemsFor(line);
-        const showProblems = problems.length > 0 && (attempted || (isChanged && !isBlank(draft)));
+        const change = changeFor(line, draft);
+        const problem = problemFor(line);
+        const showProblem = problem !== null && (attempted || draft.rateText.trim() !== "");
         return (
           <section
             key={line.itemId}
             className={`space-y-3 rounded-lg border p-3 sm:p-4 ${
-              showProblems ? "border-destructive/60" : isChanged ? "border-[#10233f]/40" : ""
+              showProblem ? "border-destructive/60" : change ? "border-[#10233f]/40" : ""
             }`}
           >
             <header className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">#{index + 1}</p>
                 <h3 className="font-medium break-words">{line.component}</h3>
-                <p className="text-xs text-muted-foreground">
-                  {t("common.material")}: {line.material ?? "—"}
-                  {line.followUpOf ? ` · ${t("weight.followUpOf", { dc: line.followUpOf })}` : ""}
-                </p>
+                <p className="text-xs text-muted-foreground">Material: {line.material ?? "—"}</p>
               </div>
               <WeightStatusBadge status={line.status} />
             </header>
 
-            {line.status === "sentChanged" && line.weight && (
-              <p className="flex items-start gap-2 rounded-md bg-red-50 p-2 text-xs text-red-800 dark:bg-red-950/40 dark:text-red-300">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                {t("weight.sentChangedNote", {
-                  saved: qty(Number(line.weight.sent_qty_at_save)),
-                  now: qty(line.sentQty),
-                })}
-              </p>
-            )}
-
-            {canEdit ? (
-              <EditableLine
+            {line.status === "notConfigured" ? (
+              <NotConfigured line={line} canEdit={canEdit} />
+            ) : (
+              <LineBody
                 line={line}
                 draft={draft}
-                problems={showProblems ? problems : []}
+                canEdit={canEdit}
+                problem={showProblem ? problem : null}
                 onChange={(patch) => update(line.itemId, patch)}
               />
-            ) : (
-              <ReadOnlyLine line={line} />
             )}
 
-            {line.weight && (
+            {line.recorded?.recordedAt && (
               <p className="text-xs text-muted-foreground">
-                {t("weight.lastSaved", {
-                  date: formatDate(line.weight.updated_at, "dd MMM yyyy HH:mm", lang),
-                })}
+                Last saved {formatDate(line.recorded.recordedAt, "dd MMM yyyy HH:mm", "en")}
               </p>
             )}
           </section>
@@ -222,19 +180,19 @@ export function WeightEditor({
         <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 p-3 backdrop-blur md:left-[var(--sidebar-width,0px)]">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {changed.length === 0
-                ? t("weight.nothingToSave")
-                : changed.length === 1
-                  ? t("weight.unsavedChangesOne")
-                  : t("weight.unsavedChanges", { count: changed.length })}
+              {changes.length === 0
+                ? "No unsaved changes."
+                : changes.length === 1
+                  ? "1 line changed."
+                  : `${changes.length} lines changed.`}
             </p>
             <Button
               type="button"
               onClick={save}
-              disabled={pending || changed.length === 0}
+              disabled={pending || changes.length === 0}
               className="h-11 bg-[#10233f] px-6 hover:bg-[#10233f]/90 sm:h-9"
             >
-              {pending ? t("weight.saving") : t("weight.save")}
+              {pending ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>
@@ -243,33 +201,84 @@ export function WeightEditor({
   );
 }
 
-function EditableLine({
+function NotConfigured({ line, canEdit }: { line: WeightLine; canEdit: boolean }) {
+  return (
+    <div className="space-y-3">
+      <SentQty value={line.sentQty} />
+      <p className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          {NOT_CONFIGURED_TEXT} No scrap is calculated until an active master exists for{" "}
+          <strong>{line.component}</strong> + <strong>{line.material ?? "—"}</strong>.
+        </span>
+      </p>
+      {canEdit && (
+        <Button
+          render={<Link href="/dashboard/settings/weight-master" />}
+          variant="outline"
+          className="h-11 sm:h-8"
+        >
+          <Settings2 className="h-4 w-4" /> Open Weight/Scrap Master
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function SentQty({ value, note }: { value: number; note?: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-muted-foreground">Sent Qty (from DC)</p>
+      <p className="flex h-11 items-center rounded-md border bg-muted px-3 font-semibold tabular-nums sm:h-9">
+        {qty(value)}
+      </p>
+      {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
+    </div>
+  );
+}
+
+function LineBody({
   line,
   draft,
-  problems,
+  canEdit,
+  problem,
   onChange,
 }: {
   line: WeightLine;
   draft: Draft;
-  problems: WeightProblem[];
+  canEdit: boolean;
+  problem: RateProblem | null;
   onChange: (patch: Partial<Draft>) => void;
 }) {
-  const { t } = useI18n();
-  const result = calculateScrap(draft, line.sentQty);
-  const figures = result.ok ? result.figures : null;
-  const dash = t("weight.notEntered");
+  const r = line.recorded;
+  const m = line.master;
+  const unit = r?.unit ?? m?.unit ?? "kg";
+  const roughMg = r?.roughMg ?? m?.roughMg ?? 0;
+  const finishedMg = r?.finishedMg ?? m?.finishedMg ?? 0;
+  const scrapMg = r?.scrapPerPieceMg ?? m?.scrapPerPieceMg ?? 0;
+  const sentUsed = r ? (draft.accept ? line.sentQty : r.sentQty) : line.sentQty;
 
-  if (draft.remove) {
+  const typedRate = validateRate(draft.rateText) === null ? toPaisePerKg(draft.rateText) : null;
+  const rateUnchanged = r !== null && typedRate === r.ratePaisePerKg && !draft.accept;
+  // Unchanged recorded lines show the stored figures exactly; anything else is a preview.
+  const figures = rateUnchanged
+    ? { totalScrapMg: r.totalScrapMg, totalValuePaise: r.valuePaise }
+    : scrapFigures(roughMg, finishedMg, sentUsed, typedRate);
+
+  if (r && draft.remove) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/60 p-3 text-sm">
-        <span>{t("weight.willRemove")}</span>
+        <span>
+          This record will be removed when you save. It can be recorded again from the active
+          master.
+        </span>
         <Button
           type="button"
           variant="outline"
           className="h-11 sm:h-8"
-          onClick={() => onChange({ ...initialDraft(line), remove: false })}
+          onClick={() => onChange({ remove: false })}
         >
-          <Undo2 className="h-4 w-4" /> {t("weight.keepWeight")}
+          <Undo2 className="h-4 w-4" /> Keep record
         </Button>
       </div>
     );
@@ -277,189 +286,115 @@ function EditableLine({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">{t("weight.sentFromDc")}</p>
-          <p className="flex h-11 items-center rounded-md border bg-muted px-3 font-semibold tabular-nums sm:h-9">
-            {qty(line.sentQty)}
+      {line.status === "sentChanged" && r && (
+        <div className="space-y-2 rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
+          <p className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {SENT_CHANGED_TEXT} Recorded with {qty(r.sentQty)}; the DC now says{" "}
+              {qty(line.sentQty)}. The recorded totals still use {qty(r.sentQty)}.
+            </span>
           </p>
+          {canEdit && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={draft.accept}
+                onChange={(e) =>
+                  onChange({ accept: e.target.checked, rateText: rateText(r.ratePaisePerKg / 100) })
+                }
+              />
+              Use the current Sent Qty ({qty(line.sentQty)}) for this record, keeping its recorded
+              weights
+            </label>
+          )}
         </div>
-        <WeightInput
-          label={`${t("weight.rough")} ${t("weight.perPiece")}`}
-          text={draft.roughText}
-          unit={draft.roughUnit}
-          invalid={problems.some(
-            (p) => p === "roughMissing" || p === "roughInvalid" || p === "finishedOverRough"
-          )}
-          onText={(roughText) => onChange({ roughText })}
-          onUnit={(roughUnit) => onChange({ roughUnit })}
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SentQty
+          value={line.sentQty}
+          note={
+            r && !draft.accept && line.status === "sentChanged"
+              ? `Totals use ${qty(r.sentQty)}`
+              : undefined
+          }
         />
-        <WeightInput
-          label={`${t("weight.finished")} ${t("weight.perPiece")}`}
-          text={draft.finishedText}
-          unit={draft.finishedUnit}
-          invalid={problems.some(
-            (p) => p === "finishedMissing" || p === "finishedInvalid" || p === "finishedOverRough"
-          )}
-          onText={(finishedText) => onChange({ finishedText })}
-          onUnit={(finishedUnit) => onChange({ finishedUnit })}
-        />
-        <label className="space-y-1">
-          <span className="block text-xs text-muted-foreground">
-            {t("weight.scrapRate")} ({t("weight.rupeesPerKg")})
-          </span>
-          <Input
-            inputMode="decimal"
-            value={draft.rateText}
-            aria-invalid={problems.includes("rateInvalid") || undefined}
-            placeholder={t("weight.notEntered")}
-            onChange={(e) => onChange({ rateText: e.target.value })}
-            className="h-11 tabular-nums sm:h-9"
-          />
-        </label>
+        <Readout label="Rough / pc" value={formatWeightIn(roughMg, unit)} />
+        <Readout label="Finished / pc" value={formatWeightIn(finishedMg, unit)} />
+        <Readout label="Scrap / pc" value={formatWeightIn(scrapMg, unit)} strong />
       </div>
+      <p className="text-xs text-muted-foreground">
+        {r
+          ? "Recorded weights. They never change, even if the Weight/Scrap Master is edited later."
+          : "From the active Weight/Scrap Master. Saving with a scrap rate records these weights for this line."}
+      </p>
 
-      {problems.length > 0 && (
-        <ul className="space-y-0.5 text-sm text-destructive">
-          {problems.map((problem) => (
-            <li key={problem}>{t(`weight.problem.${problem}`)}</li>
-          ))}
-        </ul>
-      )}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {canEdit ? (
+          <label className="col-span-2 space-y-1 sm:col-span-1">
+            <span className="block text-xs text-muted-foreground">Scrap rate (₹/kg)</span>
+            <Input
+              inputMode="decimal"
+              value={draft.rateText}
+              disabled={draft.accept}
+              aria-invalid={problem !== null || undefined}
+              placeholder={r ? "" : "Enter to record"}
+              onChange={(e) => onChange({ rateText: e.target.value })}
+              className="h-11 tabular-nums sm:h-9"
+            />
+          </label>
+        ) : (
+          <Readout
+            label="Scrap rate"
+            value={r ? `${formatRupeesFromPaise(r.ratePaisePerKg)} / kg` : "—"}
+          />
+        )}
+        <Readout label="Total scrap" value={formatWeight(figures.totalScrapMg)} strong />
+        <Readout
+          label="Scrap value"
+          value={
+            figures.totalValuePaise === null ? "—" : formatRupeesFromPaise(figures.totalValuePaise)
+          }
+          strong
+        />
+      </div>
+      {problem && <p className="text-sm text-destructive">{RATE_PROBLEM_TEXT[problem]}</p>}
 
-      <dl className="grid grid-cols-3 gap-2 rounded-md bg-muted/50 p-2 text-sm">
-        <div>
-          <dt className="text-xs text-muted-foreground">{t("weight.scrapPerPieceShort")}</dt>
-          <dd className="font-medium tabular-nums">
-            {figures ? formatWeight(figures.scrapPerPieceMg) : dash}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">{t("weight.totalScrap")}</dt>
-          <dd className="font-semibold tabular-nums">
-            {figures ? formatWeight(figures.totalScrapMg) : dash}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">{t("weight.scrapValue")}</dt>
-          <dd className="font-semibold tabular-nums">
-            {figures && figures.totalValuePaise !== null
-              ? formatRupeesFromPaise(figures.totalValuePaise)
-              : dash}
-          </dd>
-        </div>
-      </dl>
-      {figures && figures.totalValuePaise === null && (
-        <p className="text-xs text-muted-foreground">{t("weight.noRateValue")}</p>
-      )}
-
-      {line.weight && (
+      {canEdit && r && (
         <Button
           type="button"
           variant="ghost"
           className="h-11 text-destructive hover:text-destructive sm:h-8"
-          onClick={() => onChange({ remove: true })}
+          onClick={() => onChange({ remove: true, accept: false })}
         >
-          <Trash2 className="h-4 w-4" /> {t("weight.removeWeight")}
+          <Trash2 className="h-4 w-4" /> Remove record
         </Button>
       )}
     </div>
   );
 }
 
-function WeightInput({
+function Readout({
   label,
-  text,
-  unit,
-  invalid,
-  onText,
-  onUnit,
+  value,
+  strong = false,
 }: {
   label: string;
-  text: string;
-  unit: WeightUnit;
-  invalid: boolean;
-  onText: (text: string) => void;
-  onUnit: (unit: WeightUnit) => void;
+  value: string;
+  strong?: boolean;
 }) {
-  const { t } = useI18n();
   return (
-    <div className="col-span-2 space-y-1 sm:col-span-1">
-      <span className="block text-xs text-muted-foreground">{label}</span>
-      <div className="flex gap-1">
-        <Input
-          inputMode="decimal"
-          value={text}
-          aria-label={label}
-          aria-invalid={invalid || undefined}
-          onChange={(e) => onText(e.target.value)}
-          className="h-11 min-w-0 flex-1 tabular-nums sm:h-9"
-        />
-        <div
-          role="group"
-          aria-label={t("weight.unit")}
-          className="flex shrink-0 overflow-hidden rounded-md border"
-        >
-          {(["g", "kg"] as const).map((u) => (
-            <button
-              key={u}
-              type="button"
-              aria-pressed={unit === u}
-              onClick={() => onUnit(u)}
-              className={`h-11 w-10 text-sm font-medium sm:h-9 ${
-                unit === u
-                  ? "bg-[#10233f] text-white"
-                  : "bg-background text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {u === "g" ? t("weight.grams") : t("weight.kilograms")}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="space-y-1">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p
+        className={`flex h-11 items-center rounded-md border border-dashed px-3 tabular-nums sm:h-9 ${
+          strong ? "font-semibold" : ""
+        }`}
+      >
+        {value}
+      </p>
     </div>
-  );
-}
-
-function ReadOnlyLine({ line }: { line: WeightLine }) {
-  const { t } = useI18n();
-  const dash = t("weight.notEntered");
-  const w = line.weight;
-  const figures = w ? storedScrapFigures(w, line.sentQty) : null;
-  const item = (label: string, value: string, strong = false) => (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`tabular-nums ${strong ? "font-semibold" : ""}`}>{value}</dd>
-    </div>
-  );
-  return (
-    <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-      {item(t("weight.sentFromDc"), qty(line.sentQty), true)}
-      {item(
-        t("weight.roughShort"),
-        w && isWeightUnit(w.rough_unit)
-          ? formatWeightIn(gramsToMilligrams(w.rough_weight_g), w.rough_unit)
-          : dash
-      )}
-      {item(
-        t("weight.finishedShort"),
-        w && isWeightUnit(w.finished_unit)
-          ? formatWeightIn(gramsToMilligrams(w.finished_weight_g), w.finished_unit)
-          : dash
-      )}
-      {item(t("weight.scrapPerPieceShort"), figures ? formatWeight(figures.scrapPerPieceMg) : dash)}
-      {item(t("weight.totalScrap"), figures ? formatWeight(figures.totalScrapMg) : dash, true)}
-      {item(
-        t("weight.scrapRate"),
-        figures?.ratePaisePerKg != null
-          ? `${formatRupeesFromPaise(figures.ratePaisePerKg)} / kg`
-          : dash
-      )}
-      {item(
-        t("weight.scrapValue"),
-        figures?.totalValuePaise != null ? formatRupeesFromPaise(figures.totalValuePaise) : dash,
-        true
-      )}
-    </dl>
   );
 }

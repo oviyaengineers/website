@@ -334,22 +334,90 @@ export type ComponentRateRow = {
   updated_by: string | null;
 };
 
-/** Rough and finished weight per piece for one challan line, in grams (0029). */
+/**
+ * The weight/scrap recorded for one challan line (0029, 0031). The weights are
+ * copied from the Weight Master when recorded and never change afterwards.
+ */
 export type DcLineWeightRow = {
   id: string;
   dc_item_id: string;
+  /** The master the weights were copied from (0031). */
+  weight_master_id: string;
   rough_weight_g: number;
   rough_unit: "g" | "kg";
   finished_weight_g: number;
   finished_unit: "g" | "kg";
-  /** Rupees per kg, typed by hand. Null when not entered. */
-  scrap_rate_per_kg: number | null;
-  /** Sent Qty when the weights were last saved, to flag a later change. */
+  /** Recorded rough − finished, in grams. Worked out by the database. */
+  scrap_weight_g: number;
+  /** Rupees per kg, typed by an admin. */
+  scrap_rate_per_kg: number;
+  /** The Sent Qty the totals use: the line's Sent Qty when recorded, or when last accepted. */
   sent_qty_at_save: number;
+  /** Scrap per piece × Sent at save, in grams. Worked out by the database. */
+  total_scrap_g: number;
+  /** Total scrap in kg × rate, in rupees. Worked out by the database. */
+  scrap_value: number;
+  sent_qty_accepted_at: string | null;
+  sent_qty_accepted_by: string | null;
   created_by: string | null;
   created_at: string;
   updated_by: string | null;
   updated_at: string;
+};
+
+/** Rough and finished weight per piece for one component + material (0031). */
+export type WeightMasterRow = {
+  id: string;
+  component_id: string;
+  material: string;
+  material_key: string;
+  unit: "g" | "kg";
+  rough_weight_g: number;
+  finished_weight_g: number;
+  /** Rough − finished, in grams. Worked out by the database. */
+  scrap_weight_g: number;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+/**
+ * One line of a non-draft challan with its weight state (0031 view): the
+ * recorded result, or the active master it would use, or neither.
+ */
+export type DcWeightLineRow = {
+  dc_item_id: string;
+  dc_id: string;
+  dc_number: string;
+  dc_date: string;
+  dc_status: string;
+  customer_id: string;
+  customer_name: string | null;
+  component: string;
+  component_id: string | null;
+  material: string | null;
+  sort_order: number;
+  sent_qty: number;
+  weight_state: "recorded" | "pending" | "not_configured";
+  weight_id: string | null;
+  weight_master_id: string | null;
+  recorded_unit: "g" | "kg" | null;
+  recorded_rough_g: number | null;
+  recorded_finished_g: number | null;
+  recorded_scrap_g: number | null;
+  sent_qty_at_save: number | null;
+  scrap_rate_per_kg: number | null;
+  total_scrap_g: number | null;
+  scrap_value: number | null;
+  recorded_at: string | null;
+  sent_qty_changed: boolean;
+  master_id: string | null;
+  master_unit: "g" | "kg" | null;
+  master_rough_g: number | null;
+  master_finished_g: number | null;
+  master_scrap_g: number | null;
 };
 
 /** Every change to a weight record, written only by a trigger (0029). */
@@ -665,6 +733,20 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      weight_master: {
+        Row: WeightMasterRow;
+        Insert: Pick<
+          WeightMasterRow,
+          "component_id" | "material" | "unit" | "rough_weight_g" | "finished_weight_g"
+        > & { is_active?: boolean };
+        Update: Partial<
+          Pick<
+            WeightMasterRow,
+            "material" | "unit" | "rough_weight_g" | "finished_weight_g" | "is_active"
+          >
+        >;
+        Relationships: [];
+      };
       invoice_number_series: {
         Row: InvoiceNumberSeriesRow;
         Insert: Partial<InvoiceNumberSeriesRow> & { fy_label: string };
@@ -679,6 +761,10 @@ export type Database = {
       };
       customer_month_billing: {
         Row: CustomerMonthBillingRow;
+        Relationships: [];
+      };
+      dc_weight_lines: {
+        Row: DcWeightLineRow;
         Relationships: [];
       };
     };
@@ -710,7 +796,10 @@ export type Database = {
       cancel_security_otp: { Args: { p_otp_id: string }; Returns: undefined };
       verify_security_otp: { Args: { p_purpose: string; p_code: string }; Returns: boolean };
       set_module_pin: { Args: { p_purpose: string; p_new_pin: string }; Returns: undefined };
-      /** Saves or removes the weights of several lines on one challan, atomically. Admin only (0029). */
+      /**
+       * Records, re-rates, accepts Sent Qty for, or removes several lines on one
+       * challan, atomically. Weights always come from the master. Admin only (0031).
+       */
       save_dc_line_weights: {
         Args: { p_dc_id: string; p_lines: unknown };
         Returns: { saved: number; removed: number }[];

@@ -215,6 +215,12 @@ const NAV: NavGroup[] = [
         icon: IndianRupee,
         color: "text-slate-300",
       },
+      {
+        href: "/dashboard/settings/weight-master",
+        labelKey: "nav.weightMaster",
+        icon: Scale,
+        color: "text-slate-300",
+      },
     ],
   },
 ];

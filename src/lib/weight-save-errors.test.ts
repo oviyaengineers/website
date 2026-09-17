@@ -8,41 +8,44 @@ test("a non-admin is told only an admin can change weights", () => {
     /Only an admin/
   );
   assert.match(
-    weightSaveErrorMessage("permission denied for function save_dc_line_weights", "42501"),
+    weightSaveErrorMessage('new row violates row-level security policy for table "weight_master"'),
     /Only an admin/
   );
-  assert.match(weightSaveErrorMessage("WEIGHT_ADMIN_ONLY", "42501", "ta"), /நிர்வாகி மட்டுமே/);
 });
 
-test("line refusals name the component exactly as stored", () => {
+test("a line with no master names the component and says what to do", () => {
   assert.equal(
-    weightSaveErrorMessage("WEIGHT_FINISHED_OVER_ROUGH:3P DN40FB/50RB WCB Body Casting REV 2"),
-    "3P DN40FB/50RB WCB Body Casting REV 2: finished weight cannot be more than rough weight. Nothing was saved."
+    weightSaveErrorMessage("WEIGHT_NOT_CONFIGURED:3P DN40FB/50RB WCB Body Casting REV 2"),
+    "3P DN40FB/50RB WCB Body Casting REV 2: Weight not configured for this Component/Material. Add it in the Weight/Scrap Master first. Nothing was saved."
   );
+  assert.match(weightSaveErrorMessage("WEIGHT_RATE_MISSING:Shaft"), /^Shaft: enter the scrap rate/);
   assert.match(
     weightSaveErrorMessage("WEIGHT_NEGATIVE:Shaft"),
-    /^Shaft: weights and rate cannot be negative/
+    /^Shaft: the scrap rate cannot be negative/
   );
-  assert.match(weightSaveErrorMessage("WEIGHT_MISSING:Shaft"), /^Shaft: enter both weights/);
-  assert.match(weightSaveErrorMessage("WEIGHT_BAD_UNIT:Shaft"), /^Shaft: choose g or kg/);
-  assert.match(
-    weightSaveErrorMessage("WEIGHT_BAD_NUMBER:Shaft"),
-    /^Shaft: a weight or rate is not a number/
-  );
-  assert.match(
-    weightSaveErrorMessage("WEIGHT_FINISHED_OVER_ROUGH:Shaft", null, "ta"),
-    /^Shaft: முடிந்த எடை/
-  );
+  assert.match(weightSaveErrorMessage("WEIGHT_NOT_RECORDED:Shaft"), /^Shaft: not recorded yet/);
 });
 
-test("challan-level refusals", () => {
-  assert.match(weightSaveErrorMessage("WEIGHT_DRAFT_DC: a draft"), /draft/);
-  assert.match(weightSaveErrorMessage("WEIGHT_DC_NOT_FOUND"), /no longer exists/);
-  assert.match(weightSaveErrorMessage("WEIGHT_LINE_NOT_ON_DC"), /no longer belongs/);
-  assert.match(weightSaveErrorMessage("WEIGHT_DUPLICATE_LINE"), /sent twice/);
+test("master refusals", () => {
+  assert.match(
+    weightSaveErrorMessage("WEIGHT_MASTER_IN_USE: this master"),
+    /Make it inactive instead/
+  );
+  assert.match(
+    weightSaveErrorMessage(
+      'duplicate key value violates unique constraint "weight_master_one_per_pair"'
+    ),
+    /already exists/
+  );
+  assert.match(weightSaveErrorMessage("WEIGHT_MASTER_BAD_MATERIAL"), /Choose a material/);
+  assert.match(
+    weightSaveErrorMessage('violates check constraint "weight_master_finished_within_rough"'),
+    /Finished weight cannot be more than rough/
+  );
+  assert.match(weightSaveErrorMessage("WEIGHT_RECORD_FIXED: recorded"), /cannot be changed/);
 });
 
-test("anything else still says nothing was saved", () => {
-  assert.match(weightSaveErrorMessage("network down"), /network down.*Nothing was saved/);
-  assert.match(weightSaveErrorMessage(null), /Nothing was saved/);
+test("anything else keeps its detail", () => {
+  assert.match(weightSaveErrorMessage("something odd"), /something odd/);
+  assert.match(weightSaveErrorMessage(""), /Nothing was changed/);
 });

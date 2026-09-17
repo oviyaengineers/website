@@ -29,6 +29,7 @@ test("every Billing screen belongs to Billing", () => {
 
 test("Weight / Scrap screens belong to Weight", () => {
   assert.equal(moduleForPath("/dashboard/weight"), "weight");
+  assert.equal(moduleForPath("/dashboard/settings/weight-master"), "weight");
   assert.equal(moduleForPath("/dashboard/weight/70d41569-e5d2-4939-9abd-26eebb412aa4"), "weight");
 });
 

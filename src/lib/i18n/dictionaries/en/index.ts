@@ -13,7 +13,6 @@ import { dcPrint, dcScan } from "@/lib/i18n/dictionaries/en/dcScan";
 import { dcPublic } from "@/lib/i18n/dictionaries/en/dcPublic";
 import { dcCombined } from "@/lib/i18n/dictionaries/en/dcCombined";
 import { costs, customers } from "@/lib/i18n/dictionaries/en/admin";
-import { weight } from "@/lib/i18n/dictionaries/en/weight";
 import { security } from "@/lib/i18n/dictionaries/en/security";
 import { auth, settings } from "@/lib/i18n/dictionaries/en/settings";
 
@@ -41,6 +40,5 @@ export const en = {
   costs,
   settings,
   auth,
-  weight,
   security,
 };

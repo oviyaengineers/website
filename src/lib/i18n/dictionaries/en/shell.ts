@@ -63,6 +63,7 @@ export const nav = {
   billingDetails: "Billing Details",
   invoiceNumbers: "Invoice Numbers",
   rateList: "Rate List",
+  weightMaster: "Weight/Scrap Master",
   internalSystem: "Internal System",
   logOut: "Log out",
   toggleSidebar: "Toggle Sidebar",

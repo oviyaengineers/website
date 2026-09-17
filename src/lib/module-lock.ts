@@ -22,7 +22,7 @@ const MODULE_ROUTES: Record<LockedModule, string[]> = {
     "/dashboard/settings/invoice-numbers",
     "/dashboard/settings/rates",
   ],
-  weight: ["/dashboard/weight"],
+  weight: ["/dashboard/weight", "/dashboard/settings/weight-master"],
 };
 
 /** The unlock screen itself, never locked. */

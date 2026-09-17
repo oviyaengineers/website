@@ -1,14 +1,17 @@
 /**
- * Weight and scrap for one delivery challan line.
+ * Weight and scrap: the Weight Master and one delivery challan line.
  *
- * Rough and finished weights are per piece, entered in grams or kilograms.
- * Scrap is worked out, never typed:
+ * Rough and finished weights per piece live in the Weight Master, one record
+ * per Component + Material, entered in grams or kilograms. Scrap is worked
+ * out, never typed:
  *
  *   scrap per piece   = rough per piece − finished per piece
- *   total scrap       = scrap per piece × the line's own Sent Qty
+ *   total scrap       = scrap per piece × Sent Qty
  *   total scrap value = total scrap (kg) × scrap rate (₹/kg)
  *
- * Only Sent counts. Material Problem and Rejection pieces are not scrap here.
+ * Once a line is recorded, its weights, the Sent Qty used and the totals are
+ * stored on the record and shown as stored. Only Sent counts. Material
+ * Problem and Rejection pieces are not scrap here.
  *
  * All arithmetic runs in whole milligrams and whole paise, so 1200 g against
  * 1 kg, or 0.1 + 0.2 kg, never picks up a floating-point remainder. The
@@ -28,8 +31,11 @@ export const WEIGHT_DECIMALS: Record<WeightUnit, number> = { g: 3, kg: 6 };
 /** Scrap rate is rupees and paise. */
 export const RATE_DECIMALS = 2;
 
-/** The largest weight the database column holds, in milligrams (99,999,999,999.999 g). */
-export const MAX_WEIGHT_MG = 99_999_999_999_999;
+/** The heaviest piece the master accepts: 10,000 kg, as the database checks. */
+export const MAX_PIECE_MG = 10_000_000_000;
+
+/** The largest rate accepted, ₹ per kg. */
+export const MAX_RATE_PAISE = 999_999_999_99;
 
 export function isWeightUnit(value: unknown): value is WeightUnit {
   return value === "g" || value === "kg";
@@ -74,6 +80,11 @@ export function gramsToMilligrams(grams: number | string): number {
   return Math.round(Number(grams) * 1000);
 }
 
+/** Milligrams to the grams text the database takes, exactly. */
+export function milligramsToGramsText(mg: number): string {
+  return fixed(BigInt(Math.round(mg)), 3);
+}
+
 /** A rate as typed, in paise per kg. Null when blank or invalid. */
 export function toPaisePerKg(text: string | null | undefined): number | null {
   const parsed = parseDecimal(text, RATE_DECIMALS);
@@ -81,7 +92,7 @@ export function toPaisePerKg(text: string | null | undefined): number | null {
   return toScaled(parsed.value, RATE_DECIMALS);
 }
 
-/** A stored weight shown back in the unit it was entered in, without trailing zeros. */
+/** A stored weight shown back in a unit, without trailing zeros. */
 export function milligramsInUnit(mg: number, unit: WeightUnit): string {
   return trimDecimal(fixed(BigInt(Math.round(mg)), unit === "kg" ? 6 : 3));
 }
@@ -109,51 +120,40 @@ function hundredths(qty: number | string): bigint {
   return BigInt(Math.round(Number(qty) * 100));
 }
 
-export type WeightProblem =
+/** Two quantities as stored (2 decimals) are the same. */
+export function sameQty(a: number | string, b: number | string): boolean {
+  return hundredths(a) === hundredths(b);
+}
+
+// ---------------------------------------------------------------------------
+// The Weight Master entry.
+
+export type MasterEntry = {
+  roughText: string;
+  finishedText: string;
+  unit: WeightUnit;
+};
+
+export type MasterProblem =
   | "roughMissing"
   | "finishedMissing"
   | "roughInvalid"
   | "finishedInvalid"
-  | "rateInvalid"
   | "negative"
   | "tooManyDecimals"
   | "finishedOverRough"
   | "tooLarge";
 
-export type WeightEntry = {
-  roughText: string;
-  roughUnit: WeightUnit;
-  finishedText: string;
-  finishedUnit: WeightUnit;
-  rateText: string;
-};
-
-export type ScrapFigures = {
-  roughMg: number;
-  finishedMg: number;
-  scrapPerPieceMg: number;
-  /** Scrap per piece × Sent, in milligrams (may carry a fraction when Sent does). */
-  totalScrapMg: number;
-  /** Null when no rate has been entered: a rate is never assumed. */
-  ratePaisePerKg: number | null;
-  /** Total scrap value in paise, rounded half up. Null without a rate. */
-  totalValuePaise: number | null;
-};
-
-export type ScrapResult =
-  { ok: true; figures: ScrapFigures } | { ok: false; problems: WeightProblem[] };
-
-/** Everything that is wrong with an entry, in the order worth reading. */
-export function validateWeightEntry(entry: WeightEntry): WeightProblem[] {
-  const problems: WeightProblem[] = [];
-  const rough = parseDecimal(entry.roughText, WEIGHT_DECIMALS[entry.roughUnit]);
-  const finished = parseDecimal(entry.finishedText, WEIGHT_DECIMALS[entry.finishedUnit]);
-  const rate = parseDecimal(entry.rateText, RATE_DECIMALS);
+/** Everything wrong with a master's weights, in the order worth reading. */
+export function validateMasterEntry(entry: MasterEntry): MasterProblem[] {
+  const problems: MasterProblem[] = [];
+  const decimals = WEIGHT_DECIMALS[entry.unit];
+  const rough = parseDecimal(entry.roughText, decimals);
+  const finished = parseDecimal(entry.finishedText, decimals);
 
   for (const [parsed, invalid] of [
     [rough, "roughInvalid"],
     [finished, "finishedInvalid"],
-    [rate, "rateInvalid"],
   ] as const) {
     if (parsed.ok) continue;
     const problem =
@@ -168,31 +168,73 @@ export function validateWeightEntry(entry: WeightEntry): WeightProblem[] {
   if (finished.ok && finished.value === null) problems.push("finishedMissing");
   if (problems.length > 0) return problems;
 
-  const roughMg = toMilligrams(entry.roughText, entry.roughUnit) ?? 0;
-  const finishedMg = toMilligrams(entry.finishedText, entry.finishedUnit) ?? 0;
-  if (roughMg > MAX_WEIGHT_MG || finishedMg > MAX_WEIGHT_MG) return ["tooLarge"];
+  const roughMg = toMilligrams(entry.roughText, entry.unit) ?? 0;
+  const finishedMg = toMilligrams(entry.finishedText, entry.unit) ?? 0;
+  if (roughMg > MAX_PIECE_MG) return ["tooLarge"];
   if (finishedMg > roughMg) return ["finishedOverRough"];
   return [];
 }
 
-/**
- * The scrap figures for one line, or what stops them being worked out.
- *
- * sentQty is the line's own current Sent Qty, read from the challan.
- */
-export function calculateScrap(entry: WeightEntry, sentQty: number | string): ScrapResult {
-  const problems = validateWeightEntry(entry);
-  if (problems.length > 0) return { ok: false, problems };
+export const MASTER_PROBLEM_TEXT: Record<MasterProblem, string> = {
+  roughMissing: "Enter the rough weight per piece.",
+  finishedMissing: "Enter the finished weight per piece.",
+  roughInvalid: "Rough weight is not a number.",
+  finishedInvalid: "Finished weight is not a number.",
+  negative: "Weights cannot be negative.",
+  tooManyDecimals: "Too many decimal places: up to 3 for g, 6 for kg.",
+  finishedOverRough: "Finished weight cannot be more than rough weight.",
+  tooLarge: "A piece cannot weigh more than 10,000 kg.",
+};
 
-  const roughMg = toMilligrams(entry.roughText, entry.roughUnit) ?? 0;
-  const finishedMg = toMilligrams(entry.finishedText, entry.finishedUnit) ?? 0;
-  return {
-    ok: true,
-    figures: scrapFigures(roughMg, finishedMg, sentQty, toPaisePerKg(entry.rateText)),
-  };
+/** Scrap per piece for a valid entry, in milligrams; null while it is not valid. */
+export function masterScrapMg(entry: MasterEntry): number | null {
+  if (validateMasterEntry(entry).length > 0) return null;
+  return (
+    (toMilligrams(entry.roughText, entry.unit) ?? 0) -
+    (toMilligrams(entry.finishedText, entry.unit) ?? 0)
+  );
 }
 
-/** The same calculation from values already stored. */
+// ---------------------------------------------------------------------------
+// The scrap rate, typed per recorded line.
+
+export type RateProblem =
+  "rateMissing" | "rateInvalid" | "negative" | "tooManyDecimals" | "tooLarge";
+
+export function validateRate(text: string): RateProblem | null {
+  const parsed = parseDecimal(text, RATE_DECIMALS);
+  if (!parsed.ok) {
+    return parsed.reason === "negative"
+      ? "negative"
+      : parsed.reason === "decimals"
+        ? "tooManyDecimals"
+        : "rateInvalid";
+  }
+  if (parsed.value === null) return "rateMissing";
+  if ((toPaisePerKg(text) ?? 0) > MAX_RATE_PAISE) return "tooLarge";
+  return null;
+}
+
+export const RATE_PROBLEM_TEXT: Record<RateProblem, string> = {
+  rateMissing: "Enter the scrap rate (₹/kg). Zero is allowed.",
+  rateInvalid: "Scrap rate is not a number.",
+  negative: "Scrap rate cannot be negative.",
+  tooManyDecimals: "Scrap rate takes up to 2 decimal places.",
+  tooLarge: "Scrap rate is too large.",
+};
+
+// ---------------------------------------------------------------------------
+// The calculation.
+
+export type ScrapFigures = {
+  scrapPerPieceMg: number;
+  /** Scrap per piece × Sent, in milligrams (may carry a fraction when Sent does). */
+  totalScrapMg: number;
+  /** Null when no rate is known: a rate is never assumed. */
+  totalValuePaise: number | null;
+};
+
+/** Scrap per piece, total scrap and value from weights, Sent Qty and a rate. */
 export function scrapFigures(
   roughMg: number,
   finishedMg: number,
@@ -211,15 +253,7 @@ export function scrapFigures(
     const denominator = BigInt(100_000_000);
     totalValuePaise = Number((numerator * BigInt(2) + denominator) / (denominator * BigInt(2)));
   }
-
-  return {
-    roughMg,
-    finishedMg,
-    scrapPerPieceMg,
-    totalScrapMg,
-    ratePaisePerKg,
-    totalValuePaise,
-  };
+  return { scrapPerPieceMg, totalScrapMg, totalValuePaise };
 }
 
 /** A weight for reading: grams under a kilogram, kilograms from there, grouped the Indian way. */
@@ -231,7 +265,7 @@ export function formatWeight(mg: number): string {
   return `${(mg / 1_000_000).toLocaleString("en-IN", { maximumFractionDigits: 3 })} kg`;
 }
 
-/** A weight per piece, in the unit it was entered in. */
+/** A weight per piece, in a given unit. */
 export function formatWeightIn(mg: number, unit: WeightUnit): string {
   const value = unit === "kg" ? mg / 1_000_000 : mg / 1000;
   return `${value.toLocaleString("en-IN", { maximumFractionDigits: unit === "kg" ? 6 : 3 })} ${unit}`;
@@ -245,98 +279,26 @@ export function formatRupeesFromPaise(paise: number): string {
   })}`;
 }
 
-/** A stored weight record, as the screens read it. */
-export type StoredWeight = {
-  rough_weight_g: number | string;
-  rough_unit: string;
-  finished_weight_g: number | string;
-  finished_unit: string;
-  scrap_rate_per_kg: number | string | null;
-  sent_qty_at_save: number | string;
-};
-
-export type WeightStatus = "notWeighed" | "rateMissing" | "weighed" | "sentChanged";
+// ---------------------------------------------------------------------------
+// Where a line stands.
 
 /**
- * Where a line stands.
- *
- * "Sent changed" wins over the others: the figures are already recalculated on
- * the current Sent Qty, but the weights were entered against another one and
- * are worth a second look.
+ * notConfigured: no active master for its Component + Material, so no weights.
+ * pending:       an active master matches; not recorded yet.
+ * recorded:      recorded, and Sent Qty still matches.
+ * sentChanged:   recorded, but the DC's Sent Qty has changed since.
  */
-export function weightStatus(weight: StoredWeight | null, sentQty: number | string): WeightStatus {
-  if (!weight) return "notWeighed";
-  if (hundredths(weight.sent_qty_at_save) !== hundredths(sentQty)) return "sentChanged";
-  if (weight.scrap_rate_per_kg === null || weight.scrap_rate_per_kg === "") return "rateMissing";
-  return "weighed";
-}
+export type WeightStatus = "notConfigured" | "pending" | "recorded" | "sentChanged";
 
-/** Stored values through the calculation, on the line's current Sent Qty. */
-export function storedScrapFigures(weight: StoredWeight, sentQty: number | string): ScrapFigures {
-  const rate =
-    weight.scrap_rate_per_kg === null || weight.scrap_rate_per_kg === ""
-      ? null
-      : Math.round(Number(weight.scrap_rate_per_kg) * 100);
-  return scrapFigures(
-    gramsToMilligrams(weight.rough_weight_g),
-    gramsToMilligrams(weight.finished_weight_g),
-    sentQty,
-    rate
-  );
-}
-
-/** Totals for a set of weighed lines, ready for a report. */
-export type WeightTotals = {
-  lines: number;
-  weighedLines: number;
-  /** Sent pieces on weighed lines. */
-  processedQty: number;
-  totalRoughMg: number;
-  totalFinishedMg: number;
-  totalScrapMg: number;
-  /** Scrap on lines that have a rate, which is what the value covers. */
-  pricedScrapMg: number;
-  totalValuePaise: number;
-  /** Value ÷ priced scrap, in paise per kg. Null when nothing is priced. */
-  averageRatePaisePerKg: number | null;
+export const WEIGHT_STATUS_TEXT: Record<WeightStatus, string> = {
+  notConfigured: "Weight not configured",
+  pending: "Pending",
+  recorded: "Recorded",
+  sentChanged: "Sent Qty changed",
 };
 
-export function summarizeWeights(
-  lines: { sentQty: number | string; weight: StoredWeight | null }[]
-): WeightTotals {
-  const totals: WeightTotals = {
-    lines: lines.length,
-    weighedLines: 0,
-    processedQty: 0,
-    totalRoughMg: 0,
-    totalFinishedMg: 0,
-    totalScrapMg: 0,
-    pricedScrapMg: 0,
-    totalValuePaise: 0,
-    averageRatePaisePerKg: null,
-  };
-  let qtyHundredths = BigInt(0);
-  for (const line of lines) {
-    if (!line.weight) continue;
-    const figures = storedScrapFigures(line.weight, line.sentQty);
-    const qty = hundredths(line.sentQty);
-    totals.weighedLines += 1;
-    qtyHundredths += qty;
-    totals.totalRoughMg += Number(BigInt(figures.roughMg) * qty) / 100;
-    totals.totalFinishedMg += Number(BigInt(figures.finishedMg) * qty) / 100;
-    totals.totalScrapMg += figures.totalScrapMg;
-    if (figures.totalValuePaise !== null) {
-      totals.pricedScrapMg += figures.totalScrapMg;
-      totals.totalValuePaise += figures.totalValuePaise;
-    }
-  }
-  totals.processedQty = Number(qtyHundredths) / 100;
-  totals.averageRatePaisePerKg =
-    totals.pricedScrapMg > 0
-      ? Math.round(totals.totalValuePaise / (totals.pricedScrapMg / 1_000_000))
-      : null;
-  return totals;
-}
+export const NOT_CONFIGURED_TEXT = "Weight not configured for this Component/Material.";
+export const SENT_CHANGED_TEXT = "Sent Qty changed since weights were saved.";
 
 export type DatePreset = "today" | "week" | "month";
 
