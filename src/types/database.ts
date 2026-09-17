@@ -799,6 +799,33 @@ export type Database = {
       cancel_security_otp: { Args: { p_otp_id: string }; Returns: undefined };
       verify_security_otp: { Args: { p_purpose: string; p_code: string }; Returns: boolean };
       set_module_pin: { Args: { p_purpose: string; p_new_pin: string }; Returns: undefined };
+      /** Staff login recovery (0033). SERVICE ROLE ONLY: returns the code to email. */
+      issue_staff_recovery_code: {
+        Args: { p_email: string; p_client: string };
+        Returns: {
+          code_id: string;
+          code: string;
+          user_id: string | null;
+          email: string | null;
+          full_name: string | null;
+        }[];
+      };
+      /** SERVICE ROLE ONLY. */
+      cancel_staff_recovery_code: { Args: { p_code_id: string }; Returns: undefined };
+      /** SERVICE ROLE ONLY: a right code returns the recovery pass for the cookie. */
+      verify_staff_recovery_code: {
+        Args: { p_email: string; p_code: string; p_client: string };
+        Returns: { ok: boolean; grant_token: string | null }[];
+      };
+      /** SERVICE ROLE ONLY: the login email and name for a live recovery pass. */
+      staff_recovery_account: {
+        Args: { p_token: string };
+        Returns: { user_id: string; email: string; full_name: string | null }[];
+      };
+      /** SERVICE ROLE ONLY. */
+      note_staff_user_id_shown: { Args: { p_user: string }; Returns: undefined };
+      /** SERVICE ROLE ONLY: spends the pass, cancels codes, ends every session. */
+      complete_staff_password_reset: { Args: { p_token: string }; Returns: string };
       /**
        * Records, re-rates, accepts Sent Qty for, or removes several lines on one
        * challan, atomically. Weights always come from the master. Admin only (0031).

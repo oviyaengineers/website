@@ -117,3 +117,40 @@ export async function sendPinNoticeEmail(
     ),
   });
 }
+
+/** The code for Forgot User ID / Password on Staff Login. Expires in 10 minutes, works once. */
+export async function sendStaffRecoveryCodeEmail(to: string, code: string): Promise<void> {
+  await send({
+    to,
+    // Never the code in the subject: subjects show on locked phone screens.
+    subject: "Your Oviya Engineers staff login code",
+    text: `Use this code to recover your Oviya Engineers staff login (User ID or password):\n\n${code}\n\nIt expires in 10 minutes and can be used once.\nIf you did not ask for it, ignore this email and do not share the code with anyone.\n\nOviya Engineers ERP`,
+    html: layout(
+      "Your staff login code",
+      `<p style="margin:0 0 16px;font-size:14px">Use this code to recover your Oviya Engineers staff login (User ID or password):</p>
+<p style="margin:0 0 16px;font-size:32px;font-weight:bold;letter-spacing:8px">${escape(code)}</p>
+<p style="margin:0 0 8px;font-size:13px">It expires in 10 minutes and can be used once.</p>
+<p style="margin:0;font-size:13px">If you did not ask for it, ignore this email and do not share the code with anyone.</p>`
+    ),
+  });
+}
+
+/** A notice that the staff login password was reset. It never contains the password. */
+export async function sendStaffPasswordChangedEmail(to: string): Promise<void> {
+  const when = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  await send({
+    to,
+    subject: "Your Oviya Engineers staff password was changed",
+    text: `The password for your Oviya Engineers staff login was reset using an emailed code.\nTime: ${when} (India)\n\nYou have been signed out on every device. If this was not you, use Forgot User ID / Password on the Staff Login page straight away and tell your administrator.\n\nOviya Engineers ERP`,
+    html: layout(
+      "Your staff password was changed",
+      `<p style="margin:0 0 12px;font-size:14px">The password for your Oviya Engineers staff login was reset using an emailed code.</p>
+<p style="margin:0 0 16px;font-size:13px">Time: ${escape(when)} (India)</p>
+<p style="margin:0;font-size:13px">You have been signed out on every device. If this was not you, use Forgot User ID / Password on the Staff Login page straight away and tell your administrator.</p>`
+    ),
+  });
+}

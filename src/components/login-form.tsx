@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { loginAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,14 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
           <Button type="submit" className="h-11 w-full" disabled={pending}>
             {pending ? t("auth.signingIn") : t("auth.signIn")}
           </Button>
+          <p className="text-center">
+            <Link
+              href="/auth/recover"
+              className="inline-flex min-h-11 items-center text-sm text-slate-300 underline-offset-4 hover:text-white hover:underline"
+            >
+              {t("auth.forgotLink")}
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>
