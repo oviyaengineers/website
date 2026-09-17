@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { DcPrintActions } from "@/components/dc-print-actions";
 import { DcPrintSheet, type PrintItem } from "@/components/dc-print-sheet";
+import { DcPrintPageSetup } from "@/components/dc-print-page-setup";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import { isDraftDc } from "@/lib/dc-combined-print";
 import { dcQrCode } from "@/lib/dc-public-link";
@@ -102,6 +103,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           )}
           <DcPrintActions dc={pdfData} />
         </div>
+        <DcPrintPageSetup />
       </div>
 
       {/* The sheet below is exactly the printable area of one A4 page, at the

@@ -505,19 +505,21 @@
     overflow: visible !important;
   }
 
-  /* In print, 100vh and 100% are the page area, which with no margin is the
-     sheet itself: exactly 210 x 297mm on A4, so the cut falls at 148.5mm. A
-     phone's print service or a printer set to US Letter can still hand the
-     browser a different sheet; sized this way the halves still split it evenly
-     on one page, where a box fixed in millimetres spilled the DUPLICATE onto a
-     second.
+  /* In print the sheet is exactly one A4 page, 210 x 297mm, so each copy is
+     148.5mm and the cut falls precisely across the middle of the paper.
 
-     It lives here, after the on-screen rule above, on purpose: that rule is
-     not limited to screens and sets the box in millimetres, so a print rule
-     placed before it lost to it. */
+     It used to be 100% x 100vh, the page area the print dialog allowed. That
+     followed the dialog instead of the paper: with its margins switched on, a
+     "fit to page" scale or a phone's print service, each half shrank and moved,
+     the DUPLICATE started at a different height, and rows fell out of the
+     bottom. The DC is printed on A4 only, and the print pages set the page
+     itself to A4 with no margin (DcPrintPageSetup), so millimetres are exact.
+
+     It lives here, after the on-screen rule above, on purpose: a print rule
+     placed before that rule lost to it. */
   .dc-print-page {
-    width: 100%;
-    height: 100vh;
+    width: 210mm;
+    height: 297mm;
     box-shadow: none !important;
   }
 }

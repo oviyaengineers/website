@@ -189,6 +189,8 @@ export const dcScan: Dictionary["dcScan"] = {
 export const dcPrint: Dictionary["dcPrint"] = {
   original: "அசல்",
   duplicate: "நகல்",
+  printTip:
+    "சரியான பாதியாகக் கிழிக்க: காகிதம் A4, ஓரங்கள் None (அல்லது Default), அளவு 100% (Fit to page அல்ல), Headers and footers அணைக்கவும்.",
   cutHere: "✂ இங்கே வெட்டவும்",
   title: "டெலிவரி சலான்",
   ourDcNumber: "எங்கள் DC எண்",

@@ -179,6 +179,8 @@ export const dcScan = {
 export const dcPrint = {
   original: "ORIGINAL",
   duplicate: "DUPLICATE",
+  printTip:
+    "For exact halves to tear: Paper A4, Margins None (or Default), Scale 100% (not Fit to page), Headers and footers off.",
   cutHere: "✂ cut here",
   title: "Delivery Challan",
   ourDcNumber: "Our DC Number",

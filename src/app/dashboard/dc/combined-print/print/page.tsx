@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { CombinedDcPrintSheet } from "@/components/combined-dc-print-sheet";
 import { DcPrintFitCheck } from "@/components/dc-print-fit-check";
+import { DcPrintPageSetup } from "@/components/dc-print-page-setup";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import {
   checkCombinedSelection,
@@ -137,6 +138,7 @@ export default async function CombinedDcPrintSheetPage({
             }
           />
         </div>
+        <DcPrintPageSetup />
 
         {options.choose && (
           <div className="space-y-2">
