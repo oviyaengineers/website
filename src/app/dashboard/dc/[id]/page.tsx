@@ -21,6 +21,7 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle } from "@/lib/dc-lifecycle";
 import { listRelatedDcs } from "@/lib/actions/dc-continuation";
 import { fetchDcBilling } from "@/lib/billing-data";
+import { isModuleUnlocked } from "@/lib/module-lock-server";
 import { BillingStatusBadge } from "@/components/billing-badges";
 import { DcStatusBadge } from "@/components/status-badge";
 import { DcStatusActions } from "@/components/dc-status-actions";
@@ -64,7 +65,13 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
   const chain = indexChain(chainRows);
   const figures = new Map((items ?? []).map((item) => [item.id, figuresFor(item, chain)]));
 
-  const [related, billing] = await Promise.all([listRelatedDcs(id), fetchDcBilling(id)]);
+  // Billing sits behind the PIN. While it is locked the database hides what is
+  // billed, so the card would show every line as unbilled; a note replaces it.
+  const [related, billing, billingUnlocked] = await Promise.all([
+    listRelatedDcs(id),
+    fetchDcBilling(id),
+    isModuleUnlocked("billing"),
+  ]);
   // A balance error is any line with more out than in once confirmed
   // follow-ups are counted, so it is judged from the figures, not the row.
   const overDelivered = (items ?? []).flatMap((item, index) => {
@@ -362,7 +369,27 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Billing reads the DC lines through dc_line_billing: billable is Sent
           once the DC is issued, billed is what issued invoices hold. */}
-      {billing.size > 0 && (
+      {billing.size > 0 && !billingUnlocked && (
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 py-4">
+            <span className="text-sm text-muted-foreground">{t("security.billingLockedNote")}</span>
+            <Button
+              render={
+                <Link
+                  href={`/dashboard/unlock/billing?next=${encodeURIComponent("/dashboard/invoices")}`}
+                  prefetch={false}
+                />
+              }
+              variant="outline"
+              size="sm"
+              className="h-11 sm:h-8"
+            >
+              {t("security.unlockBilling")}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {billing.size > 0 && billingUnlocked && (
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
             <div>

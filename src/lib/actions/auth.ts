@@ -23,6 +23,10 @@ export async function loginAction(
 
 export async function logoutAction() {
   const supabase = await createClient();
+  // Billing and Weight / Scrap lock again at once, on every device, before the
+  // session ends. Signing out ends the session too, which alone would stop the
+  // unlock counting; this makes it immediate and explicit.
+  await supabase.rpc("lock_modules");
   await supabase.auth.signOut();
   redirect("/auth/login");
 }

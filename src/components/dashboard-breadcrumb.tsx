@@ -25,6 +25,8 @@ const SEGMENT_LABELS: Record<string, TranslationKey> = {
   stock: "nav.stockBalance",
   completed: "nav.completedDcs",
   weight: "nav.weightScrap",
+  security: "security.menu",
+  unlock: "security.enterPin",
   invoices: "nav.billing",
   costs: "nav.costs",
   reports: "nav.reports",
@@ -73,6 +75,7 @@ const NO_PAGE = [
   /^\/dashboard\/reports$/,
   /^\/dashboard\/dc\/component$/,
   /^\/dashboard\/customers\/[^/]+$/,
+  /^\/dashboard\/unlock$/,
 ];
 
 export function buildCrumbs(pathname: string, t: Translate): Crumb[] {

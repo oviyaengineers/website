@@ -6,6 +6,7 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { isWeightUnit, validateWeightEntry, type WeightUnit } from "@/lib/weight";
 import { weightSaveErrorMessage } from "@/lib/weight-save-errors";
+import { moduleLockedError } from "@/lib/module-lock-server";
 
 export type WeightLineInput =
   | {
@@ -39,6 +40,9 @@ export async function saveWeightsAction(
   const { lang, t } = await getTranslator();
   const fail = (error: string): SaveWeightsResult => ({ error, saved: 0, removed: 0 });
 
+  // Weight / Scrap sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("weight");
+  if (locked) return fail(locked);
   if (!Array.isArray(lines) || lines.length === 0) return fail(t("weight.nothingToSave"));
 
   const { profile } = await getCurrentUserAndProfile();

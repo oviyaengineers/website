@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invoiceErrorMessage } from "@/lib/invoice-save-errors";
+import { moduleLockedError } from "@/lib/module-lock-server";
 import type { PaymentStatus } from "@/types/database";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,6 +50,9 @@ export async function issueInvoiceAction(
   _prev: IssueInvoiceState,
   formData: FormData
 ): Promise<IssueInvoiceState> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   let payload: IssueInvoicePayload;
   try {
     payload = JSON.parse(String(formData.get("payload") ?? ""));
@@ -99,6 +103,9 @@ export async function cancelInvoiceAction(
   invoiceId: string,
   reason: string
 ): Promise<{ error: string | null }> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   if (!reason.trim()) return { error: "Give a reason for cancelling the invoice." };
   const supabase = await createClient();
   const { error } = await supabase.rpc("cancel_invoice", {
@@ -116,6 +123,9 @@ export async function updatePaymentAction(
   status: PaymentStatus,
   amountPaid: number
 ): Promise<{ error: string | null }> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   if (!["unpaid", "partial", "paid"].includes(status)) return { error: "Choose a payment status." };
   if (!Number.isFinite(amountPaid) || amountPaid < 0) {
     return { error: "The amount paid cannot be negative." };
@@ -150,6 +160,9 @@ export async function saveCompanySettingsAction(
   _prev: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   const rateText = text(formData, "default_gst_rate");
   const rate = rateText === null ? null : Number(rateText);
   if (rate !== null && (!Number.isFinite(rate) || rate < 0 || rate > 100)) {
@@ -205,6 +218,9 @@ export async function saveInvoiceSeriesAction(
   _prev: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   const kind = String(formData.get("kind") ?? "");
   if (kind !== "gst" && kind !== "non_gst") return { error: "Choose which series to change." };
   const prefix = String(formData.get("prefix") ?? "")
@@ -262,6 +278,9 @@ export async function saveRateAction(
   _prev: SettingsFormState,
   formData: FormData
 ): Promise<SettingsFormState> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   const componentId = String(formData.get("component_id") ?? "");
   const material = String(formData.get("material") ?? "").trim();
   const rate = Number(formData.get("rate"));
@@ -303,6 +322,9 @@ export async function saveRateAction(
 
 /** Removes a Rate List entry. Invoices already issued keep the rate they used. */
 export async function deleteRateAction(id: string): Promise<{ error: string | null }> {
+  // Billing sits behind the PIN (0030); the database refuses the data regardless.
+  const locked = await moduleLockedError("billing");
+  if (locked) return { error: locked };
   const supabase = await createClient();
   const { data, error } = await supabase.from("component_rates").delete().eq("id", id).select("id");
   if (error) return { error: error.message };

@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Inbox,
   Layers,
+  ShieldCheck,
   Scale,
   ListChecks,
   LogOut,
@@ -362,6 +363,16 @@ export function AppSidebar({
             </span>
           </div>
         </div>
+        {/* Each person's own Billing & Weight PIN, so it sits with the account
+            rather than in the admin-only settings. */}
+        <SidebarMenuButton
+          render={<Link href="/dashboard/settings/security" onClick={closeOnMobile} />}
+          isActive={pathname === "/dashboard/settings/security"}
+          className="h-11 w-full text-slate-300 hover:text-white md:h-8"
+        >
+          <ShieldCheck className="text-emerald-400" />
+          <span>{t("security.menu")}</span>
+        </SidebarMenuButton>
         <form action={logoutAction}>
           <SidebarMenuButton
             type="submit"

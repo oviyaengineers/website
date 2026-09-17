@@ -683,6 +683,33 @@ export type Database = {
       };
     };
     Functions: {
+      /** Billing / Weight PIN lock (0030). Is the module unlocked for this session? */
+      module_unlocked: { Args: { p_module: string }; Returns: boolean };
+      /** Counts as activity: keeps a live unlock alive, drops an expired one. */
+      touch_module_unlock: { Args: { p_module: string }; Returns: boolean };
+      /** The caller's own PIN status. Never the PIN or its hash. */
+      module_pin_status: {
+        Args: Record<PropertyKey, never>;
+        Returns: { has_pin: boolean; locked_until: string | null }[];
+      };
+      unlock_module: {
+        Args: { p_module: string; p_pin: string };
+        Returns: { ok: boolean; locked_until: string | null }[];
+      };
+      lock_modules: { Args: Record<PropertyKey, never>; Returns: undefined };
+      verify_current_module_pin: {
+        Args: { p_pin: string };
+        Returns: { ok: boolean; locked_until: string | null }[];
+      };
+      /** SERVICE ROLE ONLY: returns the code so the server can email it. */
+      issue_security_otp: {
+        Args: { p_user: string; p_session: string; p_purpose: string };
+        Returns: { otp_id: string; code: string }[];
+      };
+      /** SERVICE ROLE ONLY. */
+      cancel_security_otp: { Args: { p_otp_id: string }; Returns: undefined };
+      verify_security_otp: { Args: { p_purpose: string; p_code: string }; Returns: boolean };
+      set_module_pin: { Args: { p_purpose: string; p_new_pin: string }; Returns: undefined };
       /** Saves or removes the weights of several lines on one challan, atomically. Admin only (0029). */
       save_dc_line_weights: {
         Args: { p_dc_id: string; p_lines: unknown };

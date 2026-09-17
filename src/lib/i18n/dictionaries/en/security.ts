@@ -1,0 +1,73 @@
+/** The Billing / Weight PIN lock and Settings → Security. */
+
+export const security = {
+  // Lock screen
+  lockedBilling: "Billing is locked",
+  lockedWeight: "Weight / Scrap is locked",
+  enterPin: "Enter 4-digit PIN",
+  pinLabel: "PIN",
+  unlock: "Unlock",
+  unlocking: "Checking…",
+  unlockNote:
+    "Your PIN unlocks this module on this device for up to 8 hours. It locks again after 15 minutes without activity, and when you log out.",
+  pinNotAccepted: "PIN not accepted.",
+  lockedOut: "Too many attempts. Try again after {time}.",
+  noPinYet: "You have not set a PIN yet.",
+  setUpPin: "Set up your PIN",
+  forgotPin: "Forgot PIN?",
+  backToDashboard: "Back to dashboard",
+
+  // Settings → Security
+  menu: "Security",
+  title: "Security",
+  intro:
+    "A 4-digit PIN locks Billing and Weight / Scrap on top of your login. It only unlocks what your account can already do.",
+  pinCard: "Billing & Weight PIN",
+  statusSet: "Your PIN is set.",
+  statusNotSet: "No PIN set yet. Billing and Weight / Scrap stay locked until you set one.",
+  setPin: "Set PIN",
+  changePin: "Change PIN",
+  cancel: "Cancel",
+
+  // Steps
+  currentPin: "Current PIN",
+  continue: "Continue",
+  sendCode: "Email me a code",
+  sending: "Sending…",
+  codeSentTo: "We sent a 6-digit code to {email}. It expires in 10 minutes.",
+  codeLabel: "6-digit code",
+  verifyCode: "Verify code",
+  verifying: "Verifying…",
+  resendCode: "Send a new code",
+  newPin: "New PIN",
+  confirmPin: "Confirm new PIN",
+  savePin: "Save PIN",
+  saving: "Saving…",
+  pinSaved: "Your PIN is saved.",
+  pinChanged: "Your PIN is changed. The old PIN no longer works.",
+  pinReset: "Your PIN is reset. The old PIN no longer works.",
+  emailNotice: "A notice has been sent to your email.",
+  stepOf: "Step {step} of {total}",
+  pinRules: "Exactly 4 digits. Avoid 0000, 1234, 1212 and the like.",
+
+  // Errors
+  errorPinShape: "Enter exactly 4 digits.",
+  errorPinMismatch: "The two PINs do not match.",
+  errorPinWeak: "That PIN is too easy to guess. Choose another.",
+  errorPinSame: "The new PIN must be different from the current one.",
+  errorPinAlreadySet: "A PIN is already set. Use Change PIN or Forgot PIN.",
+  errorPinNotSet: "No PIN is set yet. Use Set PIN.",
+  errorCurrentFirst: "Confirm your current PIN first.",
+  errorCodeShape: "Enter the 6-digit code from the email.",
+  errorCodeWrong: "That code is not right, or it has expired. Request a new one if needed.",
+  errorOtpTooSoon: "Please wait a minute before requesting another code.",
+  errorOtpHourly: "Too many codes requested. Try again in an hour.",
+  errorOtpFirst: "Verify the emailed code first.",
+  errorEmailFailed: "The code could not be emailed. Try again later.",
+  errorEmailNotConfigured: "Email is not set up for this site yet, so no code can be sent.",
+  errorSession: "Your login session has changed. Log in again and retry.",
+  errorGeneric: "That did not work. Nothing was changed. Try again.",
+  moduleLockedError: "This module is locked. Enter your PIN to continue.",
+  billingLockedNote: "Billing is locked.",
+  unlockBilling: "Unlock Billing",
+};

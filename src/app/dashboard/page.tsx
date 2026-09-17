@@ -7,6 +7,8 @@ import { SearchBox } from "@/components/search-box";
 import { GlobalSearchResults } from "@/components/global-search-results";
 import { globalSearch } from "@/lib/global-search";
 import { getTranslator } from "@/lib/i18n/server";
+import Link from "next/link";
+import { isModuleUnlocked } from "@/lib/module-lock-server";
 
 export default async function DashboardHomePage({
   searchParams,
@@ -21,6 +23,9 @@ export default async function DashboardHomePage({
   const hits = term.trim().length >= 2 ? await globalSearch(term, t) : [];
   const { profile } = await getCurrentUserAndProfile();
   const isAdmin = profile?.role === "admin";
+  // Billing figures come from behind the PIN. While it is locked the database
+  // returns none, and a zero here would read as a real figure.
+  const billingUnlocked = await isModuleUnlocked("billing");
   const supabase = await createClient();
 
   const startOfMonth = new Date();
@@ -119,12 +124,21 @@ export default async function DashboardHomePage({
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  ₹{outstandingTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("dashboard.unpaidInvoices", { count: (outstandingInvoices ?? []).length })}
-                </p>
+                {billingUnlocked ? (
+                  <>
+                    <div className="text-2xl font-bold">
+                      ₹{outstandingTotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("dashboard.unpaidInvoices", { count: (outstandingInvoices ?? []).length })}
+                    </p>
+                  </>
+                ) : (
+                  <BillingLockedNote
+                    label={t("security.billingLockedNote")}
+                    action={t("security.unlockBilling")}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -137,12 +151,34 @@ export default async function DashboardHomePage({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <RevenueCostChart data={revenueVsCost} />
+                {billingUnlocked ? (
+                  <RevenueCostChart data={revenueVsCost} />
+                ) : (
+                  <BillingLockedNote
+                    label={t("security.billingLockedNote")}
+                    action={t("security.unlockBilling")}
+                  />
+                )}
               </CardContent>
             </Card>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function BillingLockedNote({ label, action }: { label: string; action: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <Link
+        href="/dashboard/unlock/billing?next=%2Fdashboard%2Finvoices"
+        prefetch={false}
+        className="text-sm font-medium text-[#10233f] underline-offset-2 hover:underline dark:text-sky-300"
+      >
+        {action}
+      </Link>
     </div>
   );
 }
