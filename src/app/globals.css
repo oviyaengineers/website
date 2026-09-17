@@ -450,7 +450,10 @@
    will not be on the printout either. */
 .dc-print-stage {
   display: flex;
-  justify-content: center;
+  /* "safe": centred when the sheet fits, otherwise started at the left edge.
+     Plain centring pushed the left third of the A4 sheet off a phone screen,
+     where scrolling could never reach it. */
+  justify-content: safe center;
   padding: 1.5rem 1rem 3rem;
   /* A4 is wider than a phone, so the sheet is never squeezed — it scrolls. */
   overflow-x: auto;
