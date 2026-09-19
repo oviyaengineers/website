@@ -172,6 +172,13 @@ const NAV: NavGroup[] = [
         icon: Receipt,
         color: "text-violet-400",
       },
+      {
+        // A report: behind the Billing PIN, like everything under /dashboard/reports.
+        href: "/dashboard/reports/customer-statement",
+        labelKey: "nav.customerStatement",
+        icon: FileText,
+        color: "text-emerald-400",
+      },
     ],
   },
   {

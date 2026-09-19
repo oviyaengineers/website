@@ -905,3 +905,61 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   margin: 0;
   text-align: right;
 }
+
+/* --- Customer Statement -------------------------------------------------
+   Printed on A4 portrait, the standard sheet, not the landscape page of the
+   other reports: the nine columns fit across 190mm at 7.5pt with the
+   description wrapping. The preview draws that very sheet, 210 x 297mm, so
+   what fits on screen fits on paper.
+
+   The totals row prints once, at the end: a browser repeats a table's footer
+   on every printed page, which would put the grand total under every page of
+   a long statement. The headings do repeat. */
+.customer-statement-table tfoot {
+  display: table-row-group;
+}
+.customer-statement-table tr,
+.statement-signature {
+  break-inside: avoid;
+}
+/* Quantities and money line up on the right; the list's own cell rule
+   would otherwise set them left. */
+.dc-list-print .customer-statement-table :is(th, td).num {
+  text-align: right;
+}
+
+.report-print-stage > .dc-list-print.statement-print {
+  width: 210mm;
+  min-height: 297mm;
+}
+.statement-print .customer-statement-table {
+  table-layout: fixed;
+  font-size: 7.5pt;
+}
+.statement-print .customer-statement-table th,
+.statement-print .customer-statement-table td {
+  padding: 1mm 1.2mm;
+}
+
+@media print {
+  /* Its own named page for the whole document, placed after the list's
+     landscape page so it wins, as the list and the challan sheet do. */
+  @page statement-a4 {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+  .dc-list-print.statement-print,
+  body:has(.statement-print) {
+    page: statement-a4;
+  }
+  .report-print-stage > .dc-list-print.statement-print {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+  }
+}
+
+/* On screen the statement keeps readable columns; a phone scrolls across. */
+.customer-statement-screen .customer-statement-table {
+  min-width: 60rem;
+}

@@ -62,6 +62,7 @@ export const nav = {
   componentsMaterials: "Components & Materials",
   billingDetails: "Billing Details",
   invoiceNumbers: "Invoice Numbers",
+  customerStatement: "Customer Statement",
   rateList: "Rate List",
   weightMaster: "Weight/Scrap Master",
   internalSystem: "Internal System",

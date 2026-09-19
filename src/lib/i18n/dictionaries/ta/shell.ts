@@ -64,6 +64,7 @@ export const nav: Dictionary["nav"] = {
   componentsMaterials: "உதிரிபாகங்கள் & பொருட்கள்",
   billingDetails: "பில்லிங் விவரங்கள்",
   invoiceNumbers: "இன்வாய்ஸ் எண்கள்",
+  customerStatement: "வாடிக்கையாளர் அறிக்கை",
   rateList: "விலைப் பட்டியல்",
   weightMaster: "Weight/Scrap Master",
   internalSystem: "உள் அமைப்பு",

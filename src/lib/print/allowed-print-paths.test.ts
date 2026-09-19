@@ -56,3 +56,22 @@ test("file names are plain and come from the page title", () => {
   assert.equal(pdfFileName("DC", ""), "DC.pdf");
   assert.equal(pdfFileName("DC", '"; rm -rf /'), "rm-rf.pdf");
 });
+
+test("the customer statement prints with a customer id and two dates only", () => {
+  const id = "0fa83868-4646-465b-bdb5-9f0dd8c0665a";
+  const path = `/dashboard/reports/customer-statement/print?customer=${id}&from=2026-09-01&to=2026-09-17`;
+  assert.deepEqual(allowedPrintPage(path), { path, kind: "Customer-Statement" });
+  assert.equal(
+    allowedPrintPage(
+      `/dashboard/reports/customer-statement/print?customer=x&from=2026-09-01&to=2026-09-17`
+    ),
+    null
+  );
+  assert.equal(
+    allowedPrintPage(
+      `/dashboard/reports/customer-statement/print?customer=${id}&from=soon&to=2026-09-17`
+    ),
+    null
+  );
+  assert.equal(allowedPrintPage("/dashboard/reports/customer-statement"), null);
+});

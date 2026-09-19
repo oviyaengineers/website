@@ -37,6 +37,11 @@ export const PRINT_PAGES: Rule[] = [
   { pattern: /^\/dashboard\/dc\/print-list$/, query: anyFilter(), kind: "DC-List" },
   { pattern: /^\/dashboard\/completed\/print$/, query: anyFilter(), kind: "Completed-DCs" },
   { pattern: /^\/dashboard\/stock\/print$/, query: anyFilter(), kind: "Stock-Balance" },
+  {
+    pattern: /^\/dashboard\/reports\/customer-statement\/print$/,
+    query: { customer: new RegExp(`^${UUID}$`), from: DATE, to: DATE },
+    kind: "Customer-Statement",
+  },
 ];
 
 /** List prints take whatever filters their screen offers; values are checked, names are free. */
