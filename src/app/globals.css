@@ -962,3 +962,92 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .customer-statement-screen .customer-statement-table {
   min-width: 60rem;
 }
+
+/* --- Delivery challan (single and follow-up) and bill: bold, one size up ---
+   Read across a workshop and signed on a bench, so every word is bold and one
+   point larger than before. Only the single challan sheet, not the combined
+   one, whose many rows are sized to fit their half. The item table keeps five
+   lines per copy; the spacing, not the rows, gives up the room. */
+.dc-print-sheet-single,
+.dc-print-sheet-single * {
+  font-weight: 700 !important;
+}
+.dc-print-sheet-single {
+  font-size: 8.6pt;
+}
+.dc-print-sheet-single .text-\[10px\] {
+  font-size: 6.8pt !important;
+}
+.dc-print-sheet-single .text-xs {
+  font-size: 8pt !important;
+}
+.dc-print-sheet-single .text-sm {
+  font-size: 8.8pt !important;
+}
+.dc-print-sheet-single .text-lg,
+.dc-print-sheet-single .dc-print-title {
+  font-size: 12pt !important;
+}
+.dc-print-sheet-single .text-xl,
+.dc-print-sheet-single .dc-print-company {
+  font-size: 13.5pt !important;
+}
+.dc-print-sheet-single .dc-print-copy-label {
+  font-size: 8pt !important;
+}
+.dc-print-sheet-single .dc-print-cell-label {
+  font-size: 6.6pt;
+}
+.dc-print-sheet-single .dc-print-cell-value {
+  font-size: 8.4pt;
+}
+.dc-print-sheet-single table {
+  font-size: 8pt !important;
+}
+/* What pays for the larger type, so each copy still takes five item lines:
+   the column headings stay near their old size (bold, on one line), and the
+   form boxes lose a fraction of a millimetre of padding. */
+.dc-print-sheet-single th {
+  font-size: 7.2pt !important;
+  padding: 0.6mm 0.5mm !important;
+  line-height: 1.15;
+}
+.dc-print-sheet-single .dc-print-cell {
+  padding: 0.6mm 1.3mm;
+}
+.dc-print-sheet-single .dc-print-cell-label {
+  margin-bottom: 0.2mm;
+}
+.dc-print-sheet-single .dc-print-title {
+  margin-bottom: 1mm !important;
+}
+
+.invoice-print-page,
+.invoice-print-page *:not(.invoice-cancelled-mark) {
+  font-weight: 700 !important;
+}
+.invoice-print-page {
+  font-size: 12.5px;
+}
+/* The bill's own fixed sizes, each one step up with it. */
+.invoice-print-page .text-\[9\.5px\] {
+  font-size: 10.5px !important;
+}
+.invoice-print-page .text-\[10px\] {
+  font-size: 11px !important;
+}
+.invoice-print-page .text-\[10\.5px\] {
+  font-size: 11.5px !important;
+}
+.invoice-print-page .text-xs {
+  font-size: 13px !important;
+}
+.invoice-print-page .text-\[13px\] {
+  font-size: 14px !important;
+}
+.invoice-print-page .text-lg {
+  font-size: 19px !important;
+}
+.invoice-print-page .dc-print-company {
+  font-size: 21px !important;
+}

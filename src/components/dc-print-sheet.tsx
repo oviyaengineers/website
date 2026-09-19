@@ -4,8 +4,12 @@ import type { Lang } from "@/lib/i18n/config";
 import type { Translate } from "@/lib/i18n/types";
 import type { CustomerRow } from "@/types/database";
 
-/** Column widths of the items table, in percent; the filler below it reuses them. */
-const COLUMN_WIDTHS = [6, 38, 11, 9, 13, 11, 12];
+/**
+ * Column widths of the items table, in percent; the filler below it reuses them.
+ * Material, Mat. Problem and Rejection hold short values, so they are kept
+ * tight and the room goes to the description.
+ */
+const COLUMN_WIDTHS = [6, 45, 9, 9, 10, 9, 12];
 
 export type PrintItem = {
   id: string;
@@ -178,7 +182,7 @@ function DcCopy({
   const authorizedBy = challan.authorizedBy?.trim() ?? "";
 
   return (
-    <div className="dc-print-sheet break-inside-avoid">
+    <div className="dc-print-sheet dc-print-sheet-single break-inside-avoid">
       {/* Plain ruled boxes throughout, with no filled band behind the company
           name and no tinted table headings, so the heading reads as one more
           box of the same form. */}
