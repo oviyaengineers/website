@@ -49,7 +49,11 @@ function serifFontCss(): Promise<string> {
         return `@font-face{font-family:"Times New Roman";font-style:${style};font-weight:${weight};src:url(data:font/ttf;base64,${data}) format("truetype");}`;
       })
     );
-    return `${rules.join("")}:root{font-family:"Times New Roman",serif;}`;
+    // Liberation Serif has no rupee sign, and the server has no other font
+    // with one, so ₹ printed as a blank. The app's own Noto Sans Tamil (loaded
+    // on every page) carries it; as the next font in line it supplies only
+    // what Liberation Serif lacks, so the Latin text is unchanged.
+    return `${rules.join("")}:root{font-family:"Times New Roman",var(--font-noto-tamil),"Noto Sans Tamil",serif;}`;
   })();
   fontCss.catch(() => {
     fontCss = null;
