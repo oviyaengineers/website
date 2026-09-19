@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { PrintPreview } from "@/components/print/print-preview";
 import { CustomerStatementTable, StatementRateNote } from "@/components/customer-statement-table";
-import { fetchCustomerStatement, parseStatementFilters } from "@/lib/customer-statement-data";
+import {
+  fetchCustomerStatement,
+  parseStatementFilters,
+  statementQuery,
+} from "@/lib/customer-statement-data";
 import { formatDate } from "@/lib/i18n/dates";
 
 export const metadata: Metadata = { title: "Customer Statement | Oviya Engineers" };
@@ -18,7 +22,7 @@ export const metadata: Metadata = { title: "Customer Statement | Oviya Engineers
 export default async function CustomerStatementPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ customer?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ customer?: string; from?: string; to?: string; component?: string }>;
 }) {
   const search = await searchParams;
   const filters = parseStatementFilters(search);
@@ -27,11 +31,7 @@ export default async function CustomerStatementPrintPage({
   if (!result) notFound();
 
   const day = (value: string) => formatDate(value, "dd MMM yyyy", "en");
-  const back = `/dashboard/reports/customer-statement?${new URLSearchParams({
-    customer: filters.customerId,
-    from: filters.from,
-    to: filters.to,
-  })}`;
+  const back = `/dashboard/reports/customer-statement?${statementQuery(filters)}`;
 
   return (
     <PrintPreview back={{ href: back, label: "Back" }} english>
@@ -44,6 +44,11 @@ export default async function CustomerStatementPrintPage({
               <p>
                 <span className="font-semibold">Customer Name:</span> {result.customerName}
               </p>
+              {result.componentName ? (
+                <p>
+                  <span className="font-semibold">Component:</span> {result.componentName}
+                </p>
+              ) : null}
               <p>
                 <span className="font-semibold">Period:</span> {day(filters.from)} to{" "}
                 {day(filters.to)}

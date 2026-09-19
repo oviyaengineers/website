@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { CustomerStatementTable, StatementRateNote } from "@/components/customer-statement-table";
 import {
   fetchCustomerStatement,
+  fetchStatementComponents,
   fetchStatementCustomers,
   parseStatementFilters,
+  statementQuery,
 } from "@/lib/customer-statement-data";
 import { statementDate } from "@/lib/customer-statement";
 import { formatDate } from "@/lib/i18n/dates";
 
 export const metadata: Metadata = { title: "Customer Statement | Oviya Engineers" };
 
-type Search = { customer?: string; from?: string; to?: string };
+type Search = { customer?: string; from?: string; to?: string; component?: string };
 
 /**
  * Customer Statement: one customer's DCs over a period, with the Rate List
@@ -31,8 +33,9 @@ export default async function CustomerStatementPage({
 }) {
   const search = await searchParams;
   const filters = parseStatementFilters(search);
-  const [customers, result] = await Promise.all([
+  const [customers, components, result] = await Promise.all([
     fetchStatementCustomers(),
+    fetchStatementComponents(),
     filters && filters.from <= filters.to ? fetchCustomerStatement(filters) : Promise.resolve(null),
   ]);
 
@@ -42,11 +45,7 @@ export default async function CustomerStatementPage({
   const to = statementDate(search.to) ?? today;
   const backwards = filters ? filters.from > filters.to : false;
   const printHref = filters
-    ? `/dashboard/reports/customer-statement/print?${new URLSearchParams({
-        customer: filters.customerId,
-        from: filters.from,
-        to: filters.to,
-      })}`
+    ? `/dashboard/reports/customer-statement/print?${statementQuery(filters)}`
     : null;
   const day = (value: string) => formatDate(value, "dd MMM yyyy", "en");
 
@@ -62,7 +61,10 @@ export default async function CustomerStatementPage({
 
       <Card>
         <CardContent className="pt-6">
-          <form method="get" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto]">
+          <form
+            method="get"
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr_1fr_auto]"
+          >
             <div className="space-y-2">
               <Label htmlFor="customer">Customer</Label>
               <select
@@ -78,6 +80,22 @@ export default async function CustomerStatementPage({
                   Choose a customer
                 </option>
                 {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="component">Component</Label>
+              <select
+                id="component"
+                name="component"
+                defaultValue={filters?.componentId ?? ""}
+                className="h-11 w-full rounded-md border bg-background px-3 text-sm sm:h-9"
+              >
+                <option value="">All components</option>
+                {components.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
@@ -122,6 +140,8 @@ export default async function CustomerStatementPage({
             <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
               <dt className="text-muted-foreground">Customer Name</dt>
               <dd className="font-semibold">{result.customerName}</dd>
+              <dt className="text-muted-foreground">Component</dt>
+              <dd>{result.componentName ?? "All components"}</dd>
               <dt className="text-muted-foreground">From Date</dt>
               <dd>{day(filters.from)}</dd>
               <dt className="text-muted-foreground">To Date</dt>

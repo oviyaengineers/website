@@ -39,7 +39,12 @@ export const PRINT_PAGES: Rule[] = [
   { pattern: /^\/dashboard\/stock\/print$/, query: anyFilter(), kind: "Stock-Balance" },
   {
     pattern: /^\/dashboard\/reports\/customer-statement\/print$/,
-    query: { customer: new RegExp(`^${UUID}$`), from: DATE, to: DATE },
+    query: {
+      customer: new RegExp(`^${UUID}$`),
+      from: DATE,
+      to: DATE,
+      component: new RegExp(`^${UUID}$`),
+    },
     kind: "Customer-Statement",
   },
 ];

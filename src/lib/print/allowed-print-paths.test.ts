@@ -75,3 +75,10 @@ test("the customer statement prints with a customer id and two dates only", () =
   );
   assert.equal(allowedPrintPage("/dashboard/reports/customer-statement"), null);
 });
+
+test("the customer statement may name one component, by its id only", () => {
+  const id = "0fa83868-4646-465b-bdb5-9f0dd8c0665a";
+  const base = `/dashboard/reports/customer-statement/print?customer=${id}&from=2026-09-01&to=2026-09-17`;
+  assert.ok(allowedPrintPage(`${base}&component=${id}`));
+  assert.equal(allowedPrintPage(`${base}&component=Body%20Casting`), null);
+});

@@ -147,3 +147,35 @@ test("only real calendar dates are accepted as filters", () => {
   assert.equal(statementDate("17-09-2026"), null);
   assert.equal(statementDate(undefined), null);
 });
+
+test("a chosen component keeps only its lines, and the totals are for that component", () => {
+  const mixed = [...items, line("f1", "d6", FLG, 400, 250), line("f2", "d15", FLG, 0, 149, "f1")];
+  const s = buildStatement({
+    dcs,
+    items: mixed,
+    rates,
+    componentNames: names,
+    from: "2026-09-01",
+    to: "2026-09-30",
+    componentId: FLG,
+  });
+  assert.deepEqual(
+    s.rows.map((r) => [r.dcNumber, r.component, r.completed]),
+    [
+      ["26-27-006", "3P DN50RB CF8M #150 Flg Connector Casting", 250],
+      ["26-27-015", "3P DN50RB CF8M #150 Flg Connector Casting", 149],
+    ]
+  );
+  assert.equal(s.totalCompleted, 399);
+  assert.equal(s.grandTotal, 11571);
+  // No component chosen: every component, as before.
+  const all = buildStatement({
+    dcs,
+    items: mixed,
+    rates,
+    componentNames: names,
+    from: "2026-09-01",
+    to: "2026-09-30",
+  });
+  assert.equal(all.rows.length, 5);
+});

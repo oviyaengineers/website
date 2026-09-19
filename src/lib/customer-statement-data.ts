@@ -4,18 +4,26 @@ import { buildStatement, statementDate, type Statement } from "@/lib/customer-st
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type StatementFilters = { customerId: string; from: string; to: string };
+export type StatementFilters = {
+  customerId: string;
+  from: string;
+  to: string;
+  /** One component from the master list, or null for all. */
+  componentId: string | null;
+};
 
 /** The filters from the address, or null until a customer and both dates are chosen. */
 export function parseStatementFilters(search: {
   customer?: string;
   from?: string;
   to?: string;
+  component?: string;
 }): StatementFilters | null {
   const customerId = search.customer && UUID.test(search.customer) ? search.customer : null;
   const from = statementDate(search.from);
   const to = statementDate(search.to);
-  return customerId && from && to ? { customerId, from, to } : null;
+  const componentId = search.component && UUID.test(search.component) ? search.component : null;
+  return customerId && from && to ? { customerId, from, to, componentId } : null;
 }
 
 /** Customers for the picker, by name. */
@@ -25,13 +33,34 @@ export async function fetchStatementCustomers(): Promise<{ id: string; name: str
   return data ?? [];
 }
 
+/** Components for the picker: the master list, by name. */
+export async function fetchStatementComponents(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("dc_picklist_items")
+    .select("id, name")
+    .eq("kind", "component")
+    .order("name");
+  return data ?? [];
+}
+
+/** The address of a statement, and of its printout, with the filters that are set. */
+export function statementQuery(filters: StatementFilters): string {
+  return new URLSearchParams({
+    customer: filters.customerId,
+    from: filters.from,
+    to: filters.to,
+    ...(filters.componentId ? { component: filters.componentId } : {}),
+  }).toString();
+}
+
 /**
  * One customer's statement. Reads only: DCs, their lines, the component names
  * and the Rate List. Rates sit behind the Billing PIN, like the page itself.
  */
 export async function fetchCustomerStatement(
   filters: StatementFilters
-): Promise<{ customerName: string; statement: Statement } | null> {
+): Promise<{ customerName: string; componentName: string | null; statement: Statement } | null> {
   const supabase = await createClient();
   const [{ data: customer }, { data: dcs }, { data: picklist }, { data: rates }] =
     await Promise.all([
@@ -57,15 +86,20 @@ export async function fetchCustomerStatement(
     .eq("delivery_challans.customer_id", filters.customerId);
   if (error) throw new Error(`Customer statement: ${error.message}`);
 
+  const componentNames = componentNameIndex(picklist ?? []);
   return {
     customerName: customer.name,
+    componentName: filters.componentId
+      ? (componentNames.get(filters.componentId) ?? "Unknown component")
+      : null,
     statement: buildStatement({
       dcs: dcs ?? [],
       items: items ?? [],
       rates: rates ?? [],
-      componentNames: componentNameIndex(picklist ?? []),
+      componentNames,
       from: filters.from,
       to: filters.to,
+      componentId: filters.componentId,
     }),
   };
 }

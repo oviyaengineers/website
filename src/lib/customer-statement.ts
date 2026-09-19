@@ -87,6 +87,7 @@ export function buildStatement({
   componentNames,
   from,
   to,
+  componentId = null,
 }: {
   /** Every DC of the customer, any date, so a follow-up can name the DC it follows. */
   dcs: StatementDc[];
@@ -96,6 +97,8 @@ export function buildStatement({
   /** Inclusive, YYYY-MM-DD, compared with the Our DC date. */
   from: string;
   to: string;
+  /** Only this component's lines (master list id); null for every component. */
+  componentId?: string | null;
 }): Statement {
   const dcById = new Map(dcs.map((dc) => [dc.id, dc]));
   const itemById = new Map(items.map((item) => [item.id, item]));
@@ -108,6 +111,7 @@ export function buildStatement({
     if (normalizeDcStatus(dc.status) === "draft") continue;
     const dcDate = dc.dc_date.slice(0, 10);
     if (dcDate < from || dcDate > to) continue;
+    if (componentId && item.component_id !== componentId) continue;
 
     const parent = item.parent_item_id ? itemById.get(item.parent_item_id) : undefined;
     const followUpOf = item.parent_item_id
