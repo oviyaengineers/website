@@ -49,6 +49,21 @@ async function failureText(response: Response): Promise<string> {
 
 type Status = { busy: boolean; error: string | null };
 
+/**
+ * True once per tap: a second call within a moment is ignored. One tap on a
+ * link rendered as a button could reach the handler twice, which opened the
+ * PDF in two tabs on a phone; a quick double tap would do the same.
+ */
+function useOncePerTap(): () => boolean {
+  const last = useRef(0);
+  return useCallback(() => {
+    const now = Date.now();
+    if (now - last.current < 1000) return false;
+    last.current = now;
+    return true;
+  }, []);
+}
+
 function useStrings(english: boolean) {
   const { t } = useI18n();
   const englishT = useMemo(() => createTranslator("en"), []);
@@ -138,16 +153,17 @@ export function PrintButton({ label, english = false }: { label?: string; englis
   const { status, run } = usePdfFetch(english);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const busy = status.busy;
+  const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
-    if (busy) return;
+    if (busy || !firstCall()) return;
     if (printsInViewer()) {
       // Opened straight from the tap, so it is never blocked as a pop-up.
       window.open(href, "_blank");
       return;
     }
     void run(href, (pdf) => printPdfInFrame(pdf, frameRef));
-  }, [busy, href, run]);
+  }, [busy, firstCall, href, run]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -169,17 +185,11 @@ export function PrintButton({ label, english = false }: { label?: string; englis
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
       <Button
-        render={
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener"
-            onClick={(event) => {
-              event.preventDefault();
-              print();
-            }}
-          />
-        }
+        render={<a href={href} target="_blank" rel="noopener" />}
+        onClick={(event) => {
+          event.preventDefault();
+          print();
+        }}
         variant="outline"
         className="h-11 sm:h-9"
         aria-busy={status.busy}
@@ -207,9 +217,10 @@ export function DownloadPdfButton({
   const t = useStrings(english);
   const href = usePrintPdfHref(true);
   const { status, run } = usePdfFetch(english);
+  const firstCall = useOncePerTap();
 
   const save = () => {
-    if (status.busy) return;
+    if (status.busy || !firstCall()) return;
     void run(href, (pdf, name) => {
       const url = URL.createObjectURL(pdf);
       const link = document.createElement("a");
@@ -223,17 +234,13 @@ export function DownloadPdfButton({
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
       <Button
-        render={
-          <a
-            href={href}
-            onClick={(event) => {
-              // Phones save through their own download handling of the link.
-              if (printsInViewer()) return;
-              event.preventDefault();
-              save();
-            }}
-          />
-        }
+        render={<a href={href} />}
+        onClick={(event) => {
+          // Phones save through their own download handling of the link.
+          if (printsInViewer()) return;
+          event.preventDefault();
+          save();
+        }}
         className="h-11 sm:h-9"
         aria-busy={status.busy}
       >
