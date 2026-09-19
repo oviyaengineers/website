@@ -91,6 +91,25 @@ export function PrintField({
   );
 }
 
+/**
+ * The company's signature box: "For OVIYA ENGINEERS" at the top, room to sign
+ * (with the authorising person's name when there is one), and "Authorised
+ * Signatory" at the foot, the way the invoice closes. The company name is
+ * never translated. The box keeps the height of the receiver's box beside it.
+ */
+export function PrintSignatoryField({ authorizedBy, t }: { authorizedBy: string; t: Translate }) {
+  return (
+    <div
+      className="dc-print-cell dc-print-cell-tall dc-print-signatory"
+      style={{ gridColumn: "span 2" }}
+    >
+      <p className="dc-print-cell-label">For OVIYA ENGINEERS</p>
+      <div className="dc-print-cell-value">{authorizedBy}</div>
+      <p className="dc-print-cell-label">{t("dcPrint.authorizedSignatory")}</p>
+    </div>
+  );
+}
+
 /** The letterhead. Never translated. */
 export function PrintLetterhead() {
   return (
@@ -286,13 +305,7 @@ function DcCopy({
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
           </PrintField>
-          <PrintField
-            label={authorizedBy ? t("dcPrint.authorizedBy") : t("dcPrint.authorizedSignatory")}
-            span={2}
-            tall
-          >
-            {authorizedBy}
-          </PrintField>
+          <PrintSignatoryField authorizedBy={authorizedBy} t={t} />
         </div>
       </section>
     </div>

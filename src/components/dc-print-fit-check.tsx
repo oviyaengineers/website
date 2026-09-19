@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { PrintNowButton } from "@/components/print-now-button";
+import { PrintActions } from "@/components/print/print-preview";
 import { useI18n } from "@/components/i18n-provider";
 
 /** Set on <html> while a sheet overflows, so print shows a warning instead. */
@@ -90,5 +90,5 @@ export function DcPrintFitCheck({
     );
   }
 
-  return <PrintNowButton label={t("dcPrint.printSavePdf")} />;
+  return <PrintActions />;
 }

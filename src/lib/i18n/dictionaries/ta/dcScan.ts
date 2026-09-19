@@ -189,8 +189,6 @@ export const dcScan: Dictionary["dcScan"] = {
 export const dcPrint: Dictionary["dcPrint"] = {
   original: "அசல்",
   duplicate: "நகல்",
-  printTip:
-    "சரியான பாதியாகக் கிழிக்க: காகிதம் A4, ஓரங்கள் None (அல்லது Default), அளவு 100% (Fit to page அல்ல), Headers and footers அணைக்கவும்.",
   cutHere: "✂ இங்கே வெட்டவும்",
   title: "டெலிவரி சலான்",
   ourDcNumber: "எங்கள் DC எண்",
@@ -215,10 +213,10 @@ export const dcPrint: Dictionary["dcPrint"] = {
   note: "குறிப்பு",
   noteText: "இயந்திரப் பணிக்குப் பின் அனுப்பப்பட்டது",
   receiverSignature: "பெறுநர் கையொப்பம்",
-  authorizedBy: "அங்கீகரித்தவர்",
   authorizedSignatory: "அங்கீகரிக்கப்பட்ட கையொப்பமிடுபவர்",
   print: "அச்சிடு",
-  printSavePdf: "அச்சிடு / PDF ஆகச் சேமி",
   downloadPdf: "PDF பதிவிறக்கு",
   preparing: "தயாராகிறது...",
+  preparingPdf: "PDF தயாராகிறது... சில விநாடிகள் ஆகலாம்.",
+  pdfFailed: "PDF உருவாக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
 };

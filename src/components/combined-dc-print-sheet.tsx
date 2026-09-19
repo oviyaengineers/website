@@ -2,6 +2,7 @@ import {
   PRINT_CELL,
   PrintField,
   PrintLetterhead,
+  PrintSignatoryField,
   PrintTableFiller,
 } from "@/components/dc-print-sheet";
 import { combinedQrMode, type CombinedLayout, type CombinedRow } from "@/lib/dc-combined-print";
@@ -215,13 +216,7 @@ function CombinedCopy({
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
           </PrintField>
-          <PrintField
-            label={authorizedBy ? t("dcPrint.authorizedBy") : t("dcPrint.authorizedSignatory")}
-            span={2}
-            tall
-          >
-            {authorizedBy}
-          </PrintField>
+          <PrintSignatoryField authorizedBy={authorizedBy} t={t} />
         </div>
       </section>
     </div>

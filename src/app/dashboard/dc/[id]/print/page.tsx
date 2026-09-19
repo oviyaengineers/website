@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Layers, X } from "lucide-react";
+import { Layers } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { DcPrintActions } from "@/components/dc-print-actions";
+import { PrintActions, PrintPreview } from "@/components/print/print-preview";
 import { DcPrintSheet, type PrintItem } from "@/components/dc-print-sheet";
 import { DcPrintPageSetup } from "@/components/dc-print-page-setup";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
@@ -70,14 +70,10 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   const canCombine = !isDraftDc(dc) && (sameDay ?? []).some((other) => !isDraftDc(other));
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
-      {/* The overlay covers the whole app, so without this there is no way
-          back to the challan short of the browser's own back button. */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
-        <Button render={<Link href={`/dashboard/dc/${dc.id}`} />} variant="outline">
-          <X className="h-4 w-4" /> {t("common.close")}
-        </Button>
-        <div className="flex flex-wrap gap-2">
+    <PrintPreview
+      back={{ href: `/dashboard/dc/${dc.id}`, label: t("common.close"), close: true }}
+      actions={
+        <>
           {canCombine && (
             <Button
               render={
@@ -90,11 +86,11 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
               <Layers className="h-4 w-4" /> {t("dcCombined.openCombined")}
             </Button>
           )}
-          <DcPrintActions />
-        </div>
-        <DcPrintPageSetup />
-      </div>
-
+          <PrintActions />
+        </>
+      }
+      notes={<DcPrintPageSetup />}
+    >
       {/* The sheet below is exactly the printable area of one A4 page, at the
           same size on screen as on paper. Anything that does not fit inside it
           here will not be on the printout either, which is the whole point of
@@ -116,6 +112,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
           t={t}
         />
       </div>
-    </div>
+    </PrintPreview>
   );
 }

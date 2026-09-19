@@ -179,8 +179,6 @@ export const dcScan = {
 export const dcPrint = {
   original: "ORIGINAL",
   duplicate: "DUPLICATE",
-  printTip:
-    "For exact halves to tear: Paper A4, Margins None (or Default), Scale 100% (not Fit to page), Headers and footers off.",
   cutHere: "✂ cut here",
   title: "Delivery Challan",
   ourDcNumber: "Our DC Number",
@@ -205,10 +203,10 @@ export const dcPrint = {
   note: "Note",
   noteText: "Sent after machining",
   receiverSignature: "Receiver's Signature",
-  authorizedBy: "Authorized By",
-  authorizedSignatory: "Authorized Signatory",
+  authorizedSignatory: "Authorised Signatory",
   print: "Print",
-  printSavePdf: "Print / Save as PDF",
   downloadPdf: "Download PDF",
   preparing: "Preparing...",
+  preparingPdf: "Preparing the PDF... this can take a few seconds.",
+  pdfFailed: "The PDF could not be made. Please try again.",
 };

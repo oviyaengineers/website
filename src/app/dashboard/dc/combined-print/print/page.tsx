@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { CombinedDcPrintSheet } from "@/components/combined-dc-print-sheet";
 import { DcPrintFitCheck } from "@/components/dc-print-fit-check";
+import { PrintPreview } from "@/components/print/print-preview";
 import { DcPrintPageSetup } from "@/components/dc-print-page-setup";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
 import {
@@ -122,56 +123,58 @@ export default async function CombinedDcPrintSheetPage({
     `/dashboard/dc/combined-print/print?ids=${dcs.map((dc) => dc.id).join(",")}&layout=${value}`;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
-      <div className="sticky top-0 z-10 space-y-3 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {back}
-          <DcPrintFitCheck
-            // Remounted per layout, so the new sheet is measured afresh.
-            key={layout}
-            backHref={backHref}
-            fullPages={layout === "full"}
-            alternative={
-              layout === "half" && options.choose
-                ? { href: hrefFor("full"), label: t("dcCombined.useFullPages") }
-                : undefined
-            }
-          />
-        </div>
-        <DcPrintPageSetup />
+    <PrintPreview
+      back={{ href: backHref, label: t("dcCombined.back") }}
+      actions={
+        <DcPrintFitCheck
+          // Remounted per layout, so the new sheet is measured afresh.
+          key={layout}
+          backHref={backHref}
+          fullPages={layout === "full"}
+          alternative={
+            layout === "half" && options.choose
+              ? { href: hrefFor("full"), label: t("dcCombined.useFullPages") }
+              : undefined
+          }
+        />
+      }
+      notes={
+        <>
+          <DcPrintPageSetup />
 
-        {options.choose && (
-          <div className="space-y-2">
-            <p className="text-sm">
-              <span className="font-medium">
-                {t("dcCombined.sourceLines", { count: rows.length })}
-              </span>
-              {" · "}
-              {t("dcCombined.chooseLayout")}
-            </p>
-            <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
-              <LayoutOption
-                selected={layout === "half"}
-                href={options.halfFits ? hrefFor("half") : null}
-                title={t("dcCombined.layoutHalf")}
-                hint={
-                  options.halfFits
-                    ? t("dcCombined.layoutHalfHint")
-                    : t("dcCombined.layoutHalfTooLong")
-                }
-              />
-              <LayoutOption
-                selected={layout === "full"}
-                href={hrefFor("full")}
-                title={t("dcCombined.layoutFull")}
-                hint={t("dcCombined.layoutFullHint")}
-                badge={t("dcCombined.recommended")}
-              />
+          {options.choose && (
+            <div className="space-y-2">
+              <p className="text-sm">
+                <span className="font-medium">
+                  {t("dcCombined.sourceLines", { count: rows.length })}
+                </span>
+                {" · "}
+                {t("dcCombined.chooseLayout")}
+              </p>
+              <div role="radiogroup" className="grid gap-2 sm:grid-cols-2">
+                <LayoutOption
+                  selected={layout === "half"}
+                  href={options.halfFits ? hrefFor("half") : null}
+                  title={t("dcCombined.layoutHalf")}
+                  hint={
+                    options.halfFits
+                      ? t("dcCombined.layoutHalfHint")
+                      : t("dcCombined.layoutHalfTooLong")
+                  }
+                />
+                <LayoutOption
+                  selected={layout === "full"}
+                  href={hrefFor("full")}
+                  title={t("dcCombined.layoutFull")}
+                  hint={t("dcCombined.layoutFullHint")}
+                  badge={t("dcCombined.recommended")}
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
+          )}
+        </>
+      }
+    >
       <div className="dc-print-stage">
         <CombinedDcPrintSheet
           layout={layout}
@@ -195,7 +198,7 @@ export default async function CombinedDcPrintSheetPage({
         </p>
         <p>{layout === "full" ? t("dcCombined.overflowFullBody") : t("dcCombined.overflowBody")}</p>
       </div>
-    </div>
+    </PrintPreview>
   );
 }
 

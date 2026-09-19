@@ -431,8 +431,45 @@
     margin: 10mm;
   }
 
-  .dc-list-print {
+  /* The whole document, not the list alone, as for the challan sheet: the
+     empty notification area after the list kept the unnamed page, and the
+     change of page name printed a blank second page behind every report. */
+  .dc-list-print,
+  body:has(.dc-list-print) {
     page: dc-list;
+  }
+}
+
+/* --- Printed reports, previewed ------------------------------------------
+   On screen the report is drawn at the width it has on paper, the landscape
+   A4 page less its 10mm margins, so the preview wraps exactly as the print
+   does. A phone scrolls across it rather than squeezing it. */
+.report-print-stage {
+  display: flex;
+  justify-content: safe center;
+  padding: 24px 16px 48px;
+}
+
+.report-print-stage > .dc-list-print {
+  box-sizing: border-box;
+  flex: none;
+  width: 297mm;
+  min-height: 210mm;
+  padding: 10mm;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+@media print {
+  .report-print-stage {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  .report-print-stage > .dc-list-print {
+    width: auto;
+    min-height: 0;
+    padding: 1rem; /* as before: the list's own p-4 */
+    box-shadow: none !important;
   }
 }
 
@@ -814,7 +851,9 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 :is(.dc-print-page, .invoice-print-page, .dc-list-print),
 :is(.dc-print-page, .invoice-print-page, .dc-list-print)
-  *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *) {
+  *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *):not(
+    .dc-list-print th
+  ) {
   color: var(--print-ink) !important;
   border-color: var(--print-ink) !important;
 }
@@ -851,4 +890,18 @@ body:has([lang="ta"]) [data-sonner-toaster] {
    where each copy is torn off. The ruled table above gives up the room. */
 .dc-print-page > .dc-print-sheet {
   padding-bottom: 10mm;
+}
+
+/* The company's signature box: "For OVIYA ENGINEERS" at the top and
+   "Authorised Signatory" at the foot, with the room to sign between. */
+.dc-print-signatory {
+  display: flex;
+  flex-direction: column;
+}
+.dc-print-signatory > .dc-print-cell-value {
+  flex: 1;
+}
+.dc-print-signatory > .dc-print-cell-label:last-child {
+  margin: 0;
+  text-align: right;
 }

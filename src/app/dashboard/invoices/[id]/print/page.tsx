@@ -1,8 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { PrintNowButton } from "@/components/print-now-button";
+import { PrintPreview } from "@/components/print/print-preview";
 import { InvoiceDocument, type InvoiceDocumentData } from "@/components/invoice-document";
 import { fetchInvoiceDetail } from "@/lib/billing-data";
 
@@ -76,17 +73,14 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-[#f4f6f9] text-[#172033] print:static print:overflow-visible print:bg-white">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-[#f4f6f9]/95 p-4 backdrop-blur print:hidden">
-        <Button render={<Link href={`/dashboard/invoices/${invoice.id}`} />} variant="outline">
-          <X className="h-4 w-4" /> Close
-        </Button>
-        <PrintNowButton label={invoice.gst_bill ? "Print invoice" : "Print bill"} />
-      </div>
-
+    // Billing screens are English only, whatever the ERP language.
+    <PrintPreview
+      back={{ href: `/dashboard/invoices/${invoice.id}`, label: "Close", close: true }}
+      english
+    >
       <div className="invoice-print-stage">
         <InvoiceDocument data={data} />
       </div>
-    </div>
+    </PrintPreview>
   );
 }
