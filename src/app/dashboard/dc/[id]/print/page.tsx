@@ -67,17 +67,6 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
       component: componentNameOf(i, componentNames),
     }));
 
-  const pdfData = {
-    dc_number: dc.dc_number,
-    dc_date: dc.dc_date,
-    customer_dc_number: dc.customer_dc_number,
-    customer_dc_date: dc.customer_dc_date,
-    authorized_by: dc.authorized_by,
-    customer,
-    items: printItems,
-    qr_png: qr?.png ?? null,
-  };
-
   const canCombine = !isDraftDc(dc) && (sameDay ?? []).some((other) => !isDraftDc(other));
 
   return (
@@ -101,7 +90,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
               <Layers className="h-4 w-4" /> {t("dcCombined.openCombined")}
             </Button>
           )}
-          <DcPrintActions dc={pdfData} />
+          <DcPrintActions />
         </div>
         <DcPrintPageSetup />
       </div>

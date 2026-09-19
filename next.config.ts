@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
   //
   // Development only — this has no effect on a production build.
   allowedDevOrigins: ["192.168.1.109", "*.local"],
+
+  // The clean-PDF print route (/api/print/pdf) drives a real browser on the
+  // server. Its packaged Chromium ships as compressed files that must stay
+  // where the package expects them, so neither package is bundled, and the
+  // Chromium files and the print font are traced into that one function.
+  serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+  outputFileTracingIncludes: {
+    "/api/print/pdf": ["./node_modules/@sparticuz/chromium/bin/**", "./src/lib/print/fonts/**"],
+  },
 };
 
 export default nextConfig;
