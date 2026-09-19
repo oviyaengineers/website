@@ -918,8 +918,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .customer-statement-table tfoot {
   display: table-row-group;
 }
-.customer-statement-table tr,
-.statement-signature {
+.customer-statement-table tr {
   break-inside: avoid;
 }
 /* Quantities and money line up on the right; the list's own cell rule
