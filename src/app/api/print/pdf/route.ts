@@ -57,16 +57,41 @@ function serifFontCss(): Promise<string> {
   return fontCss;
 }
 
+/**
+ * The packaged Chromium, unpacked into /tmp once per server instance.
+ *
+ * One instance serves several prints at once. Each call to executablePath()
+ * unpacked the browser again unless the file already existed, so a second
+ * print found the file half-written and could not start it ("spawn
+ * ETXTBSY"). Every print now waits on the same single unpacking.
+ */
+let packagedChromium: Promise<{ executablePath: string; args: string[] }> | null = null;
+function unpackChromium() {
+  packagedChromium ??= (async () => {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    return { executablePath: await chromium.executablePath(), args: chromium.args };
+  })();
+  packagedChromium.catch(() => {
+    packagedChromium = null;
+  });
+  return packagedChromium;
+}
+
 /** The server browser: the packaged Chromium on Vercel, the installed Chrome elsewhere. */
 async function launchBrowser() {
   const puppeteer = (await import("puppeteer-core")).default;
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
-    const chromium = (await import("@sparticuz/chromium")).default;
-    return puppeteer.launch({
-      executablePath: await chromium.executablePath(),
-      args: chromium.args,
-      headless: true,
-    });
+    const { executablePath, args } = await unpackChromium();
+    const launch = () => puppeteer.launch({ executablePath, args, headless: true });
+    try {
+      return await launch();
+    } catch (error) {
+      // An instance that was already unpacking when this code arrived: the
+      // file is complete a moment later.
+      if (!(error instanceof Error && error.message.includes("ETXTBSY"))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return launch();
+    }
   }
   const local =
     process.env.PRINT_CHROME_PATH ||
@@ -174,8 +199,12 @@ export async function GET(request: NextRequest) {
     // Named after the document: its page title, or for a challan (whose title
     // is just the company) the kind and the first number on the sheet.
     const title = await tab.title();
+    // A document can name itself (data-print-name); a challan's first cell is its number.
     const firstNumber = await tab.evaluate(
-      () => document.querySelector(".dc-print-cell-value")?.textContent?.trim() ?? ""
+      () =>
+        document.querySelector<HTMLElement>("[data-print-name]")?.dataset.printName?.trim() ||
+        document.querySelector(".dc-print-cell-value")?.textContent?.trim() ||
+        ""
     );
     const name = pdfFileName(
       page.kind,

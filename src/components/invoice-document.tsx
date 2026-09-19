@@ -99,7 +99,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
   );
 
   return (
-    <div className="invoice-print-page">
+    <div className="invoice-print-page" data-print-name={data.number}>
       {data.watermark ? (
         <div
           className={`invoice-cancelled-mark ${data.watermark === "PREVIEW" ? "invoice-preview-mark" : ""}`}
