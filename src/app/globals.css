@@ -846,3 +846,9 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .dc-print-filler > span:first-child {
   border-left: 1px solid #222;
 }
+/* Clear space under the note and signatures, before the cut line or the
+   foot of the sheet, so the signature strip is not tight against the edge
+   where each copy is torn off. The ruled table above gives up the room. */
+.dc-print-page > .dc-print-sheet {
+  padding-bottom: 10mm;
+}
