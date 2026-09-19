@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invoiceErrorMessage } from "@/lib/invoice-save-errors";
+import { nextFreeInvoiceNumber } from "@/lib/billing";
+import { fetchUsedInvoiceNumbers } from "@/lib/billing-data";
 import { moduleLockedError } from "@/lib/module-lock-server";
 import type { PaymentStatus } from "@/types/database";
 
@@ -151,7 +153,12 @@ export async function updatePaymentAction(
   return { error: null };
 }
 
-export type SettingsFormState = { error: string | null; saved?: boolean };
+export type SettingsFormState = {
+  error: string | null;
+  saved?: boolean;
+  /** After a numbering reset: the number the next invoice of that series will really get. */
+  nextNumber?: string;
+};
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim() || null;
 
@@ -210,9 +217,10 @@ export async function saveCompanySettingsAction(
 }
 
 /**
- * Where one series goes next: GST tax invoices or normal bills. Issued numbers
- * are never rewritten, and the database keeps the two prefixes different so
- * the series can never produce the same number.
+ * Where one series goes next: GST tax invoices or normal bills. The next
+ * serial and the year can be reset whenever needed; the prefix is fixed, so
+ * the two series can never produce the same number. Issued and cancelled
+ * numbers are never rewritten, and the database steps past them if reached.
  */
 export async function saveInvoiceSeriesAction(
   _prev: SettingsFormState,
@@ -223,17 +231,11 @@ export async function saveInvoiceSeriesAction(
   if (locked) return { error: locked };
   const kind = String(formData.get("kind") ?? "");
   if (kind !== "gst" && kind !== "non_gst") return { error: "Choose which series to change." };
-  const prefix = String(formData.get("prefix") ?? "")
-    .trim()
-    .toUpperCase();
   const fyLabel = String(formData.get("fy_label") ?? "").trim();
   const padding = Number(formData.get("padding") ?? 3);
   const nextSerial = Number(formData.get("next_serial") ?? 1);
   if (!fyLabel || !/^[A-Za-z0-9-]{2,12}$/.test(fyLabel)) {
     return { error: "Enter the financial year, for example 26-27." };
-  }
-  if (!/^[A-Z]{1,10}\/$/.test(prefix)) {
-    return { error: "The prefix is 1 to 10 capital letters followed by /, for example BILL/." };
   }
   if (!Number.isInteger(padding) || padding < 1 || padding > 8) {
     return { error: "Serial digits must be between 1 and 8." };
@@ -248,7 +250,6 @@ export async function saveInvoiceSeriesAction(
   const { data, error } = await supabase
     .from("invoice_number_series")
     .update({
-      prefix,
       fy_label: fyLabel,
       padding,
       next_serial: nextSerial,
@@ -256,7 +257,7 @@ export async function saveInvoiceSeriesAction(
       updated_by: user?.id ?? null,
     })
     .eq("kind", kind)
-    .select("kind");
+    .select("prefix, fy_label, padding, next_serial");
   if (error) {
     return {
       error:
@@ -268,9 +269,13 @@ export async function saveInvoiceSeriesAction(
   if (!data || data.length === 0) {
     return { error: "Nothing was saved. Only an admin can change invoice numbering." };
   }
+  const nextNumber = nextFreeInvoiceNumber(
+    data[0],
+    new Set(await fetchUsedInvoiceNumbers(supabase))
+  );
   revalidatePath("/dashboard/settings/invoice-numbers");
   revalidatePath("/dashboard/invoices/new");
-  return { error: null, saved: true };
+  return { error: null, saved: true, nextNumber };
 }
 
 /** Adds or updates one Rate List entry for a component and material. Admin only. */

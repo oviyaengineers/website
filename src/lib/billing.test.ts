@@ -7,6 +7,7 @@ import {
   formatInvoiceNumber,
   indianNumberInWords,
   isIntraState,
+  nextFreeInvoiceNumber,
   roundMoney,
 } from "./billing.ts";
 
@@ -169,4 +170,22 @@ test("a normal bill (GST Bill OFF) adds no CGST, SGST or IGST", async () => {
   assert.equal(gst.cgst, 499.5);
   assert.equal(gst.sgst, 499.5);
   assert.equal(gst.grandTotal, 6549);
+});
+
+test("a numbering reset lands on the first number not already on an invoice", () => {
+  const bills = { prefix: "BILL/", fy_label: "26-27", padding: 3, next_serial: 1 };
+  // Nothing used: the reset number itself.
+  assert.equal(nextFreeInvoiceNumber(bills, new Set()), "BILL/26-27/001");
+  // 001 is on a cancelled bill, so the next bill is 002; a gap later is kept.
+  assert.equal(
+    nextFreeInvoiceNumber(bills, new Set(["BILL/26-27/001", "BILL/26-27/002", "BILL/26-27/004"])),
+    "BILL/26-27/003"
+  );
+  // A new year starts clean even when last year's numbers are used.
+  assert.equal(
+    nextFreeInvoiceNumber({ ...bills, fy_label: "27-28" }, new Set(["BILL/26-27/001"])),
+    "BILL/27-28/001"
+  );
+  // The other series never blocks this one.
+  assert.equal(nextFreeInvoiceNumber(bills, new Set(["INV/26-27/001"])), "BILL/26-27/001");
 });

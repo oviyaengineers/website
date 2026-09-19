@@ -41,6 +41,13 @@ export async function fetchInvoiceSeries(supabase?: Supabase): Promise<InvoiceNu
   return data ?? [];
 }
 
+/** Every number already on an invoice, issued or cancelled: never given out again. */
+export async function fetchUsedInvoiceNumbers(supabase?: Supabase): Promise<string[]> {
+  const db = supabase ?? (await createClient());
+  const { data } = await db.from("invoices").select("invoice_number");
+  return (data ?? []).map((row) => row.invoice_number);
+}
+
 /**
  * What the company must have entered before issuing: the legal name for any
  * bill, and GSTIN and state as well for a GST tax invoice.

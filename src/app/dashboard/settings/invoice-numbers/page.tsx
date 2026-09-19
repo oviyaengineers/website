@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InvoiceNumberSettingsForm } from "@/components/invoice-number-settings-form";
-import { fetchInvoiceSeries } from "@/lib/billing-data";
+import { fetchInvoiceSeries, fetchUsedInvoiceNumbers } from "@/lib/billing-data";
 
 export const metadata: Metadata = { title: "Invoice Numbers | Oviya Engineers" };
 
@@ -19,7 +19,7 @@ const SERIES = [
 ] as const;
 
 export default async function InvoiceNumberSettingsPage() {
-  const series = await fetchInvoiceSeries();
+  const [series, used] = await Promise.all([fetchInvoiceSeries(), fetchUsedInvoiceNumbers()]);
   const byKind = new Map(series.map((row) => [row.kind, row]));
   return (
     <div className="space-y-6">
@@ -27,7 +27,8 @@ export default async function InvoiceNumberSettingsPage() {
         <h1 className="text-2xl font-semibold">Invoice Numbers</h1>
         <p className="text-sm text-muted-foreground">
           Two independent series, both separate from DC numbering. A number is only used when an
-          invoice or bill is issued, and an issued or cancelled one keeps its number forever.
+          invoice or bill is issued, and an issued or cancelled one keeps its number forever. Reset
+          the next serial or the year whenever you need; a number already used is skipped.
         </p>
       </div>
       {SERIES.map(({ kind, title, note }) => {
@@ -40,7 +41,7 @@ export default async function InvoiceNumberSettingsPage() {
             </CardHeader>
             <CardContent>
               {row ? (
-                <InvoiceNumberSettingsForm series={row} />
+                <InvoiceNumberSettingsForm series={row} used={used} />
               ) : (
                 <p className="text-sm text-destructive">
                   This number series is not set up. Apply migration 0027.

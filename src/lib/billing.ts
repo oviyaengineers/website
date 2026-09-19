@@ -186,6 +186,25 @@ export function formatInvoiceNumber(series: {
   return `${series.prefix}${series.fy_label}/${String(series.next_serial).padStart(series.padding, "0")}`;
 }
 
+/**
+ * The number the next invoice of a series will really get: the series' next
+ * serial, stepped past every number already on an invoice (issued or
+ * cancelled), exactly as the database allocates it. A reset to a used number
+ * is therefore safe; it simply lands on the first free one after it.
+ */
+export function nextFreeInvoiceNumber(
+  series: { prefix: string; fy_label: string; padding: number; next_serial: number },
+  used: ReadonlySet<string>
+): string {
+  let serial = series.next_serial;
+  let candidate = formatInvoiceNumber({ ...series, next_serial: serial });
+  while (used.has(candidate)) {
+    serial += 1;
+    candidate = formatInvoiceNumber({ ...series, next_serial: serial });
+  }
+  return candidate;
+}
+
 /** Indian rupee formatting for screens: 1,23,456.00. */
 export function formatRupees(value: number): string {
   return value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
