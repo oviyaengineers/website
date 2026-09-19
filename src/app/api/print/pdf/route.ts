@@ -101,10 +101,19 @@ export async function GET(request: NextRequest) {
   const target = new URL(page.path, origin);
   const jar = (await cookies()).getAll();
 
-  const browser = await launchBrowser();
+  // Which step failed goes into the error message and the server log. Nothing
+  // secret is in any of them: no cookie, token or page content.
+  let step = "starting the print browser";
+  let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
   try {
+    browser = await launchBrowser();
+    step = "preparing the page";
     const tab = await browser.newPage();
     await tab.setViewport({ width: 1240, height: 1754 });
+    // An ordinary Chrome name: a "HeadlessChrome" visitor can be taken for a
+    // bot and held at a challenge page that never finishes loading.
+    const agent = (await browser.userAgent()).replace(/HeadlessChrome/g, "Chrome");
+    await tab.setUserAgent({ userAgent: agent });
     await browser.setCookie(
       ...jar.map((c) => ({
         name: c.name,
@@ -124,9 +133,12 @@ export async function GET(request: NextRequest) {
       });
     }, css);
 
+    step = "opening the print page";
+    // Waiting for the network to go completely quiet is not dependable on a
+    // live site; the document itself appearing is what matters.
     const response = await tab.goto(target.toString(), {
-      waitUntil: "networkidle0",
-      timeout: 45_000,
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
     });
     const landed = new URL(tab.url());
     if (landed.pathname !== target.pathname) {
@@ -140,12 +152,19 @@ export async function GET(request: NextRequest) {
     }
     if (!response || !response.ok()) return message(404, "This document could not be found.");
 
+    step = "waiting for the document";
+    await tab.waitForSelector(".dc-print-page, .invoice-print-page, .dc-list-print", {
+      timeout: 20_000,
+    });
+    // Images (logo, QR) and fonts; a quiet moment is enough, not total silence.
+    await tab.waitForNetworkIdle({ idleTime: 400, timeout: 8_000 }).catch(() => undefined);
     await tab.evaluate(async () => {
       await document.fonts.ready;
       // Let the page's own fit check measure the final layout.
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
 
+    step = "making the PDF";
     const pdf = await tab.pdf({
       printBackground: true,
       preferCSSPageSize: true,
@@ -171,9 +190,14 @@ export async function GET(request: NextRequest) {
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
-    return message(500, "The PDF could not be made. Please try again.");
+  } catch (error) {
+    const detail = error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 200) : "";
+    console.error(`[print-pdf] failed while ${step} for ${page.kind}. ${detail}`);
+    return message(
+      500,
+      `The PDF could not be made (${step}). Please try again.${detail ? ` <small style="color:#666">${detail.replace(/[<>&]/g, "")}</small>` : ""}`
+    );
   } finally {
-    await browser.close().catch(() => undefined);
+    await browser?.close().catch(() => undefined);
   }
 }
