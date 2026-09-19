@@ -1,4 +1,9 @@
-import { PRINT_CELL, PrintField, PrintLetterhead } from "@/components/dc-print-sheet";
+import {
+  PRINT_CELL,
+  PrintField,
+  PrintLetterhead,
+  PrintTableFiller,
+} from "@/components/dc-print-sheet";
 import { combinedQrMode, type CombinedLayout, type CombinedRow } from "@/lib/dc-combined-print";
 import { formatDate } from "@/lib/i18n/dates";
 import type { Lang } from "@/lib/i18n/config";
@@ -85,7 +90,9 @@ function CombinedCopy({
   );
   const qrs = mode === "qr" ? dcs.filter((dc) => dc.qrSvg) : [];
   // Pad short prints to a steady form height; a full page has room for more.
-  const minRows = full ? 8 : 3;
+  // A full page gives the description more room, so the usual part names stay
+  // on one line at the larger, readable size.
+  const widths = full ? [4, 9, 11, 37, 8, 7, 9, 8, 7] : [5, 10, 13, 29, 9, 8, 10, 8, 8];
 
   return (
     <div
@@ -147,17 +154,13 @@ function CombinedCopy({
         </div>
       </section>
 
-      <section className="dc-print-block-flush mb-3">
+      <section className="dc-print-block-flush dc-print-items mb-3">
         <div className="dc-print-table-wrap overflow-auto">
           <table className="w-full min-w-[700px] border-collapse text-xs">
-            {/* A full page gives the description more room, so the usual part
-                names stay on one line at the larger, readable size. */}
             <colgroup>
-              {(full ? [4, 9, 11, 37, 8, 7, 9, 8, 7] : [5, 10, 13, 29, 9, 8, 10, 8, 8]).map(
-                (width, i) => (
-                  <col key={i} style={{ width: `${width}%` }} />
-                )
-              )}
+              {widths.map((width, i) => (
+                <col key={i} style={{ width: `${width}%` }} />
+              ))}
             </colgroup>
             <thead>
               <tr>
@@ -198,17 +201,9 @@ function CombinedCopy({
                   <td className={`${CELL} text-center`}>{row.total_qty}</td>
                 </tr>
               ))}
-              {Array.from({ length: Math.max(0, minRows - rows.length) }).map((_, i) => (
-                <tr key={`blank-${i}`}>
-                  {Array.from({ length: COLUMNS }).map((__, c) => (
-                    <td key={c} className={CELL}>
-                      &nbsp;
-                    </td>
-                  ))}
-                </tr>
-              ))}
             </tbody>
           </table>
+          <PrintTableFiller widths={widths} />
         </div>
       </section>
 

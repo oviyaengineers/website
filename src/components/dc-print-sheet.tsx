@@ -4,8 +4,8 @@ import type { Lang } from "@/lib/i18n/config";
 import type { Translate } from "@/lib/i18n/types";
 import type { CustomerRow } from "@/types/database";
 
-/** Rows shown in the items table, padded with blanks when a DC is short. */
-const MIN_TABLE_ROWS = 4;
+/** Column widths of the items table, in percent; the filler below it reuses them. */
+const COLUMN_WIDTHS = [6, 38, 11, 9, 13, 11, 12];
 
 export type PrintItem = {
   id: string;
@@ -109,6 +109,29 @@ export function PrintLetterhead() {
 
 /** Every cell of the items table: a plain ruled box, the same line as the form's. */
 export const PRINT_CELL = "border border-[#222] p-1.5";
+
+/**
+ * The item table's columns carried on down to the foot of the copy.
+ *
+ * The note and signatures sit at the bottom of each half, so a short challan
+ * left a wide empty band between the last row and the foot. Continuing the
+ * column rules through that space makes it part of the table, the way a
+ * printed challan book looks, instead of a gap. It takes only the room that is
+ * left, so it can never push the copy past its half.
+ */
+export function PrintTableFiller({ widths }: { widths: number[] }) {
+  return (
+    <div
+      aria-hidden
+      className="dc-print-filler"
+      style={{ gridTemplateColumns: widths.map((w) => `${w}%`).join(" ") }}
+    >
+      {widths.map((_, i) => (
+        <span key={i} />
+      ))}
+    </div>
+  );
+}
 const CELL = PRINT_CELL;
 
 function DcCopy({
@@ -204,7 +227,7 @@ function DcCopy({
       {/* No block border here: the table draws its own rules, and a bordered
           block around it printed as two concentric rectangles. The caption
           rides in the table's first row instead of floating above it. */}
-      <section className="dc-print-block-flush mb-3">
+      <section className="dc-print-block-flush dc-print-items mb-3">
         <div className="dc-print-table-wrap overflow-auto">
           <table className="w-full min-w-[700px] border-collapse text-xs">
             {/* Widths live here, not on the header cells. The table is laid
@@ -213,13 +236,9 @@ function DcCopy({
                 description down to a two-line wrap. A colgroup is immune to
                 that. */}
             <colgroup>
-              <col style={{ width: "6%" }} />
-              <col style={{ width: "38%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "13%" }} />
-              <col style={{ width: "11%" }} />
-              <col style={{ width: "12%" }} />
+              {COLUMN_WIDTHS.map((width, i) => (
+                <col key={i} style={{ width: `${width}%` }} />
+              ))}
             </colgroup>
             <thead>
               <tr>
@@ -250,21 +269,9 @@ function DcCopy({
                   <td className={`${CELL} text-center`}>{item.total_qty}</td>
                 </tr>
               ))}
-              {/* Pad short challans out to a consistent form height, but never
-                  add filler that would push the second copy onto page two. */}
-              {Array.from({
-                length: Math.max(0, MIN_TABLE_ROWS - items.length),
-              }).map((_, i) => (
-                <tr key={`blank-${i}`}>
-                  {Array.from({ length: 7 }).map((__, c) => (
-                    <td key={c} className={CELL}>
-                      &nbsp;
-                    </td>
-                  ))}
-                </tr>
-              ))}
             </tbody>
           </table>
+          <PrintTableFiller widths={COLUMN_WIDTHS} />
         </div>
       </section>
 

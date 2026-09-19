@@ -818,3 +818,31 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   color: var(--print-ink) !important;
   border-color: var(--print-ink) !important;
 }
+
+/* The items section takes whatever height the copy has left, and the filler
+   under the table carries its column rules down to the note and signatures,
+   so a short challan shows an open ruled table rather than an empty band. */
+.dc-print-sheet .dc-print-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dc-print-sheet .dc-print-items .dc-print-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dc-print-filler {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+}
+.dc-print-filler > span {
+  border-right: 1px solid #222;
+  border-bottom: 1px solid #222;
+}
+.dc-print-filler > span:first-child {
+  border-left: 1px solid #222;
+}
