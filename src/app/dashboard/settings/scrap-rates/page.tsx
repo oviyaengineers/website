@@ -1,0 +1,46 @@
+import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserAndProfile } from "@/lib/auth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrapRateManager } from "@/components/scrap-rate-manager";
+
+export const metadata: Metadata = { title: "Scrap Rates | Oviya Engineers" };
+
+export default async function ScrapRatesPage() {
+  const supabase = await createClient();
+  const [{ data: materials }, { data: rates }, { profile }] = await Promise.all([
+    supabase.from("dc_picklist_items").select("id, name").eq("kind", "material").order("name"),
+    supabase.from("scrap_material_rates").select("material_id, rate_per_kg"),
+    getCurrentUserAndProfile(),
+  ]);
+  const rateByMaterial = new Map(
+    (rates ?? []).map((row) => [row.material_id, Number(row.rate_per_kg)])
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Scrap Rates</h1>
+        <p className="text-sm text-muted-foreground">
+          Set the current scrap rate per kg for each material. New Weight/Scrap records use this
+          rate automatically. Changing a rate applies to new records; saved records keep their rate.
+        </p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Add a material and rate</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrapRateManager
+            canEdit={profile?.role === "admin"}
+            materials={(materials ?? []).map((material) => ({
+              id: material.id,
+              name: material.name,
+              ratePerKg: rateByMaterial.get(material.id) ?? null,
+            }))}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

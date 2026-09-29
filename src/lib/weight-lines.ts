@@ -50,6 +50,8 @@ export type WeightLine = {
     scrapPerPieceMg: number;
     /** Scrap per piece × the line's current Sent Qty. */
     totalScrapMg: number;
+    /** Current default rate for this material, if one has been entered. */
+    ratePaisePerKg: number | null;
   } | null;
 };
 
@@ -57,7 +59,10 @@ const unitOf = (value: string | null | undefined): WeightUnit =>
   isWeightUnit(value) ? value : "g";
 
 /** A view row as a screen line. */
-export function weightLineFromRow(row: DcWeightLineRow): WeightLine {
+export function weightLineFromRow(
+  row: DcWeightLineRow,
+  ratePaisePerKg: number | null = null
+): WeightLine {
   const sentQty = Number(row.sent_qty) || 0;
   const isRecorded = row.weight_state === "recorded" && row.weight_id !== null;
   const recorded = isRecorded
@@ -85,6 +90,7 @@ export function weightLineFromRow(row: DcWeightLineRow): WeightLine {
       finishedMg,
       scrapPerPieceMg: figures.scrapPerPieceMg,
       totalScrapMg: figures.totalScrapMg,
+      ratePaisePerKg,
     };
   }
   const status: WeightStatus = recorded

@@ -29,7 +29,11 @@ type Draft = { rateText: string; accept: boolean; remove: boolean };
 
 function initialDraft(line: WeightLine): Draft {
   return {
-    rateText: line.recorded ? rateText(line.recorded.ratePaisePerKg / 100) : "",
+    rateText: line.recorded
+      ? rateText(line.recorded.ratePaisePerKg / 100)
+      : line.master?.ratePaisePerKg != null
+        ? rateText(line.master.ratePaisePerKg / 100)
+        : "",
     accept: false,
     remove: false,
   };

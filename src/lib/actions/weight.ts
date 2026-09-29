@@ -41,6 +41,64 @@ async function adminGate(): Promise<string | null> {
 function refresh() {
   revalidatePath("/dashboard/weight", "layout");
   revalidatePath("/dashboard/settings/weight-master");
+  revalidatePath("/dashboard/settings/scrap-rates");
+}
+
+/** Add a material to the DC picklist if needed, and set its current scrap rate. */
+export async function saveScrapMaterialRateAction(input: {
+  materialId?: string;
+  materialName?: string;
+  rateText: string;
+}): Promise<MasterResult> {
+  const gate = await adminGate();
+  if (gate) return { error: gate };
+  const rateText = String(input?.rateText ?? "").trim();
+  const rateProblem = validateRate(rateText);
+  if (rateProblem) return { error: RATE_PROBLEM_TEXT[rateProblem] };
+
+  const supabase = await createClient();
+  let materialId = typeof input.materialId === "string" ? input.materialId : "";
+  if (materialId) {
+    if (!UUID.test(materialId)) return { error: "Choose a material from the DC list." };
+    const { data } = await supabase
+      .from("dc_picklist_items")
+      .select("id")
+      .eq("id", materialId)
+      .eq("kind", "material")
+      .maybeSingle();
+    if (!data) return { error: "That material is no longer in the DC list." };
+  } else {
+    const name = String(input.materialName ?? "").trim();
+    if (!name) return { error: "Enter a material name." };
+    const { data: existing } = await supabase
+      .from("dc_picklist_items")
+      .select("id, name")
+      .eq("kind", "material");
+    const match = (existing ?? []).find(
+      (row) => row.name.trim().toLowerCase() === name.toLowerCase()
+    );
+    if (match) {
+      materialId = match.id;
+    } else {
+      const { data: auth } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from("dc_picklist_items")
+        .insert({ kind: "material", name, created_by: auth.user?.id ?? null })
+        .select("id")
+        .single();
+      if (error || !data) return { error: error?.message ?? "Could not add that material." };
+      materialId = data.id;
+    }
+  }
+
+  const { error } = await supabase.from("scrap_material_rates").upsert(
+    { material_id: materialId, rate_per_kg: Number(clean(rateText)) },
+    { onConflict: "material_id" }
+  );
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/settings/components");
+  refresh();
+  return { error: null };
 }
 
 // ---------------------------------------------------------------------------

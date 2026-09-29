@@ -223,6 +223,12 @@ const NAV: NavGroup[] = [
         color: "text-slate-300",
       },
       {
+        href: "/dashboard/settings/scrap-rates",
+        labelKey: "nav.scrapRates",
+        icon: Scale,
+        color: "text-teal-300",
+      },
+      {
         href: "/dashboard/settings/weight-master",
         labelKey: "nav.weightMaster",
         icon: Scale,

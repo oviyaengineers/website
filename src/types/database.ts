@@ -383,6 +383,14 @@ export type WeightMasterRow = {
   updated_at: string;
 };
 
+/** Current scrap value rate for one material from the DC material list. */
+export type ScrapMaterialRateRow = {
+  material_id: string;
+  rate_per_kg: number;
+  updated_by: string | null;
+  updated_at: string;
+};
+
 /**
  * One line of a non-draft challan with its weight state (0031 view): the
  * recorded result, or the active master it would use, or neither.
@@ -748,6 +756,12 @@ export type Database = {
             "material" | "unit" | "rough_weight_g" | "finished_weight_g" | "is_active"
           >
         >;
+        Relationships: [];
+      };
+      scrap_material_rates: {
+        Row: ScrapMaterialRateRow;
+        Insert: Pick<ScrapMaterialRateRow, "material_id" | "rate_per_kg">;
+        Update: Partial<Pick<ScrapMaterialRateRow, "rate_per_kg">>;
         Relationships: [];
       };
       invoice_number_series: {
