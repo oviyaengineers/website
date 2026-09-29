@@ -15,6 +15,7 @@ import {
 } from "@/lib/weight";
 import { weightSaveErrorMessage } from "@/lib/weight-save-errors";
 import { moduleLockedError } from "@/lib/module-lock-server";
+import { scrapRateGroupKey } from "@/lib/scrap-rate-groups";
 
 /**
  * Weight / Scrap and Weight Master changes.
@@ -58,15 +59,17 @@ export async function saveScrapMaterialRateAction(input: {
 
   const supabase = await createClient();
   let materialId = typeof input.materialId === "string" ? input.materialId : "";
+  let materialName = "";
   if (materialId) {
     if (!UUID.test(materialId)) return { error: "Choose a material from the DC list." };
     const { data } = await supabase
       .from("dc_picklist_items")
-      .select("id")
+      .select("id, name")
       .eq("id", materialId)
       .eq("kind", "material")
       .maybeSingle();
     if (!data) return { error: "That material is no longer in the DC list." };
+    materialName = data.name;
   } else {
     const name = String(input.materialName ?? "").trim();
     if (!name) return { error: "Enter a material name." };
@@ -79,20 +82,30 @@ export async function saveScrapMaterialRateAction(input: {
     );
     if (match) {
       materialId = match.id;
+      materialName = match.name;
     } else {
       const { data: auth } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("dc_picklist_items")
         .insert({ kind: "material", name, created_by: auth.user?.id ?? null })
-        .select("id")
+        .select("id, name")
         .single();
       if (error || !data) return { error: error?.message ?? "Could not add that material." };
       materialId = data.id;
+      materialName = data.name;
     }
   }
 
+  const { data: materialRows } = await supabase
+    .from("dc_picklist_items")
+    .select("id, name")
+    .eq("kind", "material");
+  const group = scrapRateGroupKey(materialName);
+  const materialIds = (materialRows ?? [])
+    .filter((row) => scrapRateGroupKey(row.name) === group)
+    .map((row) => row.id);
   const { error } = await supabase.from("scrap_material_rates").upsert(
-    { material_id: materialId, rate_per_kg: Number(clean(rateText)) },
+    materialIds.map((id) => ({ material_id: id, rate_per_kg: Number(clean(rateText)) })),
     { onConflict: "material_id" }
   );
   if (error) return { error: error.message };

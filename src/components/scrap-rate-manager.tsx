@@ -90,7 +90,7 @@ export function ScrapRateManager({
           <tbody>
             {materials.map((material) => (
               <ScrapRateRow
-                key={material.id}
+                key={`${material.id}:${material.ratePerKg ?? "unset"}`}
                 material={material}
                 canEdit={canEdit}
                 pending={pending}

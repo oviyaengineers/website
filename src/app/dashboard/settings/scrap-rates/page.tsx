@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrapRateManager } from "@/components/scrap-rate-manager";
+import { sharedScrapRates } from "@/lib/scrap-rate-groups";
 
 export const metadata: Metadata = { title: "Scrap Rates | Oviya Engineers" };
 
@@ -10,12 +11,13 @@ export default async function ScrapRatesPage() {
   const supabase = await createClient();
   const [{ data: materials }, { data: rates }, { profile }] = await Promise.all([
     supabase.from("dc_picklist_items").select("id, name").eq("kind", "material").order("name"),
-    supabase.from("scrap_material_rates").select("material_id, rate_per_kg"),
+    supabase
+      .from("scrap_material_rates")
+      .select("material_id, rate_per_kg, updated_at")
+      .order("updated_at", { ascending: false }),
     getCurrentUserAndProfile(),
   ]);
-  const rateByMaterial = new Map(
-    (rates ?? []).map((row) => [row.material_id, Number(row.rate_per_kg)])
-  );
+  const sharedRates = sharedScrapRates(materials ?? [], rates ?? []);
 
   return (
     <div className="space-y-6">
@@ -36,7 +38,7 @@ export default async function ScrapRatesPage() {
             materials={(materials ?? []).map((material) => ({
               id: material.id,
               name: material.name,
-              ratePerKg: rateByMaterial.get(material.id) ?? null,
+              ratePerKg: sharedRates.byMaterialId.get(material.id) ?? null,
             }))}
           />
         </CardContent>

@@ -4,21 +4,19 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import { weightLineFromRow, type WeightLine } from "@/lib/weight-lines";
 import type { DcWeightLineRow, WeightMasterRow } from "@/types/database";
+import { sharedScrapRates } from "@/lib/scrap-rate-groups";
 
 const materialKey = (name: string | null) => (name ?? "").trim().toLowerCase();
 
 async function scrapRatesByMaterialName(supabase: Awaited<ReturnType<typeof createClient>>) {
   const [{ data: rates }, { data: materials }] = await Promise.all([
-    supabase.from("scrap_material_rates").select("material_id, rate_per_kg"),
+    supabase
+      .from("scrap_material_rates")
+      .select("material_id, rate_per_kg, updated_at")
+      .order("updated_at", { ascending: false }),
     supabase.from("dc_picklist_items").select("id, name").eq("kind", "material"),
   ]);
-  const nameById = new Map((materials ?? []).map((material) => [material.id, material.name]));
-  return new Map(
-    (rates ?? []).flatMap((rate) => {
-      const name = nameById.get(rate.material_id);
-      return name ? [[materialKey(name), Math.round(Number(rate.rate_per_kg) * 100)]] : [];
-    })
-  );
+  return sharedScrapRates(materials ?? [], rates ?? []).byName;
 }
 
 /**
