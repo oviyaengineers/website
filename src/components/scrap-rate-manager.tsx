@@ -76,7 +76,7 @@ export function ScrapRateManager({
         <div>
           <h2 className="font-medium">Approve rate for DC dates</h2>
           <p className="text-sm text-muted-foreground">
-            Rates apply to the DC date, including both selected dates. Approved periods are kept in history and cannot overlap.
+            Rates apply to the DC date, including both selected dates. You can reapprove earlier dates; the newest approval applies there and earlier approvals stay in history.
           </p>
         </div>
         {canEdit && (

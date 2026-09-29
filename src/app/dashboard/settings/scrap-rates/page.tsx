@@ -18,7 +18,8 @@ export default async function ScrapRatesPage() {
     supabase
       .from("scrap_rate_periods")
       .select("id, material_group, effective_from, effective_to, rate_per_kg, approved_at")
-      .order("effective_from", { ascending: false }),
+      .order("approved_at", { ascending: false })
+      .order("id", { ascending: false }),
     getCurrentUserAndProfile(),
   ]);
   const sharedRates = sharedScrapRates(materials ?? [], rates ?? []);

@@ -31,7 +31,8 @@ async function scrapRatePeriods(supabase: Awaited<ReturnType<typeof createClient
   const { data } = await supabase
     .from("scrap_rate_periods")
     .select("material_group, effective_from, effective_to, rate_per_kg")
-    .order("effective_from", { ascending: false });
+    .order("approved_at", { ascending: false })
+    .order("id", { ascending: false });
   return (data ?? []) as ScrapRatePeriod[];
 }
 
