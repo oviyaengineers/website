@@ -61,7 +61,8 @@ const unitOf = (value: string | null | undefined): WeightUnit =>
 /** A view row as a screen line. */
 export function weightLineFromRow(
   row: DcWeightLineRow,
-  ratePaisePerKg: number | null = null
+  ratePaisePerKg: number | null = null,
+  effectiveRatePaisePerKg: number | null = null
 ): WeightLine {
   const sentQty = Number(row.sent_qty) || 0;
   const isRecorded = row.weight_state === "recorded" && row.weight_id !== null;
@@ -72,12 +73,21 @@ export function weightLineFromRow(
         finishedMg: gramsToMilligrams(row.recorded_finished_g ?? 0),
         scrapPerPieceMg: gramsToMilligrams(row.recorded_scrap_g ?? 0),
         sentQty: Number(row.sent_qty_at_save) || 0,
-        ratePaisePerKg: Math.round(Number(row.scrap_rate_per_kg ?? 0) * 100),
+        ratePaisePerKg:
+          effectiveRatePaisePerKg ?? Math.round(Number(row.scrap_rate_per_kg ?? 0) * 100),
         totalScrapMg: gramsToMilligrams(row.total_scrap_g ?? 0),
-        valuePaise: Math.round(Number(row.scrap_value ?? 0) * 100),
+        valuePaise: 0,
         recordedAt: row.recorded_at,
       }
     : null;
+  if (recorded) {
+    recorded.valuePaise = scrapFigures(
+      recorded.roughMg,
+      recorded.finishedMg,
+      recorded.sentQty,
+      recorded.ratePaisePerKg
+    ).totalValuePaise ?? 0;
+  }
   let master: WeightLine["master"] = null;
   if (!isRecorded && row.weight_state === "pending" && row.master_id) {
     const roughMg = gramsToMilligrams(row.master_rough_g ?? 0);

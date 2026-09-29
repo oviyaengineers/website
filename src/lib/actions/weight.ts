@@ -114,6 +114,56 @@ export async function saveScrapMaterialRateAction(input: {
   return { error: null };
 }
 
+/** Approve a rate for an inclusive DC-date range without editing prior periods. */
+export async function approveScrapRatePeriodAction(input: {
+  materialId: string;
+  rateText: string;
+  from: string;
+  to: string;
+}): Promise<MasterResult> {
+  const gate = await adminGate();
+  if (gate) return { error: gate };
+  const rateText = String(input?.rateText ?? "").trim();
+  const rateProblem = validateRate(rateText);
+  if (rateProblem) return { error: RATE_PROBLEM_TEXT[rateProblem] };
+  const from = String(input?.from ?? "");
+  const to = String(input?.to ?? "");
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+  };
+  if (!validDate(from) || !validDate(to)) return { error: "Choose valid From and To dates." };
+  if (to < from) return { error: "To date must be on or after From date." };
+  if (typeof input.materialId !== "string" || !UUID.test(input.materialId)) {
+    return { error: "Choose a material from the DC list." };
+  }
+
+  const supabase = await createClient();
+  const { data: material } = await supabase
+    .from("dc_picklist_items")
+    .select("id, name")
+    .eq("id", input.materialId)
+    .eq("kind", "material")
+    .maybeSingle();
+  if (!material) return { error: "That material is no longer in the DC list." };
+
+  const { error } = await supabase.from("scrap_rate_periods").insert({
+    material_group: scrapRateGroupKey(material.name),
+    effective_from: from,
+    effective_to: to,
+    rate_per_kg: Number(clean(rateText)),
+  });
+  if (error) {
+    if (error.message.includes("SCRAP_RATE_PERIOD_OVERLAP")) {
+      return { error: "An approved rate already covers one or more of those dates for this material." };
+    }
+    return { error: error.message };
+  }
+  refresh();
+  return { error: null };
+}
+
 // ---------------------------------------------------------------------------
 // DC lines
 

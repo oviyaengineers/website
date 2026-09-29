@@ -391,6 +391,17 @@ export type ScrapMaterialRateRow = {
   updated_at: string;
 };
 
+/** An immutable approved scrap rate for an inclusive range of DC dates (0035). */
+export type ScrapRatePeriodRow = {
+  id: string;
+  material_group: string;
+  effective_from: string;
+  effective_to: string;
+  rate_per_kg: number;
+  approved_by: string | null;
+  approved_at: string;
+};
+
 /**
  * One line of a non-draft challan with its weight state (0031 view): the
  * recorded result, or the active master it would use, or neither.
@@ -762,6 +773,15 @@ export type Database = {
         Row: ScrapMaterialRateRow;
         Insert: Pick<ScrapMaterialRateRow, "material_id" | "rate_per_kg">;
         Update: Partial<Pick<ScrapMaterialRateRow, "rate_per_kg">>;
+        Relationships: [];
+      };
+      scrap_rate_periods: {
+        Row: ScrapRatePeriodRow;
+        Insert: Pick<
+          ScrapRatePeriodRow,
+          "material_group" | "effective_from" | "effective_to" | "rate_per_kg"
+        > & { id?: string; approved_by?: string | null; approved_at?: string };
+        Update: never;
         Relationships: [];
       };
       invoice_number_series: {
