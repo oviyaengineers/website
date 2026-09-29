@@ -100,7 +100,7 @@ export function weightLineFromRow(
       finishedMg,
       scrapPerPieceMg: figures.scrapPerPieceMg,
       totalScrapMg: figures.totalScrapMg,
-      ratePaisePerKg,
+      ratePaisePerKg: effectiveRatePaisePerKg ?? ratePaisePerKg,
     };
   }
   const status: WeightStatus = recorded
