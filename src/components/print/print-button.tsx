@@ -81,7 +81,11 @@ function usePdfFetch(english: boolean) {
         )?.[1];
         await onPdf(await response.blob(), name ?? "document.pdf");
         setStatus({ busy: false, error: null });
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setStatus({ busy: false, error: null });
+          return;
+        }
         setStatus({ busy: false, error: t("dcPrint.pdfFailed") });
       }
     },
@@ -101,6 +105,15 @@ type SavePickerWindow = Window & {
   showSaveFilePicker?: (options: { suggestedName: string }) => Promise<SaveFileHandle>;
 };
 
+type FileShareNavigator = Navigator & {
+  canShare?: (data: { files: File[] }) => boolean;
+  share?: (data: { files: File[]; title: string }) => Promise<void>;
+};
+
+function isMobileBrowser(): boolean {
+  return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+}
+
 function suggestedPdfName(): string {
   const title = document.title.trim().replace(/[\\/:*?"<>|]/g, "-");
   return `${title || "document"}.pdf`;
@@ -115,6 +128,20 @@ async function savePdf(pdf: Blob, name: string) {
     await writable.write(pdf);
     await writable.close();
     return;
+  }
+
+  // On mobile, the system share sheet can save directly to Files or another
+  // folder when that action is provided by the device.
+  const file = new File([pdf], name, { type: "application/pdf" });
+  const fileShare = navigator as FileShareNavigator;
+  if (isMobileBrowser() && fileShare.share && fileShare.canShare?.({ files: [file] })) {
+    try {
+      await fileShare.share({ files: [file], title: name });
+      return;
+    } catch (error) {
+      // Closing the share sheet is a normal cancel; other errors fall back to download.
+      if (error instanceof DOMException && error.name === "AbortError") throw error;
+    }
   }
 
   const url = URL.createObjectURL(pdf);
