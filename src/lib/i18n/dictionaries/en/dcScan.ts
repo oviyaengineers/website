@@ -29,6 +29,10 @@ export const dcScan = {
   readFailed: "Could not read that image. Try a flatter, better-lit photo.",
   chooseForRowsOne: "Choose the component from Settings for 1 row, or untick it.",
   chooseForRows: "Choose the component from Settings for {count} rows, or untick them.",
+  confirmNewComponents:
+    "These new descriptions will be added to Settings → Components & Materials: {names}. Continue?",
+  newComponentsNotAdded:
+    "No new descriptions were added. Choose an existing component for those rows or untick them.",
   photoNotStored:
     "The photograph could not be stored, so this scan was not kept: {error}. Check the connection and try again.",
   unknownError: "unknown error",

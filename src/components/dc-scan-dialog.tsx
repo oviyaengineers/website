@@ -23,6 +23,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { uploadProcessedScanImage, uploadScanImage } from "@/lib/scan-image";
 import { PENDING_SCAN_CHANGED } from "@/lib/dc-scan-handoff";
 import { countPendingScans, discardPendingScans } from "@/lib/actions/dc-scan-queue";
+import { addScannedComponentNamesAction } from "@/lib/actions/dc-picklists";
 import {
   correctScannedCustomerDcNumber,
   findDcsByCustomerRef,
@@ -65,6 +66,7 @@ type Stage = "idle" | "working" | "review";
 type ReviewItem = ScannedItemSelection & {
   key: number;
   include: boolean;
+  isNewComponent?: boolean;
   confidence: number;
   /** Readings did not agree, or the match was loose: shown for checking. */
   verify: boolean;
@@ -284,6 +286,7 @@ export function DcScanDialog({
         ...parsed.items.map((item, index) => ({
           key: index,
           include: true,
+          isNewComponent: false,
           component: item.component,
           material: item.material,
           received_qty: item.received_qty,
@@ -291,13 +294,13 @@ export function DcScanDialog({
           verify: parsed.itemConfidence[index] !== "high",
           rawLine: item.rawLine,
         })),
-        // A description that matches nothing in Settings becomes a row whose
-        // component is chosen from the list by hand. It is never added to the
-        // list: a misreading must not turn into a part of its own.
+        // Keep a new detected description visible for review. If the operator
+        // keeps this scan, it is added to Settings so it can be selected later.
         ...parsed.newComponents.map((candidate, index) => ({
           key: parsed.items.length + index,
           include: true,
-          component: "",
+          isNewComponent: true,
+          component: candidate.name,
           material: candidate.material,
           received_qty: candidate.received_qty,
           confidence: 0,
@@ -326,7 +329,44 @@ export function DcScanDialog({
       return;
     }
 
+    const newComponentNames = [
+      ...new Set(
+        keptItems
+          .filter((item) => item.isNewComponent)
+          .map((item) => item.component.trim())
+          .filter(Boolean)
+      ),
+    ];
+    if (newComponentNames.length > 0) {
+      const confirmed = window.confirm(
+        t("dcScan.confirmNewComponents", { names: newComponentNames.join(", ") })
+      );
+      if (!confirmed) {
+        setItems((rows) =>
+          rows.map((item) =>
+            item.isNewComponent ? { ...item, component: "", isNewComponent: false } : item
+          )
+        );
+        toast.info(t("dcScan.newComponentsNotAdded"));
+        return;
+      }
+    }
+
     setStoring(true);
+    if (newComponentNames.length > 0) {
+      try {
+        const { error } = await addScannedComponentNamesAction(newComponentNames);
+        if (error) {
+          toast.error(error);
+          setStoring(false);
+          return;
+        }
+      } catch {
+        toast.error(t("dcScan.readFailed"));
+        setStoring(false);
+        return;
+      }
+    }
 
     // The original photograph is stored first. If it cannot be, the scan is
     // not kept: a scan whose image is missing cannot be checked against the
@@ -913,7 +953,13 @@ export function DcScanDialog({
                           setItems((rows) =>
                             rows.map((row) =>
                               row.key === item.key
-                                ? { ...row, component: value ?? "", confidence: 1, verify: false }
+                                ? {
+                                    ...row,
+                                    component: value ?? "",
+                                    confidence: 1,
+                                    verify: false,
+                                    isNewComponent: false,
+                                  }
                                 : row
                             )
                           )
