@@ -52,34 +52,35 @@ export function CombinedDcPrintSheet({
     return (
       <>
         <div className="dc-print-page dc-print-page-full">
-          <CombinedCopy label={t("dcPrint.original")} variant="full" {...props} />
+          <CombinedCopy label={t("dcPrint.original")} copyKind="original" variant="full" {...props} />
         </div>
         <div className="dc-print-page dc-print-page-full">
-          <CombinedCopy label={t("dcPrint.duplicate")} variant="full" {...props} />
+          <CombinedCopy label={t("dcPrint.duplicate")} copyKind="duplicate" variant="full" {...props} />
         </div>
       </>
     );
   }
   return (
     <div className="dc-print-page dc-print-page-combined">
-      <CombinedCopy label={t("dcPrint.original")} variant="half" {...props} />
+      <CombinedCopy label={t("dcPrint.original")} copyKind="original" variant="half" {...props} />
       <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
         <span className="relative -top-2 bg-white px-2">{t("dcPrint.cutHere")}</span>
       </div>
-      <CombinedCopy label={t("dcPrint.duplicate")} variant="half" {...props} />
+      <CombinedCopy label={t("dcPrint.duplicate")} copyKind="duplicate" variant="half" {...props} />
     </div>
   );
 }
 
 function CombinedCopy({
   label,
+  copyKind,
   variant,
   dcs,
   rows,
   customer,
   lang,
   t,
-}: SheetProps & { label: string; variant: CombinedLayout }) {
+}: SheetProps & { label: string; copyKind: "original" | "duplicate"; variant: CombinedLayout }) {
   const full = variant === "full";
   const mode = combinedQrMode(dcs.length);
   const numbers = dcs.map((dc) => dc.dcNumber).join(", ");
@@ -97,7 +98,7 @@ function CombinedCopy({
 
   return (
     <div
-      className={`dc-print-sheet ${full ? "dc-print-sheet-full" : "dc-print-sheet-combined"} break-inside-avoid`}
+      className={`dc-print-sheet dc-print-copy-${copyKind} ${full ? "dc-print-sheet-full" : "dc-print-sheet-combined"} break-inside-avoid`}
     >
       <header className="relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033]">
         {/* One code per source DC, each captioned with its own DC number, so

@@ -849,6 +849,12 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 :root {
   --print-ink: #10233f;
 }
+.dc-print-copy-original {
+  --print-ink: #00843d;
+}
+.dc-print-copy-duplicate {
+  --print-ink: #10233f;
+}
 :is(.dc-print-page, .invoice-print-page, .dc-list-print),
 :is(.dc-print-page, .invoice-print-page, .dc-list-print)
   *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *):not(
@@ -856,6 +862,21 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   ) {
   color: var(--print-ink) !important;
   border-color: var(--print-ink) !important;
+}
+
+/* The logo is a transparent PNG; use its alpha as a mask to print the full
+   mark in the same ink color as its copy instead of retaining its old color. */
+.dc-print-sheet .dc-print-logo img {
+  background-color: var(--print-ink);
+  -webkit-mask-image: url("/logo.png");
+  mask-image: url("/logo.png");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  object-fit: contain;
 }
 
 /* The items section takes whatever height the copy has left, and the filler

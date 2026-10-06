@@ -57,11 +57,11 @@ export function DcPrintSheet({
   const copy = { challan, customer, items, lang, t };
   return (
     <div className="dc-print-page">
-      <DcCopy label={t("dcPrint.original")} {...copy} />
+      <DcCopy label={t("dcPrint.original")} copyKind="original" {...copy} />
       <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
         <span className="relative -top-2 bg-white px-2">{t("dcPrint.cutHere")}</span>
       </div>
-      <DcCopy label={t("dcPrint.duplicate")} {...copy} />
+      <DcCopy label={t("dcPrint.duplicate")} copyKind="duplicate" {...copy} />
     </div>
   );
 }
@@ -159,6 +159,7 @@ const CELL = PRINT_CELL;
 
 function DcCopy({
   label,
+  copyKind,
   challan,
   customer,
   items,
@@ -166,6 +167,7 @@ function DcCopy({
   t,
 }: {
   label: string;
+  copyKind: "original" | "duplicate";
   challan: PrintChallan;
   customer: CustomerRow | null;
   items: PrintItem[];
@@ -182,7 +184,7 @@ function DcCopy({
   const authorizedBy = challan.authorizedBy?.trim() ?? "";
 
   return (
-    <div className="dc-print-sheet dc-print-sheet-single break-inside-avoid">
+    <div className={`dc-print-sheet dc-print-sheet-single dc-print-copy-${copyKind} break-inside-avoid`}>
       {/* Plain ruled boxes throughout, with no filled band behind the company
           name and no tinted table headings, so the heading reads as one more
           box of the same form. */}
