@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Scale, Settings2 } from "lucide-react";
+import { AlertTriangle, Archive, Scale, Settings2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import {
 } from "@/lib/weight";
 import { indiaToday } from "@/lib/india-date";
 import { formatDate } from "@/lib/i18n/dates";
+import { WeightScrapReset } from "@/components/weight-scrap-reset";
 
 export const metadata: Metadata = { title: "Weight / Scrap | Oviya Engineers" };
 
@@ -61,15 +62,27 @@ export default async function WeightPage({
             Master; Sent Qty comes from the DC. Open a DC to record its lines.
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex flex-wrap gap-2">
           <Button
-            render={<Link href="/dashboard/settings/weight-master" />}
+            render={<Link href="/dashboard/weight/history" />}
             variant="outline"
             className="h-11 sm:h-9"
           >
-            <Settings2 className="h-4 w-4" /> Weight/Scrap Master
+            <Archive className="h-4 w-4" /> Scrap History
           </Button>
-        )}
+          {isAdmin && (
+            <>
+              <WeightScrapReset today={indiaToday()} />
+              <Button
+                render={<Link href="/dashboard/settings/weight-master" />}
+                variant="outline"
+                className="h-11 sm:h-9"
+              >
+                <Settings2 className="h-4 w-4" /> Weight/Scrap Master
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3">

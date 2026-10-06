@@ -365,6 +365,34 @@ export type DcLineWeightRow = {
   updated_at: string;
 };
 
+/** Immutable snapshot of a recorded weight/scrap line before a list reset. */
+export type WeightScrapArchiveRow = {
+  id: number;
+  reset_id: string;
+  source_weight_id: string;
+  dc_id: string;
+  dc_item_id: string;
+  dc_number: string;
+  dc_date: string;
+  customer_name: string;
+  component: string;
+  material: string | null;
+  current_sent_qty: number;
+  sent_qty_at_save: number;
+  weight_master_id: string;
+  rough_weight_g: number;
+  rough_unit: "g" | "kg";
+  finished_weight_g: number;
+  finished_unit: "g" | "kg";
+  scrap_weight_g: number;
+  scrap_rate_per_kg: number;
+  total_scrap_g: number;
+  scrap_value: number;
+  recorded_at: string;
+  archived_at: string;
+  archived_by: string | null;
+};
+
 /** Rough and finished weight per piece for one component + material (0031). */
 export type WeightMasterRow = {
   id: string;
@@ -755,6 +783,12 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      weight_scrap_archive: {
+        Row: WeightScrapArchiveRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       weight_master: {
         Row: WeightMasterRow;
         Insert: Pick<
@@ -867,6 +901,10 @@ export type Database = {
       save_dc_line_weights: {
         Args: { p_dc_id: string; p_lines: unknown };
         Returns: { saved: number; removed: number }[];
+      };
+      archive_and_reset_weight_scrap: {
+        Args: { p_from: string; p_to: string };
+        Returns: { archived: number }[];
       };
       /** The public link token for a challan, made on first use. Staff only (0028). */
       ensure_dc_public_link: {

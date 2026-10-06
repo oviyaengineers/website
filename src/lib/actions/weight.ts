@@ -41,6 +41,7 @@ async function adminGate(): Promise<string | null> {
 
 function refresh() {
   revalidatePath("/dashboard/weight", "layout");
+  revalidatePath("/dashboard/weight/history");
   revalidatePath("/dashboard/settings/weight-master");
   revalidatePath("/dashboard/settings/scrap-rates");
 }
@@ -215,6 +216,37 @@ export async function saveWeightsAction(
   const row = Array.isArray(data) ? data[0] : data;
   refresh();
   return { error: null, saved: row?.saved ?? 0, removed: row?.removed ?? 0 };
+}
+
+/** Snapshot recorded rows in a chosen DC-date range, then clear them for fresh entry. */
+export async function archiveAndResetWeightScrapAction(
+  from: string,
+  to: string
+): Promise<{ error: string | null; archived: number }> {
+  const fail = (error: string) => ({ error, archived: 0 });
+  const gate = await adminGate();
+  if (gate) return fail(gate);
+  const isDate = (value: string) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  if (!isDate(from) || !isDate(to) || from > to) {
+    return fail("Choose a valid date range.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("archive_and_reset_weight_scrap", {
+    p_from: from,
+    p_to: to,
+  });
+  if (error) {
+    if (error.message.includes("WEIGHT_RESET_EMPTY")) {
+      return fail("There are no recorded scrap rows in that date range to reset.");
+    }
+    if (error.message.includes("WEIGHT_BAD_RESET_DATES")) return fail("Choose a valid date range.");
+    return fail(error.message);
+  }
+
+  refresh();
+  return { error: null, archived: data?.[0]?.archived ?? 0 };
 }
 
 // ---------------------------------------------------------------------------
