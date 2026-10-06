@@ -29,17 +29,6 @@ export function usePrintPdfHref(download = false): string {
   return `/api/print/pdf?path=${encodeURIComponent(path)}${download ? "&download=1" : ""}`;
 }
 
-/**
- * Phones, tablets and Safari print a PDF best from their own viewer; printing
- * a PDF inside the page is dependable only in desktop Chrome, Edge and Firefox.
- */
-function printsInViewer(): boolean {
-  const ua = navigator.userAgent;
-  const touchMac = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-  const safari = /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edg|android/i.test(ua);
-  return touchMac || safari || /iphone|ipad|ipod|android|mobile/i.test(ua);
-}
-
 /** The route's own message, from its small error page. */
 async function failureText(response: Response): Promise<string> {
   const html = await response.text().catch(() => "");
@@ -75,7 +64,7 @@ function usePdfFetch(english: boolean) {
   const t = useStrings(english);
   const [status, setStatus] = useState<Status>({ busy: false, error: null });
   const run = useCallback(
-    async (href: string, onPdf: (pdf: Blob, name: string) => void) => {
+    async (href: string, onPdf: (pdf: Blob, name: string) => void | Promise<void>) => {
       setStatus({ busy: true, error: null });
       try {
         const response = await fetch(href, { credentials: "same-origin" });
@@ -90,7 +79,7 @@ function usePdfFetch(english: boolean) {
         const name = /filename="([^"]+)"/.exec(
           response.headers.get("Content-Disposition") ?? ""
         )?.[1];
-        onPdf(await response.blob(), name ?? "document.pdf");
+        await onPdf(await response.blob(), name ?? "document.pdf");
         setStatus({ busy: false, error: null });
       } catch {
         setStatus({ busy: false, error: t("dcPrint.pdfFailed") });
@@ -101,26 +90,39 @@ function usePdfFetch(english: boolean) {
   return { status, run };
 }
 
-/** Prints a PDF through a hidden frame, so the print dialog shows the PDF itself. */
-function printPdfInFrame(pdf: Blob, frameRef: React.RefObject<HTMLIFrameElement | null>) {
-  frameRef.current?.remove();
+type SaveFileHandle = {
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>;
+    close: () => Promise<void>;
+  }>;
+};
+
+type SavePickerWindow = Window & {
+  showSaveFilePicker?: (options: { suggestedName: string }) => Promise<SaveFileHandle>;
+};
+
+function suggestedPdfName(): string {
+  const title = document.title.trim().replace(/[\\/:*?"<>|]/g, "-");
+  return `${title || "document"}.pdf`;
+}
+
+/** Ask where to save when supported, otherwise use the browser's download setting. */
+async function savePdf(pdf: Blob, name: string) {
+  const picker = (window as SavePickerWindow).showSaveFilePicker;
+  if (picker) {
+    const handle = await picker.call(window, { suggestedName: name });
+    const writable = await handle.createWritable();
+    await writable.write(pdf);
+    await writable.close();
+    return;
+  }
+
   const url = URL.createObjectURL(pdf);
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
-  frame.src = url;
-  frame.onload = () => {
-    try {
-      frame.contentWindow?.focus();
-      frame.contentWindow?.print();
-    } catch {
-      // A browser that will not print a framed PDF shows it instead.
-      window.open(url, "_blank", "noopener");
-    }
-  };
-  document.body.appendChild(frame);
-  frameRef.current = frame;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function StatusLine({ status, english }: { status: Status; english: boolean }) {
@@ -150,20 +152,14 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
 export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
   const t = useStrings(english);
   const href = usePrintPdfHref();
-  const { status, run } = usePdfFetch(english);
-  const frameRef = useRef<HTMLIFrameElement | null>(null);
-  const busy = status.busy;
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
-    if (busy || !firstCall()) return;
-    if (printsInViewer()) {
-      // Opened straight from the tap, so it is never blocked as a pop-up.
-      window.open(href, "_blank");
-      return;
-    }
-    void run(href, (pdf) => printPdfInFrame(pdf, frameRef));
-  }, [busy, firstCall, href, run]);
+    if (!firstCall()) return;
+    // Open in the browser's built-in PDF viewer. It has a dependable print
+    // control on desktop and mobile, unlike calling print() on a hidden frame.
+    window.open(href, "_blank", "noopener");
+  }, [firstCall, href]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -176,12 +172,6 @@ export function PrintButton({ label, english = false }: { label?: string; englis
     return () => window.removeEventListener("keydown", onKey);
   }, [print]);
 
-  // The hidden print frame goes when the preview is left.
-  useEffect(() => {
-    const frames = frameRef;
-    return () => frames.current?.remove();
-  }, []);
-
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
       <Button
@@ -192,16 +182,10 @@ export function PrintButton({ label, english = false }: { label?: string; englis
         }}
         variant="outline"
         className="h-11 sm:h-9"
-        aria-busy={status.busy}
       >
-        {status.busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Printer className="h-4 w-4" />
-        )}{" "}
+        <Printer className="h-4 w-4" />{" "}
         {label ?? t("dcPrint.print")}
       </Button>
-      <StatusLine status={status} english={english} />
     </div>
   );
 }
@@ -221,13 +205,19 @@ export function DownloadPdfButton({
 
   const save = () => {
     if (status.busy || !firstCall()) return;
-    void run(href, (pdf, name) => {
-      const url = URL.createObjectURL(pdf);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = name;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const savePicker = (window as SavePickerWindow).showSaveFilePicker;
+    const pickerPromise = savePicker
+      ? savePicker.call(window, { suggestedName: suggestedPdfName() })
+      : null;
+    void run(href, async (pdf, name) => {
+      if (pickerPromise) {
+        const handle = await pickerPromise;
+        const writable = await handle.createWritable();
+        await writable.write(pdf);
+        await writable.close();
+      } else {
+        await savePdf(pdf, name);
+      }
     });
   };
 
@@ -236,8 +226,6 @@ export function DownloadPdfButton({
       <Button
         render={<a href={href} />}
         onClick={(event) => {
-          // Phones save through their own download handling of the link.
-          if (printsInViewer()) return;
           event.preventDefault();
           save();
         }}
