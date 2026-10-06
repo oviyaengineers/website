@@ -370,6 +370,7 @@ export type WeightScrapArchiveRow = {
   id: number;
   reset_id: string;
   source_weight_id: string;
+  source_history_id: number | null;
   dc_id: string;
   dc_item_id: string;
   dc_number: string;

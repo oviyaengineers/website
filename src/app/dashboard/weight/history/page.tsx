@@ -93,7 +93,9 @@ export default async function WeightScrapHistoryPage({
                           <div className="text-xs text-muted-foreground">current {qty(row.current_sent_qty)}</div>
                         )}
                       </td>
-                      <td className="text-right tabular-nums">{formatWeightIn(row.scrap_weight_g * 1000, "g")}</td>
+                      <td className="text-right tabular-nums">
+                        {formatWeightIn(row.scrap_weight_g * 1000, row.rough_unit)}
+                      </td>
                       <td className="text-right font-medium tabular-nums">{formatWeight(row.total_scrap_g * 1000)}</td>
                       <td className="text-right tabular-nums">{formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</td>
                       <td className="text-right font-medium tabular-nums">{formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</td>
@@ -135,7 +137,7 @@ function ArchiveCard({ row }: { row: WeightScrapArchiveRow }) {
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs [&_dd]:text-right [&_dd]:tabular-nums [&_dt]:text-muted-foreground">
         <dt>Material</dt><dd>{row.material ?? "—"}</dd>
         <dt>Sent Qty (recorded)</dt><dd>{qty(row.sent_qty_at_save)}</dd>
-        <dt>Scrap / pc</dt><dd>{formatWeightIn(row.scrap_weight_g * 1000, "g")}</dd>
+        <dt>Scrap / pc</dt><dd>{formatWeightIn(row.scrap_weight_g * 1000, row.rough_unit)}</dd>
         <dt>Total scrap</dt><dd className="font-medium">{formatWeight(row.total_scrap_g * 1000)}</dd>
         <dt>Rate / kg</dt><dd>{formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</dd>
         <dt>Scrap value</dt><dd className="font-medium">{formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</dd>
