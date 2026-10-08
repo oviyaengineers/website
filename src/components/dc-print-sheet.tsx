@@ -234,7 +234,7 @@ function DcCopy({
         {/* Every field in its own ruled cell, the way a printed challan book
             is laid out: the container carries the top and left edges and each
             cell its right and bottom, so the rules meet with no doubling. */}
-        <div className="dc-print-fields">
+        <div className="dc-print-fields dc-print-fields-details">
           <PrintField label={t("dcPrint.ourDcNumber")} span={1}>
             {challan.dcNumber}
           </PrintField>

@@ -159,6 +159,12 @@
   border-left: 0.25mm solid #222;
 }
 
+/* The DC details share the section's single outer border; field borders only
+   draw the divider lines inside it instead of making a second nested box. */
+.dc-print-fields-details {
+  border: 0;
+}
+
 .dc-print-cell {
   border-right: 0.25mm solid #222;
   border-bottom: 0.25mm solid #222;
