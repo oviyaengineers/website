@@ -282,18 +282,36 @@ function DcCopy({
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={7} className={`${CELL} dc-print-table-caption text-center text-sm font-bold text-[#172033]`}>
+                <th
+                  colSpan={7}
+                  className={`${CELL} dc-print-table-caption text-center text-sm font-bold text-[#172033]`}
+                  style={{ backgroundColor: "#fff" }}
+                >
                   {t("dcPrint.materialDetails")}
                 </th>
               </tr>
               <tr>
-                <th className={`${CELL} text-center`}>{t("dcPrint.sNo")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.description")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.material")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.qty")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.matProblem")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.rejection")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.total")}</th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.sNo")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.description")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.material")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.qty")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.matProblem")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.rejection")}
+                </th>
+                <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
+                  {t("dcPrint.total")}
+                </th>
               </tr>
             </thead>
             <tbody>
