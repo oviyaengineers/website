@@ -10,9 +10,9 @@ import { PrintLetterhead } from "@/components/dc-print-sheet";
  *
  * The page covers the app with the document exactly as it will be printed,
  * under a toolbar that never prints: a way back, and the Print and Download
- * PDF buttons (or the page's own actions). Print makes a clean PDF of this
- * very page on the server, so the paper matches the preview and carries none
- * of the browser's URL, date or page number.
+ * PDF buttons (or the page's own actions). Print opens a clean PDF of this
+ * very page, so the paper matches the preview and carries none of the
+ * browser's URL, date or page number on any device.
  *
  * A new printout needs only this shell around its document, and its page
  * listed in src/lib/print/allowed-print-paths.ts.

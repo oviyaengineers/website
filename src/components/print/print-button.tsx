@@ -10,15 +10,13 @@ import { createTranslator } from "@/lib/i18n/translate";
 /**
  * The Print and Download PDF buttons shared by every ERP printout.
  *
- * Printing a web page lets the browser stamp the page URL, the date and time
- * and "Page 1 of 1" on the paper, and iPhone and iPad cannot be told not to.
- * So nothing here prints the web page itself: both buttons fetch the clean PDF
- * of the page on screen from /api/print/pdf, made with the browser header and
- * footer switched off, and print or save that. The PDF is the preview, exactly.
+ * Printing a web page lets the browser stamp its URL, date and page number on
+ * the paper. So Print always opens the clean PDF of this page from
+ * /api/print/pdf, made with browser headers and footers switched off. The PDF
+ * is the preview, exactly, and the viewer's Print action prints only its page.
  *
- * - Desktop Chrome, Edge and Firefox: the PDF goes straight to the print dialog.
- * - iPhone, iPad, Android and Safari: the PDF opens in the phone's own viewer,
- *   to print from Share > Print. A PDF printed from there carries only its pages.
+ * The PDF opens in the device's viewer, where its Print action prints only the
+ * document page without browser-added headers or footers.
  */
 
 /** The address of the clean PDF of the print page this is shown on. */
@@ -171,7 +169,7 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
   return null;
 }
 
-/** Print the preview directly on phones; desktop printing uses the clean PDF. */
+/** Open the clean PDF on every device so browser headers and footers are omitted. */
 export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
   const t = useStrings(english);
   const href = usePrintPdfHref();
@@ -179,12 +177,6 @@ export function PrintButton({ label, english = false }: { label?: string; englis
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    if (isMobileBrowser()) {
-      // Print the visible preview through the phone's native print dialog.
-      window.print();
-      return;
-    }
-    // Desktop keeps the clean PDF flow, without browser-added headers/footers.
     window.open(href, "_blank", "noopener");
   }, [firstCall, href]);
 
