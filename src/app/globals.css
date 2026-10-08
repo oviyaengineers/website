@@ -562,6 +562,30 @@
     height: 297mm;
     box-shadow: none !important;
   }
+
+  /* A single DC is exactly one A4 portrait sheet. Keep both half-page copies
+     and the cut line together so the browser cannot move the DUPLICATE onto
+     another page or split either copy. */
+  .dc-print-page-single {
+    box-sizing: border-box;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    break-before: avoid-page !important;
+    page-break-before: avoid !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+    break-after: avoid-page !important;
+    page-break-after: avoid !important;
+  }
+
+  .dc-print-page-single > .dc-print-sheet-single {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+  }
 }
 
 /* --- Tax invoice, one A4 sheet -------------------------------------------------
@@ -877,6 +901,14 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   -webkit-mask-size: contain;
   mask-size: contain;
   object-fit: contain;
+}
+
+/* Delivery Challan copies use the already-transparent brand-color asset.
+   Keep its alpha and original blue instead of applying the copy-ink mask. */
+.dc-print-sheet .dc-print-logo-original img {
+  background-color: transparent !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
 }
 
 /* The items section takes whatever height the copy has left, and the filler

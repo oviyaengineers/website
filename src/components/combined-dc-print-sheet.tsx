@@ -122,7 +122,7 @@ function CombinedCopy({
             {label}
           </p>
         </div>
-        <PrintLetterhead />
+        <PrintLetterhead originalLogoColors />
       </header>
 
       <section className="dc-print-block mb-3">

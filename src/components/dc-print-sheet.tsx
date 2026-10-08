@@ -1,4 +1,5 @@
 import { LogoMark } from "@/components/marketing/logo";
+import Image from "next/image";
 import { formatDate } from "@/lib/i18n/dates";
 import type { Lang } from "@/lib/i18n/config";
 import type { Translate } from "@/lib/i18n/types";
@@ -56,7 +57,7 @@ export function DcPrintSheet({
 }) {
   const copy = { challan, customer, items, lang, t };
   return (
-    <div className="dc-print-page">
+    <div className="dc-print-page dc-print-page-single">
       <DcCopy label={t("dcPrint.original")} copyKind="original" {...copy} />
       <div className="dc-print-cut my-4 border-t border-dashed border-gray-400 text-center text-[10px] uppercase tracking-widest text-gray-400">
         <span className="relative -top-2 bg-white px-2">{t("dcPrint.cutHere")}</span>
@@ -115,11 +116,26 @@ export function PrintSignatoryField({ authorizedBy, t }: { authorizedBy: string;
 }
 
 /** The letterhead. Never translated. */
-export function PrintLetterhead() {
+export function PrintLetterhead({ originalLogoColors = false }: { originalLogoColors?: boolean }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="dc-print-logo mb-1 flex h-12 w-16 items-center justify-center p-1">
-        <LogoMark className="h-full w-full" />
+      <div
+        className={`dc-print-logo mb-1 flex h-12 w-16 items-center justify-center p-1 ${
+          originalLogoColors ? "dc-print-logo-original" : ""
+        }`}
+      >
+        {originalLogoColors ? (
+          <Image
+            src="/logo-pdf.png"
+            alt="Oviya Engineers"
+            width={220}
+            height={143}
+            className="h-full w-full object-contain"
+            priority
+          />
+        ) : (
+          <LogoMark className="h-full w-full" />
+        )}
       </div>
       <div className="dc-print-company text-xl font-bold tracking-wide">OVIYA ENGINEERS</div>
       <div className="mt-1 text-xs">
@@ -208,7 +224,7 @@ function DcCopy({
             {label}
           </p>
         </div>
-        <PrintLetterhead />
+        <PrintLetterhead originalLogoColors />
       </header>
 
       <section className="dc-print-block mb-3">
