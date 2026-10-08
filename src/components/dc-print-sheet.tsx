@@ -201,10 +201,9 @@ function DcCopy({
 
   return (
     <div className={`dc-print-sheet dc-print-sheet-single dc-print-copy-${copyKind} break-inside-avoid`}>
-      {/* Plain ruled boxes throughout, with no filled band behind the company
-          name and no tinted table headings, so the heading reads as one more
-          box of the same form. */}
-      <header className="relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033] print:py-2">
+      {/* The letterhead and table use each copy's accent ink; the details and
+          signature area keep the clean ruled-form layout. */}
+      <header className="dc-print-letterhead-header relative mb-3 border border-[#222] bg-white px-6 py-3 text-[#172033] print:py-2">
         {/* Top left, balancing the copy label on the right, and absolutely
             placed so the header keeps its height and the page stays one A4. */}
         {challan.qrSvg && (
@@ -220,7 +219,7 @@ function DcCopy({
           </div>
         )}
         <div className="absolute right-4 top-4 text-xs">
-          <p className="dc-print-copy-label border border-[#222] px-3 py-1 font-semibold tracking-wide">
+          <p className="dc-print-copy-label dc-print-copy-stamp border border-[#222] px-3 py-1 font-semibold tracking-wide">
             {label}
           </p>
         </div>
@@ -228,7 +227,7 @@ function DcCopy({
       </header>
 
       <section className="dc-print-block mb-3">
-        <h2 className="dc-print-title mb-2 text-center text-lg font-bold text-[#172033] underline underline-offset-4">
+        <h2 className="dc-print-title dc-print-section-title mb-2 text-center text-lg font-bold text-[#172033]">
           {t("dcPrint.title")}
         </h2>
         {/* Every field in its own ruled cell, the way a printed challan book
@@ -270,7 +269,7 @@ function DcCopy({
           rides in the table's first row instead of floating above it. */}
       <section className="dc-print-block-flush dc-print-items mb-3">
         <div className="dc-print-table-wrap overflow-auto">
-          <table className="w-full min-w-[700px] border-collapse text-xs">
+          <table className="dc-print-items-table w-full min-w-[700px] border-collapse text-xs">
             {/* Widths live here, not on the header cells. The table is laid
                 out fixed, so the first row decides the columns — and the first
                 row is the single merged caption, which squeezed the
@@ -283,7 +282,7 @@ function DcCopy({
             </colgroup>
             <thead>
               <tr>
-                <th colSpan={7} className={`${CELL} text-center text-sm font-bold text-[#172033]`}>
+                <th colSpan={7} className={`${CELL} dc-print-table-caption text-center text-sm font-bold text-[#172033]`}>
                   {t("dcPrint.materialDetails")}
                 </th>
               </tr>

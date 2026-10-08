@@ -904,6 +904,8 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 :is(.dc-print-page, .invoice-print-page, .dc-list-print)
   *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *):not(
     .dc-list-print th
+  ):not(.dc-print-items-table thead th):not(.dc-print-copy-stamp):not(
+    .dc-print-cell-label
   ) {
   color: var(--print-ink) !important;
   border-color: var(--print-ink) !important;
@@ -1094,6 +1096,72 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 .dc-print-sheet-single .dc-print-title {
   margin-bottom: 1mm !important;
+}
+
+/* A clearer visual hierarchy for single-copy printouts: copy-coloured rules,
+   calm labels, and a strong table heading that remains legible in grayscale. */
+.dc-print-sheet-single,
+.dc-print-sheet-single * {
+  font-weight: 500 !important;
+}
+
+.dc-print-sheet-single :is(
+    .dc-print-company,
+    .dc-print-copy-label,
+    .dc-print-section-title,
+    .dc-print-cell-label,
+    th,
+    strong
+  ) {
+  font-weight: 700 !important;
+}
+
+.dc-print-sheet-single .dc-print-letterhead-header {
+  border: 0.25mm solid var(--print-ink) !important;
+  border-top: 1.2mm solid var(--print-ink) !important;
+  border-radius: 1.5mm;
+}
+
+.dc-print-sheet-single .dc-print-copy-stamp {
+  color: #fff !important;
+  background: var(--print-ink) !important;
+  border-color: var(--print-ink) !important;
+  border-radius: 1mm;
+}
+
+.dc-print-sheet-single .dc-print-section-title {
+  padding-bottom: 0.8mm;
+  border-bottom: 0.35mm solid var(--print-ink);
+  text-align: left;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.dc-print-sheet-single .dc-print-cell-label {
+  color: #526174 !important;
+  font-size: 6pt;
+  letter-spacing: 0.055em;
+}
+
+.dc-print-sheet-single .dc-print-items-table .dc-print-table-caption {
+  color: var(--print-ink) !important;
+  background: #eef2f6 !important;
+  letter-spacing: 0.04em;
+}
+
+.dc-print-sheet-single .dc-print-items-table thead tr:nth-child(2) th {
+  color: #fff !important;
+  background: var(--print-ink) !important;
+  border-color: var(--print-ink) !important;
+  letter-spacing: 0.025em;
+}
+
+.dc-print-sheet-single .dc-print-items-table tbody tr:nth-child(even) {
+  background: #f5f7fa !important;
+}
+
+.dc-print-sheet-single .dc-print-items-table tbody td:nth-child(2) {
+  text-align: left;
 }
 
 .invoice-print-page,
