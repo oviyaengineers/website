@@ -165,6 +165,21 @@
   border: 0;
 }
 
+.dc-print-fields-details .dc-print-cell {
+  border: 0;
+}
+
+/* Keep only the field separators inside the single surrounding details box. */
+.dc-print-fields-details .dc-print-cell:nth-child(-n + 3) {
+  border-bottom: 0.25mm solid #222;
+}
+
+.dc-print-fields-details .dc-print-cell:nth-child(1),
+.dc-print-fields-details .dc-print-cell:nth-child(2),
+.dc-print-fields-details .dc-print-cell:nth-child(4) {
+  border-right: 0.25mm solid #222;
+}
+
 .dc-print-cell {
   border-right: 0.25mm solid #222;
   border-bottom: 0.25mm solid #222;
