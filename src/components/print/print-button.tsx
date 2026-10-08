@@ -180,13 +180,54 @@ export function PrintButton({ label, english = false }: { label?: string; englis
   const t = useStrings(english);
   const href = usePrintPdfHref();
   const firstCall = useOncePerTap();
+  const { status, run } = usePdfFetch(english);
+  const [mobilePdf, setMobilePdf] = useState<File | null>(null);
+  const [mobileShareAvailable, setMobileShareAvailable] = useState<boolean | null>(null);
 
   const print = useCallback(() => {
-    if (!firstCall()) return;
-    // Open in the browser's built-in PDF viewer. It has a dependable print
-    // control on desktop and mobile, unlike calling print() on a hidden frame.
-    window.open(href, "_blank", "noopener");
-  }, [firstCall, href]);
+    if (status.busy || !firstCall()) return;
+    const fileShare = navigator as FileShareNavigator;
+    const share = Reflect.get(navigator, "share") as FileShareNavigator["share"];
+    const canShare = Reflect.get(navigator, "canShare") as FileShareNavigator["canShare"];
+    const canShareFiles =
+      isMobileBrowser() &&
+      typeof share === "function" &&
+      typeof canShare === "function" &&
+      mobileShareAvailable !== false;
+
+    if (!canShareFiles) {
+      // Open the clean PDF in the phone's viewer, where its Share menu can
+      // route the document to Print. This is also the fallback for browsers
+      // without Web Share file support.
+      if (isMobileBrowser()) setMobileShareAvailable(false);
+      window.open(href, "_blank", "noopener");
+      return;
+    }
+
+    if (!mobilePdf) {
+      setMobileShareAvailable(true);
+      void run(href, (pdf, name) => {
+        const file = new File([pdf], name, { type: "application/pdf" });
+        if (typeof canShare !== "function" || !canShare.call(fileShare, { files: [file] })) {
+          setMobileShareAvailable(false);
+          window.open(href, "_blank", "noopener");
+          return;
+        }
+        setMobilePdf(file);
+      });
+      return;
+    }
+
+    // This second tap is a fresh user gesture, so the phone can reliably
+    // open its native share menu even if PDF generation took several seconds.
+    if (typeof share === "function") {
+      void share.call(fileShare, { files: [mobilePdf], title: mobilePdf.name }).catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setMobileShareAvailable(false);
+        setMobilePdf(null);
+      });
+    }
+  }, [firstCall, href, mobilePdf, mobileShareAvailable, run, status.busy]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -209,10 +250,20 @@ export function PrintButton({ label, english = false }: { label?: string; englis
         }}
         variant="outline"
         className="h-11 sm:h-9"
+        disabled={status.busy}
+        aria-busy={status.busy}
       >
         <Printer className="h-4 w-4" />{" "}
-        {label ?? t("dcPrint.print")}
+        {mobilePdf ? t("dcPrint.openPhonePrintMenu") : label ?? t("dcPrint.print")}
       </Button>
+      <p className="basis-full text-xs text-muted-foreground sm:hidden">
+        {mobileShareAvailable === false
+          ? t("dcPrint.mobilePreviewPrintHint")
+          : mobilePdf
+            ? t("dcPrint.mobilePrintReadyHint")
+            : t("dcPrint.mobilePrintHint")}
+      </p>
+      <StatusLine status={status} english={english} />
     </div>
   );
 }

@@ -213,4 +213,8 @@ export const dcPrint = {
   preparing: "Preparing...",
   preparingPdf: "Preparing the PDF... this can take a few seconds.",
   pdfFailed: "The PDF could not be made. Please try again.",
+  mobilePrintHint: "Tap Print to prepare the PDF. When it is ready, tap again to open the phone's print menu.",
+  mobilePrintReadyHint: "Tap again, then choose Print in the phone's share menu.",
+  mobilePreviewPrintHint: "In the PDF preview, tap Share, then choose Print.",
+  openPhonePrintMenu: "Open Print Menu",
 };
