@@ -1164,6 +1164,11 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   text-align: left;
 }
 
+.dc-print-sheet-single .dc-print-items-table tbody td:nth-child(n + 4) {
+  font-size: 8.8pt !important;
+  font-weight: 700 !important;
+}
+
 .invoice-print-page,
 .invoice-print-page *:not(.invoice-cancelled-mark) {
   font-weight: 700 !important;
