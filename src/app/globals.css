@@ -1150,10 +1150,14 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 .dc-print-sheet-single .dc-print-items-table thead tr:nth-child(2) th {
-  color: #fff !important;
-  background: var(--print-ink) !important;
-  border-color: var(--print-ink) !important;
+  color: #111827 !important;
+  background: #fff !important;
+  background-image: none !important;
+  border-color: #111827 !important;
   letter-spacing: 0.025em;
+  font-weight: 700 !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
 }
 
 .dc-print-sheet-single .dc-print-items-table tbody tr:nth-child(even) {
@@ -1197,17 +1201,4 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 .invoice-print-page .dc-print-company {
   font-size: 21px !important;
-}
-
-@media print {
-  /* White paper gives the column labels sharper contrast on office printers. */
-  .dc-print-sheet-single .dc-print-items-table thead tr:nth-child(2) th {
-    color: #111827 !important;
-    background: #fff !important;
-    background-image: none !important;
-    border-color: #111827 !important;
-    font-weight: 700 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
 }
