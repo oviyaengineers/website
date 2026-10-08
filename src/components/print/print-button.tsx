@@ -10,13 +10,9 @@ import { createTranslator } from "@/lib/i18n/translate";
 /**
  * The Print and Download PDF buttons shared by every ERP printout.
  *
- * Printing a web page lets the browser stamp its URL, date and page number on
- * the paper. So Print always opens the clean PDF of this page from
- * /api/print/pdf, made with browser headers and footers switched off. The PDF
- * is the preview, exactly, and the viewer's Print action prints only its page.
- *
- * The PDF opens in the device's viewer, where its Print action prints only the
- * document page without browser-added headers or footers.
+ * Print opens a lightweight preview with a visible Print control. The preview
+ * embeds the clean PDF, so the document itself has no generated footer and a
+ * mobile user does not have to find the viewer's hidden print command.
  */
 
 /** The address of the clean PDF of the print page this is shown on. */
@@ -25,6 +21,14 @@ export function usePrintPdfHref(download = false): string {
   const search = useSearchParams().toString();
   const path = search ? `${pathname}?${search}` : pathname;
   return `/api/print/pdf?path=${encodeURIComponent(path)}${download ? "&download=1" : ""}`;
+}
+
+/** The mobile-friendly preview with an explicit Print control. */
+function usePrintPreviewHref(): string {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const path = search ? `${pathname}?${search}` : pathname;
+  return `/api/print/preview?path=${encodeURIComponent(path)}`;
 }
 
 /** The route's own message, from its small error page. */
@@ -169,10 +173,10 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
   return null;
 }
 
-/** Open the clean PDF on every device so browser headers and footers are omitted. */
+/** Open the preview so Print is visible on mobile PDF viewers. */
 export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
   const t = useStrings(english);
-  const href = usePrintPdfHref();
+  const href = usePrintPreviewHref();
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
