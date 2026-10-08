@@ -173,16 +173,12 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
 export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
   const t = useStrings(english);
   const href = usePrintPdfHref();
-  const pathname = usePathname();
-  const search = useSearchParams().toString();
-  const printPagePath = search ? `${pathname}?${search}` : pathname;
-  const mobilePreviewHref = `/api/print/preview?path=${encodeURIComponent(printPagePath)}`;
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    window.open(isMobileBrowser() ? mobilePreviewHref : href, "_blank", "noopener");
-  }, [firstCall, href, mobilePreviewHref]);
+    window.open(href, "_blank", "noopener");
+  }, [firstCall, href]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
