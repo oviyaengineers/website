@@ -5,14 +5,13 @@ import { DownloadPdfButton, PrintButton } from "@/components/print/print-button"
 import { PrintLetterhead } from "@/components/dc-print-sheet";
 
 /**
- * The print preview every ERP printout opens in: Open document > Print
- * preview > Print.
+ * The on-screen print sheet used by ERP printouts. Each page configures its
+ * Print action; the single Delivery Challan prints directly from this page.
  *
  * The page covers the app with the document exactly as it will be printed,
  * under a toolbar that never prints: a way back, and the Print and Download
- * PDF buttons (or the page's own actions). Print opens a clean PDF of this
- * very page, so the paper matches the preview and carries none of the
- * browser's URL, date or page number on any device.
+ * PDF buttons (or the page's own actions). The document's print CSS sets its
+ * paper layout.
  *
  * A new printout needs only this shell around its document, and its page
  * listed in src/lib/print/allowed-print-paths.ts.
@@ -58,13 +57,15 @@ export function PrintPreview({
 export function PrintActions({
   english = false,
   printLabel,
+  nativePrint = false,
 }: {
   english?: boolean;
   printLabel?: string;
+  nativePrint?: boolean;
 }) {
   return (
     <>
-      <PrintButton english={english} label={printLabel} />
+      <PrintButton english={english} label={printLabel} nativePrint={nativePrint} />
       <DownloadPdfButton english={english} />
     </>
   );

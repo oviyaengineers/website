@@ -10,9 +10,8 @@ import { createTranslator } from "@/lib/i18n/translate";
 /**
  * The Print and Download PDF buttons shared by every ERP printout.
  *
- * Print opens a lightweight preview with a visible Print control. The preview
- * embeds the clean PDF, so the document itself has no generated footer and a
- * mobile user does not have to find the viewer's hidden print command.
+ * The single challan can print the current page directly so its A4 CSS applies.
+ * Other printouts continue to use their clean PDF endpoint.
  */
 
 /** The address of the clean PDF of the print page this is shown on. */
@@ -21,14 +20,6 @@ export function usePrintPdfHref(download = false): string {
   const search = useSearchParams().toString();
   const path = search ? `${pathname}?${search}` : pathname;
   return `/api/print/pdf?path=${encodeURIComponent(path)}${download ? "&download=1" : ""}`;
-}
-
-/** The mobile-friendly preview with an explicit Print control. */
-function usePrintPreviewHref(): string {
-  const pathname = usePathname();
-  const search = useSearchParams().toString();
-  const path = search ? `${pathname}?${search}` : pathname;
-  return `/api/print/preview?path=${encodeURIComponent(path)}`;
 }
 
 /** The route's own message, from its small error page. */
@@ -173,16 +164,25 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
   return null;
 }
 
-/** Open the preview so Print is visible on mobile PDF viewers. */
-export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
+/** Open either the native print dialog or the clean PDF viewer. */
+export function PrintButton({
+  label,
+  english = false,
+  nativePrint = false,
+}: {
+  label?: string;
+  english?: boolean;
+  nativePrint?: boolean;
+}) {
   const t = useStrings(english);
-  const href = usePrintPreviewHref();
+  const href = usePrintPdfHref();
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    window.open(href, "_blank", "noopener");
-  }, [firstCall, href]);
+    if (nativePrint) window.print();
+    else window.open(href, "_blank", "noopener");
+  }, [firstCall, href, nativePrint]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -210,7 +210,7 @@ export function PrintButton({ label, english = false }: { label?: string; englis
         {label ?? t("dcPrint.print")}
       </Button>
       <p className="basis-full text-xs text-muted-foreground sm:hidden">
-        {t("dcPrint.mobileDirectPrintHint")}
+        {t(nativePrint ? "dcPrint.mobileNativePrintHint" : "dcPrint.mobileDirectPrintHint")}
       </p>
     </div>
   );
