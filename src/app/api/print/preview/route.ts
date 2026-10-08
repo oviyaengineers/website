@@ -3,7 +3,7 @@ import { allowedPrintPage } from "@/lib/print/allowed-print-paths";
 
 export const dynamic = "force-dynamic";
 
-/** Keep old preview links on the actual print page, not a wrapper page. */
+/** Route old preview links to the clean PDF, not a webpage with browser footers. */
 export async function GET(request: NextRequest) {
   const page = allowedPrintPage(request.nextUrl.searchParams.get("path"));
   if (!page) {
@@ -13,5 +13,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return Response.redirect(new URL(page.path, request.nextUrl.origin), 307);
+  const pdfParams = new URLSearchParams({ path: page.path });
+  const destination = new URL(`/api/print/pdf?${pdfParams.toString()}`, request.nextUrl.origin);
+  return Response.redirect(destination, 307);
 }

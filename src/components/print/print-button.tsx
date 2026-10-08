@@ -164,25 +164,16 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
   return null;
 }
 
-/** Open either the native print dialog or the clean PDF viewer. */
-export function PrintButton({
-  label,
-  english = false,
-  nativePrint = false,
-}: {
-  label?: string;
-  english?: boolean;
-  nativePrint?: boolean;
-}) {
+/** Open the clean, inline PDF generated for this print page. */
+export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
   const t = useStrings(english);
   const href = usePrintPdfHref();
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    if (nativePrint) window.print();
-    else window.open(href, "_blank", "noopener");
-  }, [firstCall, href, nativePrint]);
+    window.open(href, "_blank", "noopener");
+  }, [firstCall, href]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -210,7 +201,7 @@ export function PrintButton({
         {label ?? t("dcPrint.print")}
       </Button>
       <p className="basis-full text-xs text-muted-foreground sm:hidden">
-        {t(nativePrint ? "dcPrint.mobileNativePrintHint" : "dcPrint.mobileDirectPrintHint")}
+        {t("dcPrint.mobileDirectPrintHint")}
       </p>
     </div>
   );

@@ -86,7 +86,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
               <Layers className="h-4 w-4" /> {t("dcCombined.openCombined")}
             </Button>
           )}
-          <PrintActions nativePrint />
+          <PrintActions />
         </>
       }
       notes={<DcPrintPageSetup />}
