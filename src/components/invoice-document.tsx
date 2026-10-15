@@ -217,18 +217,9 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
 
       {data.dcs.length > 0 ? (
         <div className="mt-2 border border-[#222] px-2.5 py-1 text-[9.5px] leading-snug">
-          <span className="font-semibold">{`DCs covered, ${month} (our DC, date, your DC)`}: </span>
-          {data.dcs
-            .map((dc) =>
-              [
-                dc.dcNumber,
-                dc.dcDate ? formatDate(dc.dcDate, "dd MMM", "en") : null,
-                dc.customerDcNumbers.join(", ") || null,
-              ]
-                .filter(Boolean)
-                .join(" ")
-            )
-            .join("; ")}
+          <span className="font-semibold">DCs covered (Your DC No.): </span>
+          {[...new Set(data.dcs.flatMap((dc) => dc.customerDcNumbers).filter(Boolean))].join(", ") ||
+            "-"}
         </div>
       ) : null}
 

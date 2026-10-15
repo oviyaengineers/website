@@ -659,6 +659,49 @@
   line-height: 1.4;
 }
 
+.invoice-preview-zoom-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px 0;
+}
+
+.invoice-preview-zoom-controls button {
+  display: inline-flex;
+  min-height: 40px;
+  min-width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.invoice-zoom-scroll {
+  width: 100%;
+  overflow: auto;
+}
+
+.invoice-zoom-frame {
+  position: relative;
+  flex: none;
+  margin: 0 auto;
+}
+
+.invoice-zoom-content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210mm;
+  height: 297mm;
+  transform-origin: top left;
+}
+
 .invoice-cancelled-mark {
   position: absolute;
   top: 45%;
@@ -688,6 +731,23 @@
   .invoice-print-stage {
     display: block !important;
     padding: 0 !important;
+  }
+
+  .invoice-zoom-scroll {
+    overflow: visible !important;
+  }
+
+  .invoice-zoom-frame {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
+  .invoice-zoom-content {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
   }
 
   .invoice-print-page {

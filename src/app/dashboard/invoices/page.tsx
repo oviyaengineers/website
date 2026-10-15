@@ -330,7 +330,7 @@ export default async function InvoicesPage({
                 <th className="px-3 py-2.5 text-left font-medium">Date</th>
                 <th className="px-3 py-2.5 text-left font-medium">Billing month</th>
                 <th className="px-3 py-2.5 text-left font-medium">Customer</th>
-                <th className="px-3 py-2.5 text-left font-medium">Our DCs / Customer DCs</th>
+                <th className="px-3 py-2.5 text-left font-medium">Your DC Nos.</th>
                 <th className="px-3 py-2.5 text-right font-medium">Grand total</th>
                 <th className="px-3 py-2.5 text-left font-medium">Status</th>
                 <th className="px-3 py-2.5 text-left font-medium">Payment</th>
@@ -359,10 +359,7 @@ export default async function InvoicesPage({
                     {shortCustomerName(inv.customerName)}
                   </td>
                   <td className="px-3 py-2.5">
-                    {inv.dcNumbers.join(", ") || "Other charges only"}
-                    <span className="block text-xs text-muted-foreground">
-                      {inv.customerDcNumbers.join(", ")}
-                    </span>
+                    {inv.customerDcNumbers.join(", ") || "Other charges only"}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     ₹{formatRupees(Number(inv.grand_total))}
@@ -425,7 +422,7 @@ export default async function InvoicesPage({
                 <InvoiceStatusBadge status={inv.status} />
               </div>
               <p className="text-muted-foreground">
-                {inv.dcNumbers.join(", ") || "Other charges only"}
+                {inv.customerDcNumbers.join(", ") || "Other charges only"}
               </p>
               <p className="font-medium">₹{formatRupees(Number(inv.grand_total))}</p>
               <div className="flex gap-2">

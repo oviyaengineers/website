@@ -38,6 +38,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const cancelled = invoice.status === "cancelled";
   const gst = invoice.gst_bill;
   const work = workLines.reduce((sum, l) => sum + Number(l.amount), 0);
+  const customerDcNumbers = [
+    ...new Set(dcs.flatMap((dc) => dc.customerDcNumbers).filter(Boolean)),
+  ];
 
   return (
     <div className="space-y-6">
@@ -124,20 +127,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">DCs covered</CardTitle>
+            <CardTitle className="text-base">DCs covered (Your DC Nos.)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {dcs.length === 0 ? <p className="text-muted-foreground">Other charges only.</p> : null}
-            {dcs.map((dc) => (
-              <p key={dc.id}>
-                <Link href={`/dashboard/dc/${dc.id}`} className="font-medium hover:underline">
-                  {dc.dcNumber}
-                </Link>{" "}
-                <span className="text-muted-foreground">
-                  · {day(dc.dcDate)} · customer DC {dc.customerDcNumbers.join(", ") || "-"}
-                </span>
-              </p>
-            ))}
+            {dcs.length > 0 ? <p>{customerDcNumbers.join(", ") || "-"}</p> : null}
           </CardContent>
         </Card>
       </div>
