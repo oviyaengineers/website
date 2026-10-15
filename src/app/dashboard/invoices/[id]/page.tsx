@@ -187,16 +187,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                     <td colSpan={5} className="px-3 pt-1 pb-2.5">
                       <details>
                         <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                          From {line.sources.length} DC line{line.sources.length === 1 ? "" : "s"}:{" "}
-                          {[...new Set(line.sources.map((s) => s.dcNumber))].join(", ")}
+                          Your DC Nos.:{" "}
+                          {[...new Set(line.sources.flatMap((source) => source.customerDcNumbers))].join(
+                            ", "
+                          ) || "-"}
                         </summary>
                         <div className="mt-2 overflow-x-auto rounded-md border">
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b text-muted-foreground">
-                                <th className="px-2 py-1.5 text-left font-medium">Our DC</th>
-                                <th className="px-2 py-1.5 text-left font-medium">Customer DC</th>
-                                <th className="px-2 py-1.5 text-left font-medium">DC date</th>
+                                <th className="px-2 py-1.5 text-left font-medium">Your DC No.</th>
                                 <th className="px-2 py-1.5 text-left font-medium">Component</th>
                                 <th className="px-2 py-1.5 text-left font-medium">Material</th>
                                 <th className="px-2 py-1.5 text-right font-medium">Sent</th>
@@ -206,23 +206,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                             <tbody>
                               {line.sources.map((source) => (
                                 <tr key={source.sourceId} className="border-b last:border-b-0">
-                                  <td className="px-2 py-1.5 whitespace-nowrap">
-                                    {source.dcId ? (
-                                      <Link
-                                        href={`/dashboard/dc/${source.dcId}`}
-                                        className="font-medium hover:underline"
-                                      >
-                                        {source.dcNumber}
-                                      </Link>
-                                    ) : (
-                                      source.dcNumber
-                                    )}
-                                  </td>
                                   <td className="px-2 py-1.5">
                                     {source.customerDcNumbers.join(", ") || "-"}
-                                  </td>
-                                  <td className="px-2 py-1.5 whitespace-nowrap">
-                                    {day(source.dcDate)}
                                   </td>
                                   <td className="px-2 py-1.5">{source.component}</td>
                                   <td className="px-2 py-1.5">{source.material ?? "-"}</td>
