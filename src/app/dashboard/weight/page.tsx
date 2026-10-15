@@ -20,6 +20,7 @@ import {
   formatWeight,
   formatWeightIn,
   NOT_CONFIGURED_TEXT,
+  scrapFigures,
   SENT_CHANGED_TEXT,
 } from "@/lib/weight";
 import { indiaToday } from "@/lib/india-date";
@@ -30,8 +31,8 @@ export const metadata: Metadata = { title: "Weight / Scrap | Oviya Engineers" };
 
 /**
  * Weight / Scrap: every line of every non-draft DC, one row each, with its own
- * Sent Qty. Weights come from the Weight Master; recorded lines show exactly
- * what was recorded. Only reads: recording happens on each DC's weight screen.
+ * Sent Qty. Issued DC lines snapshot weights from the Weight Master; rates
+ * and scrap values resolve from the approved material rate for the DC date.
  */
 export default async function WeightPage({
   searchParams,
@@ -59,7 +60,7 @@ export default async function WeightPage({
           <h1 className="text-2xl font-semibold">Weight / Scrap</h1>
           <p className="text-sm text-muted-foreground">
             Every line of every issued DC. Rough and finished weights come from the Weight/Scrap
-            Master; Sent Qty comes from the DC. Open a DC to record its lines.
+            Master; scrap rates apply by material and DC date.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -122,7 +123,11 @@ export default async function WeightPage({
             <Figure label="Total scrap (recorded)" value={formatWeight(totals.totalScrapMg)} />
             <Figure
               label="Scrap value (recorded)"
-              value={formatRupeesFromPaise(totals.totalValuePaise)}
+              value={
+                totals.totalValuePaise === null
+                  ? "—"
+                  : formatRupeesFromPaise(totals.totalValuePaise)
+              }
             />
           </div>
 
@@ -246,19 +251,26 @@ function lineCells(line: WeightLine) {
       finished: formatWeightIn(r.finishedMg, r.unit),
       scrapPerPiece: formatWeightIn(r.scrapPerPieceMg, r.unit),
       totalScrap: formatWeight(r.totalScrapMg),
-      rate: `${formatRupeesFromPaise(r.ratePaisePerKg)} / kg`,
-      value: formatRupeesFromPaise(r.valuePaise),
+      rate:
+        r.ratePaisePerKg === null ? dash : `${formatRupeesFromPaise(r.ratePaisePerKg)} / kg`,
+      value: r.valuePaise === null ? dash : formatRupeesFromPaise(r.valuePaise),
     };
   }
   if (line.master) {
     const m = line.master;
+    const valuePaise = scrapFigures(
+      m.roughMg,
+      m.finishedMg,
+      line.sentQty,
+      m.ratePaisePerKg
+    ).totalValuePaise;
     return {
       rough: formatWeightIn(m.roughMg, m.unit),
       finished: formatWeightIn(m.finishedMg, m.unit),
       scrapPerPiece: formatWeightIn(m.scrapPerPieceMg, m.unit),
       totalScrap: formatWeight(m.totalScrapMg),
-      rate: dash,
-      value: dash,
+      rate: m.ratePaisePerKg === null ? dash : `${formatRupeesFromPaise(m.ratePaisePerKg)} / kg`,
+      value: valuePaise === null ? dash : formatRupeesFromPaise(valuePaise),
     };
   }
   return {

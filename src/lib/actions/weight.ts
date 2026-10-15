@@ -46,76 +46,7 @@ function refresh() {
   revalidatePath("/dashboard/settings/scrap-rates");
 }
 
-/** Add a material to the DC picklist if needed, and set its current scrap rate. */
-export async function saveScrapMaterialRateAction(input: {
-  materialId?: string;
-  materialName?: string;
-  rateText: string;
-}): Promise<MasterResult> {
-  const gate = await adminGate();
-  if (gate) return { error: gate };
-  const rateText = String(input?.rateText ?? "").trim();
-  const rateProblem = validateRate(rateText);
-  if (rateProblem) return { error: RATE_PROBLEM_TEXT[rateProblem] };
-
-  const supabase = await createClient();
-  let materialId = typeof input.materialId === "string" ? input.materialId : "";
-  let materialName = "";
-  if (materialId) {
-    if (!UUID.test(materialId)) return { error: "Choose a material from the DC list." };
-    const { data } = await supabase
-      .from("dc_picklist_items")
-      .select("id, name")
-      .eq("id", materialId)
-      .eq("kind", "material")
-      .maybeSingle();
-    if (!data) return { error: "That material is no longer in the DC list." };
-    materialName = data.name;
-  } else {
-    const name = String(input.materialName ?? "").trim();
-    if (!name) return { error: "Enter a material name." };
-    const { data: existing } = await supabase
-      .from("dc_picklist_items")
-      .select("id, name")
-      .eq("kind", "material");
-    const match = (existing ?? []).find(
-      (row) => row.name.trim().toLowerCase() === name.toLowerCase()
-    );
-    if (match) {
-      materialId = match.id;
-      materialName = match.name;
-    } else {
-      const { data: auth } = await supabase.auth.getUser();
-      const { data, error } = await supabase
-        .from("dc_picklist_items")
-        .insert({ kind: "material", name, created_by: auth.user?.id ?? null })
-        .select("id, name")
-        .single();
-      if (error || !data) return { error: error?.message ?? "Could not add that material." };
-      materialId = data.id;
-      materialName = data.name;
-    }
-  }
-
-  const { data: materialRows } = await supabase
-    .from("dc_picklist_items")
-    .select("id, name")
-    .eq("kind", "material");
-  const group = scrapRateGroupKey(materialName);
-  const materialIds = (materialRows ?? [])
-    .filter((row) => scrapRateGroupKey(row.name) === group)
-    .map((row) => row.id);
-  const { error } = await supabase.from("scrap_material_rates").upsert(
-    materialIds.map((id) => ({ material_id: id, rate_per_kg: Number(clean(rateText)) })),
-    { onConflict: "material_id" }
-  );
-  if (error) return { error: error.message };
-  revalidatePath("/dashboard/settings/components");
-  refresh();
-  return { error: null };
-}
-
-/** Approve a rate for an inclusive DC-date range without editing prior periods. */
+/** Approve a rate for an inclusive DC-date range; prior approvals remain in history. */
 export async function approveScrapRatePeriodAction(input: {
   materialId: string;
   rateText: string;
@@ -155,12 +86,7 @@ export async function approveScrapRatePeriodAction(input: {
     effective_to: to,
     rate_per_kg: Number(clean(rateText)),
   });
-  if (error) {
-    if (error.message.includes("SCRAP_RATE_PERIOD_OVERLAP")) {
-      return { error: "An approved rate already covers one or more of those dates for this material." };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
   refresh();
   return { error: null };
 }
@@ -169,8 +95,6 @@ export async function approveScrapRatePeriodAction(input: {
 // DC lines
 
 export type WeightLineInput =
-  /** Record from the active master, or change a recorded line's rate. */
-  | { dcItemId: string; kind: "rate"; rateText: string }
   /** Use the line's current Sent Qty for its recorded totals. */
   | { dcItemId: string; kind: "acceptSentQty" }
   | { dcItemId: string; kind: "remove" };
@@ -197,10 +121,6 @@ export async function saveWeightsAction(
       payload.push({ dc_item_id: line.dcItemId, remove: true });
     } else if (line.kind === "acceptSentQty") {
       payload.push({ dc_item_id: line.dcItemId, accept_sent_qty: true });
-    } else if (line.kind === "rate") {
-      const problem = validateRate(String(line.rateText ?? ""));
-      if (problem) return fail(RATE_PROBLEM_TEXT[problem]);
-      payload.push({ dc_item_id: line.dcItemId, scrap_rate: clean(String(line.rateText)) });
     } else {
       return fail("Nothing to save.");
     }

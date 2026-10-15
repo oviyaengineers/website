@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrapRateManager } from "@/components/scrap-rate-manager";
-import { sharedScrapRates } from "@/lib/scrap-rate-groups";
 
 export const metadata: Metadata = { title: "Scrap Rates | Oviya Engineers" };
 
 export default async function ScrapRatesPage() {
   const supabase = await createClient();
-  const [{ data: materials }, { data: rates }, { data: periods }, { profile }] = await Promise.all([
+  const [{ data: materials }, { data: periods }, { profile }] = await Promise.all([
     supabase.from("dc_picklist_items").select("id, name").eq("kind", "material").order("name"),
-    supabase
-      .from("scrap_material_rates")
-      .select("material_id, rate_per_kg, updated_at")
-      .order("updated_at", { ascending: false }),
     supabase
       .from("scrap_rate_periods")
       .select("id, material_group, effective_from, effective_to, rate_per_kg, approved_at")
@@ -22,20 +18,25 @@ export default async function ScrapRatesPage() {
       .order("id", { ascending: false }),
     getCurrentUserAndProfile(),
   ]);
-  const sharedRates = sharedScrapRates(materials ?? [], rates ?? []);
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Scrap Rates</h1>
         <p className="text-sm text-muted-foreground">
-          Approve a scrap rate for a DC date range. Scrap value uses each DC&apos;s sent quantity and
-          the rate approved for its DC date. Date based approvals are retained as history.
+          Scrap value uses each DC&apos;s recorded scrap weight and Sent Qty with the approved rate
+          for its date. Older approved ranges and recorded rates are kept unchanged.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          To add a material to the list, use{" "}
+          <Link className="underline underline-offset-2" href="/dashboard/settings/components">
+            Components &amp; Materials
+          </Link>
+          .
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Add a material and rate</CardTitle>
+          <CardTitle className="text-base">Set date-based rates</CardTitle>
         </CardHeader>
         <CardContent>
           <ScrapRateManager
@@ -48,11 +49,7 @@ export default async function ScrapRatesPage() {
               rate_per_kg: number;
               approved_at: string;
             }[]}
-            materials={(materials ?? []).map((material) => ({
-              id: material.id,
-              name: material.name,
-              ratePerKg: sharedRates.byMaterialId.get(material.id) ?? null,
-            }))}
+            materials={(materials ?? []).map((material) => ({ id: material.id, name: material.name }))}
           />
         </CardContent>
       </Card>

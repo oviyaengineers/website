@@ -4,21 +4,7 @@ import { fetchChainRows } from "@/lib/dc-chain-data";
 import { dcLifecycle, type DcLifecycle } from "@/lib/dc-lifecycle";
 import { weightLineFromRow, type WeightLine } from "@/lib/weight-lines";
 import type { DcWeightLineRow, WeightMasterRow } from "@/types/database";
-import { sharedScrapRates } from "@/lib/scrap-rate-groups";
 import { scrapRateGroupKey } from "@/lib/scrap-rate-groups";
-
-const materialKey = (name: string | null) => (name ?? "").trim().toLowerCase();
-
-async function scrapRatesByMaterialName(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const [{ data: rates }, { data: materials }] = await Promise.all([
-    supabase
-      .from("scrap_material_rates")
-      .select("material_id, rate_per_kg, updated_at")
-      .order("updated_at", { ascending: false }),
-    supabase.from("dc_picklist_items").select("id, name").eq("kind", "material"),
-  ]);
-  return sharedScrapRates(materials ?? [], rates ?? []).byName;
-}
 
 type ScrapRatePeriod = {
   material_group: string;
@@ -59,22 +45,17 @@ function effectiveRate(periods: ScrapRatePeriod[], material: string | null, dcDa
 /** Every line on every non-draft DC, newest DC first. */
 export async function fetchWeightLines(): Promise<WeightLine[]> {
   const supabase = await createClient();
-  const [{ data }, rates, periods] = await Promise.all([
+  const [{ data }, periods] = await Promise.all([
     supabase
       .from("dc_weight_lines")
       .select("*")
       .order("dc_date", { ascending: false })
       .order("dc_number", { ascending: false })
       .order("sort_order", { ascending: true }),
-    scrapRatesByMaterialName(supabase),
     scrapRatePeriods(supabase),
   ]);
   return ((data ?? []) as DcWeightLineRow[]).map((row) =>
-    weightLineFromRow(
-      row,
-      rates.get(materialKey(row.material)) ?? null,
-      effectiveRate(periods, row.material, row.dc_date)
-    )
+    weightLineFromRow(row, effectiveRate(periods, row.material, row.dc_date))
   );
 }
 
@@ -99,11 +80,10 @@ export async function fetchWeightDc(dcId: string): Promise<WeightDc | null> {
     .maybeSingle();
   if (!dc) return null;
 
-  const [{ data: customer }, { data: rows }, chainRows, rates, periods] = await Promise.all([
+  const [{ data: customer }, { data: rows }, chainRows, periods] = await Promise.all([
     supabase.from("customers").select("name").eq("id", dc.customer_id).maybeSingle(),
     supabase.from("dc_weight_lines").select("*").eq("dc_id", dcId).order("sort_order"),
     fetchChainRows(supabase),
-    scrapRatesByMaterialName(supabase),
     scrapRatePeriods(supabase),
   ]);
   const ownRows = chainRows.filter((row) => row.dc_id === dcId);
@@ -124,11 +104,7 @@ export async function fetchWeightDc(dcId: string): Promise<WeightDc | null> {
     lifecycle,
     isDraft: String(dc.status) === "draft",
     lines: ((rows ?? []) as DcWeightLineRow[]).map((row) =>
-      weightLineFromRow(
-        row,
-        rates.get(materialKey(row.material)) ?? null,
-        effectiveRate(periods, row.material, row.dc_date)
-      )
+      weightLineFromRow(row, effectiveRate(periods, row.material, row.dc_date))
     ),
   };
 }

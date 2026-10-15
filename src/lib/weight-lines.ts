@@ -36,9 +36,9 @@ export type WeightLine = {
     scrapPerPieceMg: number;
     /** The Sent Qty the recorded totals use. */
     sentQty: number;
-    ratePaisePerKg: number;
+    ratePaisePerKg: number | null;
     totalScrapMg: number;
-    valuePaise: number;
+    valuePaise: number | null;
     recordedAt: string | null;
   } | null;
   /** The active master a line not yet recorded would use. */
@@ -50,7 +50,7 @@ export type WeightLine = {
     scrapPerPieceMg: number;
     /** Scrap per piece × the line's current Sent Qty. */
     totalScrapMg: number;
-    /** Current default rate for this material, if one has been entered. */
+    /** Date-based approved rate, when one covers this DC's date. */
     ratePaisePerKg: number | null;
   } | null;
 };
@@ -61,11 +61,15 @@ const unitOf = (value: string | null | undefined): WeightUnit =>
 /** A view row as a screen line. */
 export function weightLineFromRow(
   row: DcWeightLineRow,
-  ratePaisePerKg: number | null = null,
   effectiveRatePaisePerKg: number | null = null
 ): WeightLine {
   const sentQty = Number(row.sent_qty) || 0;
   const isRecorded = row.weight_state === "recorded" && row.weight_id !== null;
+  const recordedRatePaisePerKg = isRecorded
+    ? row.scrap_rate_per_kg === null
+      ? effectiveRatePaisePerKg
+      : Math.round(Number(row.scrap_rate_per_kg) * 100)
+    : null;
   const recorded = isRecorded
     ? {
         unit: unitOf(row.recorded_unit),
@@ -73,21 +77,17 @@ export function weightLineFromRow(
         finishedMg: gramsToMilligrams(row.recorded_finished_g ?? 0),
         scrapPerPieceMg: gramsToMilligrams(row.recorded_scrap_g ?? 0),
         sentQty: Number(row.sent_qty_at_save) || 0,
-        ratePaisePerKg:
-          effectiveRatePaisePerKg ?? Math.round(Number(row.scrap_rate_per_kg ?? 0) * 100),
+        ratePaisePerKg: recordedRatePaisePerKg,
         totalScrapMg: gramsToMilligrams(row.total_scrap_g ?? 0),
-        valuePaise: 0,
+        valuePaise: scrapFigures(
+          gramsToMilligrams(row.recorded_rough_g ?? 0),
+          gramsToMilligrams(row.recorded_finished_g ?? 0),
+          Number(row.sent_qty_at_save) || 0,
+          recordedRatePaisePerKg
+        ).totalValuePaise,
         recordedAt: row.recorded_at,
       }
     : null;
-  if (recorded) {
-    recorded.valuePaise = scrapFigures(
-      recorded.roughMg,
-      recorded.finishedMg,
-      recorded.sentQty,
-      recorded.ratePaisePerKg
-    ).totalValuePaise ?? 0;
-  }
   let master: WeightLine["master"] = null;
   if (!isRecorded && row.weight_state === "pending" && row.master_id) {
     const roughMg = gramsToMilligrams(row.master_rough_g ?? 0);
@@ -100,7 +100,7 @@ export function weightLineFromRow(
       finishedMg,
       scrapPerPieceMg: figures.scrapPerPieceMg,
       totalScrapMg: figures.totalScrapMg,
-      ratePaisePerKg: effectiveRatePaisePerKg ?? ratePaisePerKg,
+      ratePaisePerKg: effectiveRatePaisePerKg,
     };
   }
   const status: WeightStatus = recorded
@@ -204,7 +204,7 @@ export type WeightTotals = {
   /** Sent pieces the recorded totals use. */
   recordedQty: number;
   totalScrapMg: number;
-  totalValuePaise: number;
+  totalValuePaise: number | null;
 };
 
 /** Totals of what has been recorded, as recorded. Pending lines add nothing. */
@@ -217,7 +217,7 @@ export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
     sentChangedLines: 0,
     recordedQty: 0,
     totalScrapMg: 0,
-    totalValuePaise: 0,
+    totalValuePaise: null,
   };
   let qtyHundredths = 0;
   for (const line of lines) {
@@ -228,7 +228,9 @@ export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
     totals.recordedLines += 1;
     qtyHundredths += Math.round(line.recorded.sentQty * 100);
     totals.totalScrapMg += line.recorded.totalScrapMg;
-    totals.totalValuePaise += line.recorded.valuePaise;
+    if (line.recorded.valuePaise !== null) {
+      totals.totalValuePaise = (totals.totalValuePaise ?? 0) + line.recorded.valuePaise;
+    }
   }
   totals.recordedQty = qtyHundredths / 100;
   return totals;

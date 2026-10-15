@@ -30,7 +30,13 @@ export default async function WeightScrapHistoryPage({
   const { data } = await query.order("dc_date", { ascending: false }).order("dc_number", { ascending: false }).order("id", { ascending: false });
   const rows = (data ?? []) as WeightScrapArchiveRow[];
   const sumScrapG = rows.reduce((total, row) => total + Number(row.total_scrap_g), 0);
-  const sumValuePaise = rows.reduce((total, row) => total + Math.round(Number(row.scrap_value) * 100), 0);
+  const sumValuePaise = rows.reduce<number | null>(
+    (total, row) =>
+      row.scrap_value === null
+        ? total
+        : (total ?? 0) + Math.round(Number(row.scrap_value) * 100),
+    null
+  );
 
   return (
     <div className="space-y-6">
@@ -53,7 +59,10 @@ export default async function WeightScrapHistoryPage({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Summary label="Archived lines" value={rows.length.toLocaleString("en-IN")} />
         <Summary label="Total scrap" value={formatWeight(Math.round(sumScrapG * 1000))} />
-        <Summary label="Scrap value" value={formatRupeesFromPaise(sumValuePaise)} />
+        <Summary
+          label="Scrap value"
+          value={sumValuePaise === null ? "—" : formatRupeesFromPaise(sumValuePaise)}
+        />
       </div>
 
       {rows.length === 0 ? (
@@ -97,8 +106,8 @@ export default async function WeightScrapHistoryPage({
                         {formatWeightIn(row.scrap_weight_g * 1000, row.rough_unit)}
                       </td>
                       <td className="text-right font-medium tabular-nums">{formatWeight(row.total_scrap_g * 1000)}</td>
-                      <td className="text-right tabular-nums">{formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</td>
-                      <td className="text-right font-medium tabular-nums">{formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</td>
+                      <td className="text-right tabular-nums">{row.scrap_rate_per_kg === null ? "—" : formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</td>
+                      <td className="text-right font-medium tabular-nums">{row.scrap_value === null ? "—" : formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</td>
                       <td className="whitespace-nowrap">{formatDate(row.archived_at, "dd MMM yyyy", "en")}</td>
                     </tr>
                   ))}
@@ -139,8 +148,8 @@ function ArchiveCard({ row }: { row: WeightScrapArchiveRow }) {
         <dt>Sent Qty (recorded)</dt><dd>{qty(row.sent_qty_at_save)}</dd>
         <dt>Scrap / pc</dt><dd>{formatWeightIn(row.scrap_weight_g * 1000, row.rough_unit)}</dd>
         <dt>Total scrap</dt><dd className="font-medium">{formatWeight(row.total_scrap_g * 1000)}</dd>
-        <dt>Rate / kg</dt><dd>{formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</dd>
-        <dt>Scrap value</dt><dd className="font-medium">{formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</dd>
+        <dt>Rate / kg</dt><dd>{row.scrap_rate_per_kg === null ? "—" : formatRupeesFromPaise(Math.round(row.scrap_rate_per_kg * 100))}</dd>
+        <dt>Scrap value</dt><dd className="font-medium">{row.scrap_value === null ? "—" : formatRupeesFromPaise(Math.round(row.scrap_value * 100))}</dd>
       </dl>
     </div>
   );

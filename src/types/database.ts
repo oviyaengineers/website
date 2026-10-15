@@ -349,14 +349,14 @@ export type DcLineWeightRow = {
   finished_unit: "g" | "kg";
   /** Recorded rough − finished, in grams. Worked out by the database. */
   scrap_weight_g: number;
-  /** Rupees per kg, typed by an admin. */
-  scrap_rate_per_kg: number;
+  /** Rupees per kg, entered separately by an admin after weights are recorded. */
+  scrap_rate_per_kg: number | null;
   /** The Sent Qty the totals use: the line's Sent Qty when recorded, or when last accepted. */
   sent_qty_at_save: number;
   /** Scrap per piece × Sent at save, in grams. Worked out by the database. */
   total_scrap_g: number;
   /** Total scrap in kg × rate, in rupees. Worked out by the database. */
-  scrap_value: number;
+  scrap_value: number | null;
   sent_qty_accepted_at: string | null;
   sent_qty_accepted_by: string | null;
   created_by: string | null;
@@ -386,9 +386,9 @@ export type WeightScrapArchiveRow = {
   finished_weight_g: number;
   finished_unit: "g" | "kg";
   scrap_weight_g: number;
-  scrap_rate_per_kg: number;
+  scrap_rate_per_kg: number | null;
   total_scrap_g: number;
-  scrap_value: number;
+  scrap_value: number | null;
   recorded_at: string;
   archived_at: string;
   archived_by: string | null;

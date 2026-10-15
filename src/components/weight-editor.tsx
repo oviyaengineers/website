@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AlertTriangle, Settings2, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { WeightStatusBadge } from "@/components/weight-status-badge";
 import { saveWeightsAction, type WeightLineInput } from "@/lib/actions/weight";
 import { formatDate } from "@/lib/i18n/dates";
@@ -16,27 +15,14 @@ import {
   formatWeight,
   formatWeightIn,
   NOT_CONFIGURED_TEXT,
-  RATE_PROBLEM_TEXT,
-  rateText,
   scrapFigures,
   SENT_CHANGED_TEXT,
-  toPaisePerKg,
-  validateRate,
-  type RateProblem,
 } from "@/lib/weight";
 
-type Draft = { rateText: string; accept: boolean; remove: boolean };
+type Draft = { accept: boolean; remove: boolean };
 
-function initialDraft(line: WeightLine): Draft {
-  return {
-    rateText: line.recorded
-      ? rateText(line.recorded.ratePaisePerKg / 100)
-      : line.master?.ratePaisePerKg != null
-        ? rateText(line.master.ratePaisePerKg / 100)
-        : "",
-    accept: false,
-    remove: false,
-  };
+function initialDraft(): Draft {
+  return { accept: false, remove: false };
 }
 
 /** What saving this line would do, or null when nothing changed. */
@@ -44,16 +30,6 @@ function changeFor(line: WeightLine, draft: Draft): WeightLineInput | null {
   if (line.recorded) {
     if (draft.remove) return { dcItemId: line.itemId, kind: "remove" };
     if (draft.accept) return { dcItemId: line.itemId, kind: "acceptSentQty" };
-    if (
-      toPaisePerKg(draft.rateText) === line.recorded.ratePaisePerKg &&
-      validateRate(draft.rateText) === null
-    ) {
-      return null;
-    }
-    return { dcItemId: line.itemId, kind: "rate", rateText: draft.rateText };
-  }
-  if (line.master && draft.rateText.trim() !== "") {
-    return { dcItemId: line.itemId, kind: "rate", rateText: draft.rateText };
   }
   return null;
 }
@@ -63,12 +39,10 @@ const qty = (value: number) => value.toLocaleString("en-IN", { maximumFractionDi
 /**
  * Weight / Scrap for every line of one DC.
  *
- * Weights are never typed here: a line not yet recorded shows the active
- * master for its Component + Material, and recording copies those weights. A
- * recorded line shows exactly what was recorded. The admin enters only the
- * scrap rate, accepts a changed Sent Qty, or removes a record. Changed lines
- * are saved together in one database transaction, and the database checks
- * every rule again.
+ * Weights are never typed here: a line shows its recorded snapshot or the
+ * active master for its Component + Material. The displayed scrap rate comes
+ * from its approved date range. Admins can accept a changed Sent Qty or remove
+ * a record; rate changes are entered by date range in Scrap Rates.
  */
 export function WeightEditor({
   dcId,
@@ -82,11 +56,10 @@ export function WeightEditor({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const initial = useMemo(
-    () => new Map(lines.map((line) => [line.itemId, initialDraft(line)])),
+    () => new Map(lines.map((line) => [line.itemId, initialDraft()])),
     [lines]
   );
   const [drafts, setDrafts] = useState<Map<string, Draft>>(() => new Map(initial));
-  const [attempted, setAttempted] = useState(false);
 
   function update(itemId: string, patch: Partial<Draft>) {
     setDrafts((current) => {
@@ -101,20 +74,9 @@ export function WeightEditor({
     .filter(
       (entry): entry is { line: WeightLine; change: WeightLineInput } => entry.change !== null
     );
-  const problemFor = (line: WeightLine): RateProblem | null => {
-    const change = changeFor(line, drafts.get(line.itemId)!);
-    return change?.kind === "rate" ? validateRate(change.rateText) : null;
-  };
-  const invalid = changes.filter(({ line }) => problemFor(line) !== null);
-
   function save() {
-    setAttempted(true);
     if (changes.length === 0) {
       toast.info("Nothing to save.");
-      return;
-    }
-    if (invalid.length > 0) {
-      toast.error("Fix the highlighted scrap rates first.");
       return;
     }
     startTransition(async () => {
@@ -131,7 +93,6 @@ export function WeightEditor({
           ? `Saved. ${result.removed === 1 ? "1 record" : `${result.removed} records`} removed.`
           : "Weight / Scrap saved."
       );
-      setAttempted(false);
       router.refresh();
     });
   }
@@ -141,14 +102,10 @@ export function WeightEditor({
       {lines.map((line, index) => {
         const draft = drafts.get(line.itemId)!;
         const change = changeFor(line, draft);
-        const problem = problemFor(line);
-        const showProblem = problem !== null && (attempted || draft.rateText.trim() !== "");
         return (
           <section
             key={line.itemId}
-            className={`space-y-3 rounded-lg border p-3 sm:p-4 ${
-              showProblem ? "border-destructive/60" : change ? "border-[#10233f]/40" : ""
-            }`}
+            className={`space-y-3 rounded-lg border p-3 sm:p-4 ${change ? "border-[#10233f]/40" : ""}`}
           >
             <header className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
@@ -166,7 +123,6 @@ export function WeightEditor({
                 line={line}
                 draft={draft}
                 canEdit={canEdit}
-                problem={showProblem ? problem : null}
                 onChange={(patch) => update(line.itemId, patch)}
               />
             )}
@@ -245,13 +201,11 @@ function LineBody({
   line,
   draft,
   canEdit,
-  problem,
   onChange,
 }: {
   line: WeightLine;
   draft: Draft;
   canEdit: boolean;
-  problem: RateProblem | null;
   onChange: (patch: Partial<Draft>) => void;
 }) {
   const r = line.recorded;
@@ -261,13 +215,13 @@ function LineBody({
   const finishedMg = r?.finishedMg ?? m?.finishedMg ?? 0;
   const scrapMg = r?.scrapPerPieceMg ?? m?.scrapPerPieceMg ?? 0;
   const sentUsed = r ? (draft.accept ? line.sentQty : r.sentQty) : line.sentQty;
+  const ratePaisePerKg = r?.ratePaisePerKg ?? m?.ratePaisePerKg ?? null;
 
-  const typedRate = validateRate(draft.rateText) === null ? toPaisePerKg(draft.rateText) : null;
-  const rateUnchanged = r !== null && typedRate === r.ratePaisePerKg && !draft.accept;
-  // Unchanged recorded lines show the stored figures exactly; anything else is a preview.
-  const figures = rateUnchanged
+  // A DC's approved date range supplies the rate when no rate was saved on its
+  // recorded snapshot. Accepting a new Sent Qty recalculates against that rate.
+  const figures = r && !draft.accept
     ? { totalScrapMg: r.totalScrapMg, totalValuePaise: r.valuePaise }
-    : scrapFigures(roughMg, finishedMg, sentUsed, typedRate);
+    : scrapFigures(roughMg, finishedMg, sentUsed, ratePaisePerKg);
 
   if (r && draft.remove) {
     return (
@@ -305,9 +259,7 @@ function LineBody({
                 type="checkbox"
                 className="h-4 w-4"
                 checked={draft.accept}
-                onChange={(e) =>
-                  onChange({ accept: e.target.checked, rateText: rateText(r.ratePaisePerKg / 100) })
-                }
+                onChange={(e) => onChange({ accept: e.target.checked })}
               />
               Use the current Sent Qty ({qty(line.sentQty)}) for this record, keeping its recorded
               weights
@@ -332,29 +284,28 @@ function LineBody({
       <p className="text-xs text-muted-foreground">
         {r
           ? "Recorded weights. They never change, even if the Weight/Scrap Master is edited later."
-          : "From the active Weight/Scrap Master. Saving with a scrap rate records these weights for this line."}
+          : "From the active Weight/Scrap Master. Rates are set by material and DC date range."}
       </p>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {canEdit ? (
-          <label className="col-span-2 space-y-1 sm:col-span-1">
-            <span className="block text-xs text-muted-foreground">Scrap rate (₹/kg)</span>
-            <Input
-              inputMode="decimal"
-              value={draft.rateText}
-              disabled={draft.accept}
-              aria-invalid={problem !== null || undefined}
-              placeholder={r ? "" : "Enter to record"}
-              onChange={(e) => onChange({ rateText: e.target.value })}
-              className="h-11 tabular-nums sm:h-9"
-            />
-          </label>
-        ) : (
+        <div>
           <Readout
             label="Scrap rate"
-            value={r ? `${formatRupeesFromPaise(r.ratePaisePerKg)} / kg` : "—"}
+            value={
+              ratePaisePerKg === null
+                ? "—"
+                : `${formatRupeesFromPaise(ratePaisePerKg)} / kg`
+            }
           />
-        )}
+          {canEdit && (
+            <Link
+              href="/dashboard/settings/scrap-rates"
+              className="mt-1 inline-block text-xs text-[#10233f] underline underline-offset-2 dark:text-sky-300"
+            >
+              Set rate by dates
+            </Link>
+          )}
+        </div>
         <Readout label="Total scrap" value={formatWeight(figures.totalScrapMg)} strong />
         <Readout
           label="Scrap value"
@@ -364,8 +315,6 @@ function LineBody({
           strong
         />
       </div>
-      {problem && <p className="text-sm text-destructive">{RATE_PROBLEM_TEXT[problem]}</p>}
-
       {canEdit && r && (
         <Button
           type="button"
