@@ -183,7 +183,7 @@ export function formatInvoiceNumber(series: {
   padding: number;
   next_serial: number;
 }): string {
-  return `${series.prefix}${series.fy_label}/${String(series.next_serial).padStart(series.padding, "0")}`;
+  return `${series.prefix}-${series.fy_label}/${String(series.next_serial).padStart(series.padding, "0")}`;
 }
 
 /**

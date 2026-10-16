@@ -87,14 +87,14 @@ test("amounts are written in the Indian numbering system", () => {
   );
 });
 
-test("invoice number preview is INV/26-27/001", () => {
+test("invoice number preview supports the selected prefix and year separators", () => {
   assert.equal(
-    formatInvoiceNumber({ prefix: "INV/", fy_label: "26-27", padding: 3, next_serial: 1 }),
-    "INV/26-27/001"
+    formatInvoiceNumber({ prefix: "INV", fy_label: "26-27", padding: 3, next_serial: 1 }),
+    "INV-26-27/001"
   );
   assert.equal(
-    formatInvoiceNumber({ prefix: "INV/", fy_label: "26-27", padding: 3, next_serial: 12 }),
-    "INV/26-27/012"
+    formatInvoiceNumber({ prefix: "bill", fy_label: "26/27", padding: 4, next_serial: 67 }),
+    "bill-26/27/0067"
   );
 });
 
@@ -173,19 +173,19 @@ test("a normal bill (GST Bill OFF) adds no CGST, SGST or IGST", async () => {
 });
 
 test("a numbering reset lands on the first number not already on an invoice", () => {
-  const bills = { prefix: "BILL/", fy_label: "26-27", padding: 3, next_serial: 1 };
+  const bills = { prefix: "BILL", fy_label: "26-27", padding: 3, next_serial: 1 };
   // Nothing used: the reset number itself.
-  assert.equal(nextFreeInvoiceNumber(bills, new Set()), "BILL/26-27/001");
+  assert.equal(nextFreeInvoiceNumber(bills, new Set()), "BILL-26-27/001");
   // 001 is on a cancelled bill, so the next bill is 002; a gap later is kept.
   assert.equal(
-    nextFreeInvoiceNumber(bills, new Set(["BILL/26-27/001", "BILL/26-27/002", "BILL/26-27/004"])),
-    "BILL/26-27/003"
+    nextFreeInvoiceNumber(bills, new Set(["BILL-26-27/001", "BILL-26-27/002", "BILL-26-27/004"])),
+    "BILL-26-27/003"
   );
   // A new year starts clean even when last year's numbers are used.
   assert.equal(
-    nextFreeInvoiceNumber({ ...bills, fy_label: "27-28" }, new Set(["BILL/26-27/001"])),
-    "BILL/27-28/001"
+    nextFreeInvoiceNumber({ ...bills, fy_label: "27-28" }, new Set(["BILL-26-27/001"])),
+    "BILL-27-28/001"
   );
   // The other series never blocks this one.
-  assert.equal(nextFreeInvoiceNumber(bills, new Set(["INV/26-27/001"])), "BILL/26-27/001");
+  assert.equal(nextFreeInvoiceNumber(bills, new Set(["INV-26-27/001"])), "BILL-26-27/001");
 });

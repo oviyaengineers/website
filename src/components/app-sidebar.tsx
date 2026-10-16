@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   BarChart3,
@@ -21,11 +22,13 @@ import {
   ListChecks,
   LogOut,
   Receipt,
+  Search,
   ScanLine,
   Send,
   Settings,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +45,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/lib/actions/auth";
@@ -292,7 +296,21 @@ export function AppSidebar({
   const searchParams = useSearchParams();
   const { t } = useI18n();
   const { isMobile, setOpenMobile } = useSidebar();
+  const [menuQuery, setMenuQuery] = useState("");
   const groups = NAV.filter((group) => !group.adminOnly || role === "admin");
+  const normalizedMenuQuery = menuQuery.trim().toLocaleLowerCase();
+  const visibleGroups = groups
+    .map((group) => {
+      if (!normalizedMenuQuery) return group;
+      const groupMatches = t(group.labelKey).toLocaleLowerCase().includes(normalizedMenuQuery);
+      const items = groupMatches
+        ? group.items
+        : group.items.filter((item) =>
+            t(item.labelKey).toLocaleLowerCase().includes(normalizedMenuQuery)
+          );
+      return { ...group, items };
+    })
+    .filter((group) => group.items.length > 0);
   const active = activeHref(
     pathname,
     new URLSearchParams(searchParams.toString()),
@@ -326,7 +344,29 @@ export function AppSidebar({
           hides the scroll bar, so there was no sign more entries sat below.
           sidebar-scroll brings back a slim bar (globals.css). */}
       <SidebarContent className="sidebar-scroll">
-        {groups.map((group) => (
+        <div className="sticky top-0 z-10 bg-sidebar px-2 pb-2 pt-1">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-3 left-3 h-4 w-4 text-slate-400" />
+            <Input
+              value={menuQuery}
+              onChange={(event) => setMenuQuery(event.target.value)}
+              placeholder={t("nav.searchMenu")}
+              aria-label={t("nav.searchMenu")}
+              className="h-10 border-white/15 bg-white/5 pl-9 pr-9 text-sm text-white placeholder:text-slate-400 focus-visible:border-amber-400 focus-visible:ring-amber-400/30"
+            />
+            {menuQuery && (
+              <button
+                type="button"
+                aria-label={t("common.clearSearch")}
+                onClick={() => setMenuQuery("")}
+                className="absolute top-1 right-1 flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        {visibleGroups.length ? visibleGroups.map((group) => (
           <SidebarGroup key={group.labelKey}>
             <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -377,7 +417,9 @@ export function AppSidebar({
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-        ))}
+        )) : (
+          <p className="px-4 py-6 text-center text-sm text-slate-400">{t("common.noResults")}</p>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <div className="flex items-center gap-2 px-2 py-1.5">

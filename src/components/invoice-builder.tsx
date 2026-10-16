@@ -85,9 +85,9 @@ export function InvoiceBuilder({
   missingCompany: string[];
   /** Company details any bill needs that are not entered yet. */
   missingCompanyAll: string[];
-  /** Next GST tax invoice number (INV/ series), not yet consumed. */
+  /** Next GST tax invoice number, not yet consumed. */
   nextInvoiceNumber: string | null;
-  /** Next normal bill number (BILL/ series), not yet consumed. */
+  /** Next normal bill number, not yet consumed. */
   nextBillNumber: string | null;
   preselectDcId: string | null;
   /** Company details as they would print now, for the A4 preview. */

@@ -212,7 +212,7 @@ export type InvoiceRow = {
   created_at: string;
   /** The calendar month billed, always its first day (0026). */
   billing_month: string;
-  /** GST Bill ON (tax invoice, INV/) or OFF (normal bill, BILL/). Fixed once issued (0027). */
+  /** GST Bill ON (tax invoice) or OFF (normal bill). The issued number stays fixed (0027). */
   gst_bill: boolean;
   /** issued or cancelled (0025). A cancelled invoice keeps its number. */
   status: InvoiceStatus;
@@ -480,7 +480,7 @@ export type DcLineWeightHistoryRow = {
   changed_at: string;
 };
 
-/** One row per series: GST tax invoices and normal bills never share numbers (0027). */
+/** One row per configurable series: GST tax invoices and normal bills (0027, 0031). */
 export type InvoiceNumberSeriesRow = {
   kind: "gst" | "non_gst";
   prefix: string;

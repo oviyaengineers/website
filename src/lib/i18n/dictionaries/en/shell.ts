@@ -40,6 +40,7 @@ export const common = {
 
 export const nav = {
   menu: "Menu",
+  searchMenu: "Search menu...",
   dashboard: "Dashboard",
   dc: "DC",
   newDcManual: "New DC - Manual",

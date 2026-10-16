@@ -11,10 +11,9 @@ import type { InvoiceNumberSeriesRow } from "@/types/database";
 
 /**
  * Where one series goes next: GST tax invoices or normal bills. Separate from
- * DC numbering and from each other. The next serial and the year can be reset
- * at any time; the prefix (INV/ or BILL/) stays fixed. Numbers already on an
- * invoice are never rewritten and are skipped if reached again, and the
- * preview shows the number the next one will really get.
+ * DC numbering and from each other. Each series has its own prefix, year,
+ * serial and digit count. Numbers already on an invoice are never rewritten
+ * and are skipped if reached again, and the preview shows the next free one.
  */
 export function InvoiceNumberSettingsForm({
   series,
@@ -25,6 +24,7 @@ export function InvoiceNumberSettingsForm({
   used: string[];
 }) {
   const [state, formAction, pending] = useActionState(saveInvoiceSeriesAction, { error: null });
+  const [prefix, setPrefix] = useState(series.prefix);
   const [fyLabel, setFyLabel] = useState(series.fy_label);
   const [padding, setPadding] = useState(series.padding);
   const [nextSerial, setNextSerial] = useState(series.next_serial);
@@ -42,13 +42,14 @@ export function InvoiceNumberSettingsForm({
   const usedSet = useMemo(() => new Set(used), [used]);
   const id = (name: string) => `${series.kind}-${name}`;
   const typed = {
-    prefix: series.prefix,
+    prefix,
     fy_label: fyLabel,
     padding: Number.isFinite(padding) && padding > 0 ? padding : 3,
     next_serial: Number.isFinite(nextSerial) && nextSerial > 0 ? nextSerial : 1,
   };
   const asTyped = formatInvoiceNumber(typed);
   const preview = nextFreeInvoiceNumber(typed, usedSet);
+  const resetPreview = nextFreeInvoiceNumber({ ...typed, next_serial: 1 }, usedSet);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -56,8 +57,15 @@ export function InvoiceNumberSettingsForm({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
           <Label htmlFor={id("prefix")}>Prefix</Label>
-          <Input id={id("prefix")} value={series.prefix} readOnly disabled />
-          <p className="text-xs text-muted-foreground">Fixed for this series.</p>
+          <Input
+            id={id("prefix")}
+            name="prefix"
+            value={prefix}
+            maxLength={16}
+            pattern="[A-Za-z0-9]{1,16}"
+            onChange={(e) => setPrefix(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Letters or numbers; a hyphen is added after it.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor={id("fy_label")}>Financial year</Label>
@@ -67,7 +75,7 @@ export function InvoiceNumberSettingsForm({
             value={fyLabel}
             onChange={(e) => setFyLabel(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">For example 26-27, or 27-28 from April.</p>
+          <p className="text-xs text-muted-foreground">For example 26-27 or 26/27.</p>
         </div>
         <div className="space-y-2">
           <Label htmlFor={id("next_serial")}>Next serial</Label>
@@ -106,9 +114,30 @@ export function InvoiceNumberSettingsForm({
         ) : null}
       </div>
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      <Button type="submit" disabled={pending} className="bg-[#10233f] hover:bg-[#10233f]/90">
-        {pending ? "Saving..." : "Save numbering"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={pending} className="bg-[#10233f] hover:bg-[#10233f]/90">
+          {pending ? "Saving..." : "Save numbering"}
+        </Button>
+        <Button
+          type="submit"
+          name="reset_to_one"
+          value="true"
+          variant="outline"
+          disabled={pending}
+          onClick={(event) => {
+            const confirmed = window.confirm(
+              `Reset ${label} numbering from ${resetPreview}? Existing bills will keep their current numbers. Any number already used will be skipped.`
+            );
+            if (!confirmed) {
+              event.preventDefault();
+              return;
+            }
+            setNextSerial(1);
+          }}
+        >
+          Reset series
+        </Button>
+      </div>
     </form>
   );
 }

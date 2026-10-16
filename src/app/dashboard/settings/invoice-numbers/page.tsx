@@ -27,8 +27,11 @@ export default async function InvoiceNumberSettingsPage() {
         <h1 className="text-2xl font-semibold">Invoice Numbers</h1>
         <p className="text-sm text-muted-foreground">
           Two independent series, both separate from DC numbering. A number is only used when an
-          invoice or bill is issued, and an issued or cancelled one keeps its number forever. Reset
-          the next serial or the year whenever you need; a number already used is skipped.
+          invoice or bill is issued, and an issued or cancelled one keeps its number forever. Set
+          the prefix, financial-year style, next serial and digit count. For example, BILL with
+          26-27 and 3 digits becomes BILL-26-27/001; 26/27 and serial 67 with 4 digits becomes
+          BILL-26/27/0067.
+          Resetting or changing a series never changes old bills; numbers already used are skipped.
         </p>
       </div>
       {SERIES.map(({ kind, title, note }) => {

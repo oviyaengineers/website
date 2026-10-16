@@ -2,8 +2,9 @@ import Link from "next/link";
 import Form from "next/form";
 import type { Metadata } from "next";
 import { format } from "date-fns";
-import { ClipboardList, Plus, Printer, X } from "lucide-react";
+import { ClipboardList, Plus, Printer, RotateCcw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,11 +46,12 @@ export default async function InvoicesPage({
 }) {
   const filters = clean(await searchParams);
   const supabase = await createClient();
-  const [invoices, { data: customers }, { data: picklist }, allMonths] = await Promise.all([
+  const [invoices, { data: customers }, { data: picklist }, allMonths, { profile }] = await Promise.all([
     fetchInvoiceList(filters),
     supabase.from("customers").select("name").order("name"),
     supabase.from("dc_picklist_items").select("name, kind").order("name"),
     fetchMonthSummaries({ billingMonth: filters.billingMonth }),
+    getCurrentUserAndProfile(),
   ]);
   const months = allMonths.filter(
     (m) =>
@@ -75,6 +77,14 @@ export default async function InvoicesPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2 [&>*]:h-11 sm:[&>*]:h-8">
+          {profile?.role === "admin" && (
+            <Button
+              render={<Link href="/dashboard/settings/invoice-numbers" />}
+              variant="outline"
+            >
+              <RotateCcw className="h-4 w-4" /> Reset bill no.
+            </Button>
+          )}
           <Button render={<Link href="/dashboard/invoices/unbilled" />} variant="outline">
             <ClipboardList className="h-4 w-4" /> Unbilled work
           </Button>

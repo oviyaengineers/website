@@ -42,6 +42,7 @@ export const common: Dictionary["common"] = {
 
 export const nav: Dictionary["nav"] = {
   menu: "மெனு",
+  searchMenu: "மெனுவில் தேடுங்கள்...",
   dashboard: "முகப்பு",
   dc: "DC",
   newDcManual: "புதிய DC - கைமுறை",

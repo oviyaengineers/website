@@ -218,9 +218,10 @@ export async function saveCompanySettingsAction(
 
 /**
  * Where one series goes next: GST tax invoices or normal bills. The next
- * serial and the year can be reset whenever needed; the prefix is fixed, so
- * the two series can never produce the same number. Issued and cancelled
- * numbers are never rewritten, and the database steps past them if reached.
+ * prefix, year, serial and padding are configurable. Prefixes are distinct,
+ * and the formatter separates them from the year, so the series cannot
+ * overlap. Issued and cancelled numbers are never rewritten, and the database
+ * steps past them if reached.
  */
 export async function saveInvoiceSeriesAction(
   _prev: SettingsFormState,
@@ -231,11 +232,21 @@ export async function saveInvoiceSeriesAction(
   if (locked) return { error: locked };
   const kind = String(formData.get("kind") ?? "");
   if (kind !== "gst" && kind !== "non_gst") return { error: "Choose which series to change." };
+  const prefix = String(formData.get("prefix") ?? "").trim();
   const fyLabel = String(formData.get("fy_label") ?? "").trim();
   const padding = Number(formData.get("padding") ?? 3);
-  const nextSerial = Number(formData.get("next_serial") ?? 1);
-  if (!fyLabel || !/^[A-Za-z0-9-]{2,12}$/.test(fyLabel)) {
-    return { error: "Enter the financial year, for example 26-27." };
+  const nextSerial = formData.get("reset_to_one") === "true"
+    ? 1
+    : Number(formData.get("next_serial") ?? 1);
+  if (!/^[A-Za-z0-9]{1,16}$/.test(prefix)) {
+    return { error: "Use 1 to 16 letters or numbers for the series prefix." };
+  }
+  if (
+    fyLabel.length < 2 ||
+    fyLabel.length > 12 ||
+    !/^[A-Za-z0-9]+(?:[-/][A-Za-z0-9]+)*$/.test(fyLabel)
+  ) {
+    return { error: "Enter the financial year, for example 26-27 or 26/27." };
   }
   if (!Number.isInteger(padding) || padding < 1 || padding > 8) {
     return { error: "Serial digits must be between 1 and 8." };
@@ -250,6 +261,7 @@ export async function saveInvoiceSeriesAction(
   const { data, error } = await supabase
     .from("invoice_number_series")
     .update({
+      prefix,
       fy_label: fyLabel,
       padding,
       next_serial: nextSerial,
