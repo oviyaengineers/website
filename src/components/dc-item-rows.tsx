@@ -63,6 +63,34 @@ export function isBlankDcItemRow(row: DcItemRow): boolean {
 /** A small caption above a field on a phone; the column heading serves on a laptop. */
 const PHONE_LABEL = "text-[11px] font-medium text-muted-foreground sm:hidden";
 
+/** A default zero clears on focus, while an empty field still means zero. */
+function DcQuantityInput({
+  name,
+  value,
+  onValueChange,
+}: {
+  name: string;
+  value: number;
+  onValueChange: (value: number) => void;
+}) {
+  return (
+    <Input
+      name={name}
+      type="number"
+      min="0"
+      step="any"
+      value={value}
+      onFocus={(event) => {
+        if (value === 0) event.currentTarget.value = "";
+      }}
+      onChange={(event) => onValueChange(Number(event.target.value))}
+      onBlur={(event) => {
+        if (event.currentTarget.value === "") event.currentTarget.value = "0";
+      }}
+    />
+  );
+}
+
 export function DcItemRows({
   rows,
   onRowsChange,
@@ -224,43 +252,28 @@ export function DcItemRows({
                   </div>
                   <div className="space-y-1">
                     <Label className={PHONE_LABEL}>{t("dc.qty.sent")}</Label>
-                    <Input
+                    <DcQuantityInput
                       name="item_sent_qty"
-                      type="number"
-                      min="0"
-                      step="any"
                       value={row.sent_qty}
-                      onChange={(e) => updateRow(row.key, { sent_qty: Number(e.target.value) })}
+                      onValueChange={(sent_qty) => updateRow(row.key, { sent_qty })}
                     />
                   </div>
                   <div className="space-y-1">
                     <Label className={PHONE_LABEL}>{t("dc.qty.matProblem")}</Label>
-                    <Input
+                    <DcQuantityInput
                       name="item_material_problem_qty"
-                      type="number"
-                      min="0"
-                      step="any"
                       value={row.material_problem_qty}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          material_problem_qty: Number(e.target.value),
-                        })
+                      onValueChange={(material_problem_qty) =>
+                        updateRow(row.key, { material_problem_qty })
                       }
                     />
                   </div>
                   <div className="space-y-1">
                     <Label className={PHONE_LABEL}>{t("dc.qty.rejection")}</Label>
-                    <Input
+                    <DcQuantityInput
                       name="item_rejection_qty"
-                      type="number"
-                      min="0"
-                      step="any"
                       value={row.rejection_qty}
-                      onChange={(e) =>
-                        updateRow(row.key, {
-                          rejection_qty: Number(e.target.value),
-                        })
-                      }
+                      onValueChange={(rejection_qty) => updateRow(row.key, { rejection_qty })}
                     />
                   </div>
                 </div>
