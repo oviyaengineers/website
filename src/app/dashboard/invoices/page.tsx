@@ -8,6 +8,7 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { PaymentStatusBadge } from "@/components/status-badge";
 import { BillTypeBadge, InvoiceStatusBadge, MonthStatusBadge } from "@/components/billing-badges";
 import { fetchInvoiceList, fetchMonthSummaries, type InvoiceFilters } from "@/lib/billing-data";
@@ -145,18 +146,15 @@ export default async function InvoicesPage({
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Component</label>
-          <select
+          <SearchableSelect
             name="component"
-            defaultValue={filters.component ?? ""}
+            options={components}
+            defaultValue={filters.component ?? null}
+            searchPlaceholder="Search components..."
+            allLabel="All components"
             className={`${selectClass} w-56`}
-          >
-            <option value="">All components</option>
-            {components.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+            ariaLabel="Component"
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Material</label>

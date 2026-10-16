@@ -2,13 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Boxes } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { useI18n } from "@/components/i18n-provider";
 
 /**
@@ -28,37 +22,23 @@ export function ComponentPicker({
 }) {
   const router = useRouter();
   const { t } = useI18n();
-  // Selected by name, navigated by id. The trigger renders whatever the value
-  // is, so keying on the id printed the uuid where the part name belongs.
-  const byName = new Map(components.map((c) => [c.name, c.id]));
-  const currentName = components.find((c) => c.id === current)?.name ?? null;
+  const currentName = current ?? null;
 
   return (
     <div className="flex items-center gap-2">
       <Boxes className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <Select
+      <SearchableSelect
+        options={components.map((component) => ({ label: component.name, value: component.id }))}
         value={currentName}
-        onValueChange={(name) => {
-          const id = name ? byName.get(name) : null;
+        onChange={(id) => {
           if (id) router.push(`/dashboard/dc/component/${id}`);
         }}
-      >
-        <SelectTrigger className="w-full data-[size=default]:h-11 sm:w-[28rem] sm:data-[size=default]:h-8">
-          <SelectValue placeholder={t("dcViews.chooseComponent")} />
-        </SelectTrigger>
-        <SelectContent>
-          {components.length === 0 && (
-            <div className="px-2 py-1.5 text-sm text-muted-foreground">
-              {t("dcViews.noComponents")}
-            </div>
-          )}
-          {components.map((component) => (
-            <SelectItem key={component.id} value={component.name}>
-              {component.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        searchPlaceholder={t("dcForm.searchComponents")}
+        emptyText={t("dcViews.noComponents")}
+        placeholder={t("dcViews.chooseComponent")}
+        className="min-h-11 w-full sm:w-[28rem]"
+        ariaLabel={t("common.component")}
+      />
     </div>
   );
 }

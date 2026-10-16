@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { BillingStatusBadge } from "@/components/billing-badges";
 import { fetchBillableLines, type BillableFilters } from "@/lib/billing-data";
 import { formatBillingMonth, parseMonthInput } from "@/lib/billing";
@@ -135,18 +136,15 @@ export default async function UnbilledWorkPage({
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Component</label>
-          <select
+          <SearchableSelect
             name="component"
-            defaultValue={filters.component ?? ""}
+            options={components}
+            defaultValue={filters.component ?? null}
+            searchPlaceholder="Search components..."
+            allLabel="All components"
             className={`${selectClass} w-56`}
-          >
-            <option value="">All components</option>
-            {components.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+            ariaLabel="Component"
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Material</label>

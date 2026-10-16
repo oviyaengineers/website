@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Card, CardContent } from "@/components/ui/card";
 import { CombinedDcPicker, type PickerDc } from "@/components/combined-dc-picker";
 import { componentNameIndex, componentNameOf } from "@/lib/dc-components";
@@ -147,14 +148,15 @@ export default async function CombinedDcPrintPage({
         </label>
         <label className="space-y-1 text-sm">
           <span className="font-medium">{t("dcCombined.component")}</span>
-          <select name="component" defaultValue={componentFilter} className={SELECT}>
-            <option value="">{t("dcCombined.all")}</option>
-            {componentOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            name="component"
+            options={componentOptions}
+            defaultValue={componentFilter || null}
+            searchPlaceholder="Search components..."
+            allLabel={t("dcCombined.all")}
+            className={SELECT}
+            ariaLabel={t("dcCombined.component")}
+          />
         </label>
         <label className="space-y-1 text-sm">
           <span className="font-medium">{t("dcCombined.material")}</span>

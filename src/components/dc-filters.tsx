@@ -3,6 +3,7 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 
@@ -134,18 +135,15 @@ export function DcFilters({
       {components.length > 0 && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">{t("common.component")}</label>
-          <select
-            className="w-full max-w-[18rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs sm:w-56"
-            value={defaults.component ?? ""}
-            onChange={(e) => update("component", e.target.value)}
-          >
-            <option value="">{t("common.all")}</option>
-            {components.map((component) => (
-              <option key={component} value={component}>
-                {component}
-              </option>
-            ))}
-          </select>
+          <SearchableSelect
+            options={components}
+            value={defaults.component || null}
+            onChange={(value) => update("component", value ?? "")}
+            searchPlaceholder={t("dcForm.searchComponents")}
+            allLabel={t("common.all")}
+            className="min-h-11 w-full max-w-[18rem] sm:w-56"
+            ariaLabel={t("common.component")}
+          />
         </div>
       )}
       {materials.length > 0 && (

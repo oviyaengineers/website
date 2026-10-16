@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/searchable-select";
 import { CustomerStatementTable, StatementRateNote } from "@/components/customer-statement-table";
 import {
   fetchCustomerStatement,
@@ -88,19 +89,16 @@ export default async function CustomerStatementPage({
             </div>
             <div className="space-y-2">
               <Label htmlFor="component">Component</Label>
-              <select
+              <SearchableSelect
                 id="component"
                 name="component"
-                defaultValue={filters?.componentId ?? ""}
-                className="h-11 w-full rounded-md border bg-background px-3 text-sm sm:h-9"
-              >
-                <option value="">All components</option>
-                {components.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                options={components.map((c) => ({ label: c.name, value: c.id }))}
+                defaultValue={filters?.componentId ?? null}
+                searchPlaceholder="Search components..."
+                allLabel="All components"
+                className="min-h-11 w-full"
+                ariaLabel="Component"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="from">From Date</Label>

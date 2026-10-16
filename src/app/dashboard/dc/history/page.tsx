@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { shortCustomerName } from "@/lib/customer-name";
 import {
   HISTORY_DATE_SOURCE_KEYS,
@@ -176,19 +177,16 @@ export default async function DcHistoryPage({
           <label htmlFor="history-component" className="text-xs text-muted-foreground">
             {t("common.component")}
           </label>
-          <select
+          <SearchableSelect
             id="history-component"
             name="component"
-            defaultValue={filters.component ?? ""}
-            className="rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-          >
-            <option value="">{t("common.allComponents")}</option>
-            {componentNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+            options={componentNames}
+            defaultValue={filters.component ?? null}
+            searchPlaceholder={t("dcForm.searchComponents")}
+            allLabel={t("common.allComponents")}
+            className="min-h-11 w-full"
+            ariaLabel={t("common.component")}
+          />
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
           <Button type="submit" className="h-11 flex-1 sm:h-9 sm:flex-none">

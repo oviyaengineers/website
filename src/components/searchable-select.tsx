@@ -19,6 +19,10 @@ export function SearchableSelect({
   options,
   value,
   onChange,
+  defaultValue = null,
+  name,
+  allLabel,
+  id,
   placeholder,
   searchPlaceholder,
   emptyText,
@@ -28,9 +32,15 @@ export function SearchableSelect({
   className,
   ariaLabel,
 }: {
-  options: string[];
-  value: string | null;
-  onChange: (value: string | null) => void;
+  options: (string | { label: string; value: string })[];
+  value?: string | null;
+  onChange?: (value: string | null) => void;
+  defaultValue?: string | null;
+  /** Include the selected value in a native form submission. */
+  name?: string;
+  /** Adds an option that clears the selection, such as "All components". */
+  allLabel?: string;
+  id?: string;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -44,6 +54,12 @@ export function SearchableSelect({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const selectedValue = value === undefined ? internalValue : value;
+  const selectValue = (next: string | null) => {
+    if (value === undefined) setInternalValue(next);
+    onChange?.(next);
+  };
 
   const filtered = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -51,12 +67,23 @@ export function SearchableSelect({
     // Every typed word must appear, in any order: "cf8m 40fb" finds
     // "3P DN40FB/50RB CF8M Body Casting REV 2".
     return options.filter((option) => {
-      const hay = option.toLowerCase();
+      const hay = (typeof option === "string" ? option : option.label).toLowerCase();
       return words.every((word) => hay.includes(word));
     });
   }, [options, query]);
 
+  const selectedOption = options.find((option) =>
+    (typeof option === "string" ? option : option.value) === selectedValue
+  );
+  const selectedLabel = selectedOption
+    ? typeof selectedOption === "string"
+      ? selectedOption
+      : selectedOption.label
+    : null;
+
   return (
+    <>
+    {name ? <input type="hidden" name={name} value={selectedValue ?? ""} /> : null}
     <Popover
       open={open}
       onOpenChange={(next) => {
@@ -69,6 +96,7 @@ export function SearchableSelect({
         render={
           <Button
             type="button"
+            id={id}
             variant="outline"
             aria-label={ariaLabel}
             className={cn(
@@ -79,8 +107,8 @@ export function SearchableSelect({
           />
         }
       >
-        <span className={cn("min-w-0 break-words", !value && "text-muted-foreground")}>
-          {value || (placeholder ?? t("dcForm.select"))}
+        <span className={cn("min-w-0 break-words", !selectedLabel && "text-muted-foreground")}>
+          {selectedLabel || (placeholder ?? t("dcForm.select"))}
         </span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
@@ -96,16 +124,29 @@ export function SearchableSelect({
           />
         </div>
         <div className="max-h-64 overflow-y-auto p-1">
-          {allowClear && value && (
+          {allowClear && selectedValue && (
             <button
               type="button"
               onClick={() => {
-                onChange(null);
+                selectValue(null);
                 setOpen(false);
               }}
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
             >
               {t("common.clear")}
+            </button>
+          )}
+          {allLabel && (
+            <button
+              type="button"
+              onClick={() => {
+                selectValue(null);
+                setOpen(false);
+              }}
+              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <Check className={cn("mt-0.5 h-4 w-4 shrink-0", !selectedValue ? "opacity-100" : "opacity-0")} />
+              {allLabel}
             </button>
           )}
           {filtered.length === 0 && (
@@ -115,10 +156,10 @@ export function SearchableSelect({
           )}
           {filtered.map((option) => (
             <button
-              key={option}
+              key={typeof option === "string" ? option : option.value}
               type="button"
               onClick={() => {
-                onChange(option);
+                selectValue(typeof option === "string" ? option : option.value);
                 setOpen(false);
                 setQuery("");
               }}
@@ -127,14 +168,17 @@ export function SearchableSelect({
               <Check
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
-                  value === option ? "opacity-100" : "opacity-0"
+                  selectedValue === (typeof option === "string" ? option : option.value)
+                    ? "opacity-100"
+                    : "opacity-0"
                 )}
               />
-              {option}
+              {typeof option === "string" ? option : option.label}
             </button>
           ))}
         </div>
       </PopoverContent>
     </Popover>
+    </>
   );
 }

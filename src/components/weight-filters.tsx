@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/searchable-select";
 import { datePresetRange, presetFor, type DatePreset } from "@/lib/weight";
 import { WEIGHT_FILTER_KEYS, type WeightFilterValues } from "@/lib/weight-lines";
 
@@ -164,18 +165,15 @@ export function WeightFilters({
           </select>
         </Field>
         <Field label="Component">
-          <select
+          <SearchableSelect
+            options={components}
+            value={values.component || null}
+            onChange={(value) => apply({ component: value ?? "" })}
+            searchPlaceholder="Search components..."
+            allLabel="All components"
             className={SELECT}
-            value={values.component ?? ""}
-            onChange={(e) => apply({ component: e.target.value })}
-          >
-            <option value="">All components</option>
-            {components.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+            ariaLabel="Component"
+          />
         </Field>
         <Field label="Material">
           <select
