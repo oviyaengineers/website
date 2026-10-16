@@ -150,8 +150,8 @@ export default async function InvoicesPage({
             name="component"
             options={components}
             defaultValue={filters.component ?? null}
-            searchPlaceholder="Search components..."
-            allLabel="All components"
+            componentSearch
+            showAllOption
             className={`${selectClass} w-56`}
             ariaLabel="Component"
           />

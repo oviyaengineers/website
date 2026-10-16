@@ -6,6 +6,7 @@ import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/searchable-select";
+import { useI18n } from "@/components/i18n-provider";
 import { datePresetRange, presetFor, type DatePreset } from "@/lib/weight";
 import { WEIGHT_FILTER_KEYS, type WeightFilterValues } from "@/lib/weight-lines";
 
@@ -34,6 +35,7 @@ export function WeightFilters({
   components: string[];
   materials: string[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -169,8 +171,8 @@ export function WeightFilters({
             options={components}
             value={values.component || null}
             onChange={(value) => apply({ component: value ?? "" })}
-            searchPlaceholder="Search components..."
-            allLabel="All components"
+            searchPlaceholder={t("dcForm.searchComponents")}
+            allLabel={t("common.allComponents")}
             className={SELECT}
             ariaLabel="Component"
           />

@@ -152,7 +152,7 @@ export default async function CombinedDcPrintPage({
             name="component"
             options={componentOptions}
             defaultValue={componentFilter || null}
-            searchPlaceholder="Search components..."
+            searchPlaceholder={t("dcForm.searchComponents")}
             allLabel={t("dcCombined.all")}
             className={SELECT}
             ariaLabel={t("dcCombined.component")}

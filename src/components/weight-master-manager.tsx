@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/searchable-select";
+import { useI18n } from "@/components/i18n-provider";
 import {
   deleteWeightMasterAction,
   saveWeightMasterAction,
@@ -66,6 +67,7 @@ export function WeightMasterManager({
   materials: string[];
   canEdit: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -192,7 +194,7 @@ export function WeightMasterManager({
                   options={components.map((c) => c.name)}
                   value={form.component}
                   onChange={(component) => setForm({ ...form, component })}
-                  searchPlaceholder="Search components..."
+                  searchPlaceholder={t("dcForm.searchComponents")}
                   placeholder="Choose a component"
                   ariaLabel="Component"
                   invalid={attempted && !form.component}

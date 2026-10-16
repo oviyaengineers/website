@@ -94,8 +94,8 @@ export default async function CustomerStatementPage({
                 name="component"
                 options={components.map((c) => ({ label: c.name, value: c.id }))}
                 defaultValue={filters?.componentId ?? null}
-                searchPlaceholder="Search components..."
-                allLabel="All components"
+                componentSearch
+                showAllOption
                 className="min-h-11 w-full"
                 ariaLabel="Component"
               />

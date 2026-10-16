@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
+import { useI18n } from "@/components/i18n-provider";
 import { saveRateAction, deleteRateAction } from "@/lib/actions/billing";
 
 const NO_MATERIAL = "(no material)";
@@ -19,6 +20,7 @@ export function RateListForm({
   components: { id: string; name: string }[];
   materials: string[];
 }) {
+  const { t } = useI18n();
   const [state, formAction, pending] = useActionState(saveRateAction, { error: null });
   const [component, setComponent] = useState<string | null>(null);
   const [material, setMaterial] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function RateListForm({
           options={components.map((c) => c.name)}
           value={component}
           onChange={setComponent}
-          searchPlaceholder="Search components..."
+          searchPlaceholder={t("dcForm.searchComponents")}
           ariaLabel="Component"
         />
       </div>

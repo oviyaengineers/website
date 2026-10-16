@@ -22,6 +22,8 @@ export function SearchableSelect({
   defaultValue = null,
   name,
   allLabel,
+  showAllOption = false,
+  componentSearch = false,
   id,
   placeholder,
   searchPlaceholder,
@@ -40,6 +42,10 @@ export function SearchableSelect({
   name?: string;
   /** Adds an option that clears the selection, such as "All components". */
   allLabel?: string;
+  /** Uses the localized "all components" label for filter pickers. */
+  showAllOption?: boolean;
+  /** Uses the localized component-search prompt. */
+  componentSearch?: boolean;
   id?: string;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -52,6 +58,10 @@ export function SearchableSelect({
   ariaLabel?: string;
 }) {
   const { t } = useI18n();
+  const resolvedAllLabel = allLabel ?? (showAllOption ? t("common.allComponents") : undefined);
+  const resolvedSearchPlaceholder =
+    searchPlaceholder ??
+    (componentSearch ? t("dcForm.searchComponents") : t("dcForm.typeToSearch"));
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -120,7 +130,7 @@ export function SearchableSelect({
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
             autoFocus
-            placeholder={searchPlaceholder ?? t("dcForm.typeToSearch")}
+            placeholder={resolvedSearchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-11 border-0 px-0 shadow-none focus-visible:ring-0 sm:h-7"
@@ -139,7 +149,7 @@ export function SearchableSelect({
               {t("common.clear")}
             </button>
           )}
-          {allLabel && (
+          {resolvedAllLabel && (
             <button
               type="button"
               onClick={() => {
@@ -149,7 +159,7 @@ export function SearchableSelect({
               className="flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:min-h-9 sm:py-1.5"
             >
               <Check className={cn("mt-0.5 h-4 w-4 shrink-0", !selectedValue ? "opacity-100" : "opacity-0")} />
-              {allLabel}
+              {resolvedAllLabel}
             </button>
           )}
           {filtered.length === 0 && (
