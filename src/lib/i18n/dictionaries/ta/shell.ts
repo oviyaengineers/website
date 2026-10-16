@@ -54,6 +54,8 @@ export const nav: Dictionary["nav"] = {
   completedDcs: "முடிந்த DCகள்",
   weightScrap: "எடை / ஸ்கிராப்",
   dcHistory: "DC வரலாறு",
+  billingScrapReports: "பில்லிங் & ஸ்கிராப்",
+  billingScrapReport: "கால அறிக்கை",
   records: "பதிவுகள்",
   customers: "வாடிக்கையாளர்கள்",
   billing: "பில்லிங்",

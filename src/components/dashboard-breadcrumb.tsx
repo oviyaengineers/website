@@ -31,6 +31,7 @@ const SEGMENT_LABELS: Record<string, TranslationKey> = {
   invoices: "nav.billing",
   costs: "nav.costs",
   reports: "nav.reports",
+  "billing-scrap": "nav.billingScrapReport",
   outstanding: "nav.outstandingPayments",
   settings: "nav.settings",
   components: "nav.componentsMaterials",

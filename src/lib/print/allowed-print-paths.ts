@@ -47,6 +47,16 @@ export const PRINT_PAGES: Rule[] = [
     },
     kind: "Customer-Statement",
   },
+  {
+    pattern: /^\/dashboard\/reports\/billing-scrap\/print$/,
+    query: {
+      range: /^(month|dates)$/,
+      month: /^\d{4}-(0[1-9]|1[0-2])$/,
+      from: DATE,
+      to: DATE,
+    },
+    kind: "Billing-Scrap-Report",
+  },
 ];
 
 /** List prints take whatever filters their screen offers; values are checked, names are free. */

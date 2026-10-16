@@ -1116,6 +1116,43 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   }
 }
 
+.report-print-stage > .dc-list-print.billing-scrap-print {
+  width: 297mm;
+  min-height: 210mm;
+}
+.billing-scrap-print table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+}
+.billing-scrap-print th,
+.billing-scrap-print td {
+  border: 1px solid #555;
+  padding: 1.2mm 1.5mm;
+  vertical-align: top;
+}
+.billing-scrap-print tr {
+  break-inside: avoid;
+}
+@media print {
+  @page billing-scrap-a4 {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  .dc-list-print.billing-scrap-print,
+  body:has(.billing-scrap-print) {
+    page: billing-scrap-a4;
+  }
+  .report-print-stage > .dc-list-print.billing-scrap-print {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+  }
+  .billing-scrap-print thead {
+    display: table-header-group;
+  }
+}
+
 /* On screen the statement keeps readable columns; a phone scrolls across. */
 .customer-statement-screen .customer-statement-table {
   min-width: 60rem;

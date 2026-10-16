@@ -158,6 +158,17 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    labelKey: "nav.billingScrapReports",
+    items: [
+      {
+        href: "/dashboard/reports/billing-scrap",
+        labelKey: "nav.billingScrapReport",
+        icon: BarChart3,
+        color: "text-violet-300",
+      },
+    ],
+  },
+  {
     labelKey: "nav.records",
     items: [
       {

@@ -52,7 +52,13 @@ export function afterUnlockPath(module: LockedModule, next: string | null | unde
   const home = MODULE_ROUTES[module][0];
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return home;
   const pathname = next.split(/[?#]/)[0];
-  return moduleForPath(pathname) === module ? next : home;
+  // The read-only combined report requires both PINs. It belongs to Billing
+  // in the middleware, then asks for Weight / Scrap before showing its data.
+  const sharedReportPath = "/dashboard/reports/billing-scrap";
+  const isSharedReport = pathname === sharedReportPath || pathname === `${sharedReportPath}/print`;
+  return moduleForPath(pathname) === module || isSharedReport
+    ? next
+    : home;
 }
 
 /** The unlock screen for a module, remembering the page that was asked for. */

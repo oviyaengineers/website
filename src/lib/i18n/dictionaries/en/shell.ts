@@ -52,6 +52,8 @@ export const nav = {
   completedDcs: "Completed DCs",
   weightScrap: "Weight / Scrap",
   dcHistory: "DC History",
+  billingScrapReports: "Billing & Scrap",
+  billingScrapReport: "Period Report",
   records: "Records",
   customers: "Customers",
   billing: "Billing",
