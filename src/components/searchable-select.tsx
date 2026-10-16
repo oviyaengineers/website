@@ -100,7 +100,7 @@ export function SearchableSelect({
             variant="outline"
             aria-label={ariaLabel}
             className={cn(
-              "h-auto min-h-8 w-full justify-between whitespace-normal py-1.5 text-left font-normal",
+              "h-auto min-h-11 w-full justify-between whitespace-normal py-2 text-left font-normal sm:min-h-8 sm:py-1.5",
               invalid && "border-destructive text-destructive",
               className
             )}
@@ -112,7 +112,10 @@ export function SearchableSelect({
         </span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
-      <PopoverContent className="w-[--anchor-width] min-w-[16rem] p-0" align="start">
+      <PopoverContent
+        className="w-[--anchor-width] min-w-[16rem] max-w-[calc(100vw-2rem)] p-0"
+        align="start"
+      >
         <div className="flex items-center gap-2 border-b px-3 py-2">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
@@ -120,7 +123,7 @@ export function SearchableSelect({
             placeholder={searchPlaceholder ?? t("dcForm.typeToSearch")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-7 border-0 px-0 shadow-none focus-visible:ring-0"
+            className="h-11 border-0 px-0 shadow-none focus-visible:ring-0 sm:h-7"
           />
         </div>
         <div className="max-h-64 overflow-y-auto p-1">
@@ -131,7 +134,7 @@ export function SearchableSelect({
                 selectValue(null);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent"
+              className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-muted-foreground hover:bg-accent sm:min-h-9 sm:py-1.5"
             >
               {t("common.clear")}
             </button>
@@ -143,7 +146,7 @@ export function SearchableSelect({
                 selectValue(null);
                 setOpen(false);
               }}
-              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:min-h-9 sm:py-1.5"
             >
               <Check className={cn("mt-0.5 h-4 w-4 shrink-0", !selectedValue ? "opacity-100" : "opacity-0")} />
               {allLabel}
@@ -163,7 +166,7 @@ export function SearchableSelect({
                 setOpen(false);
                 setQuery("");
               }}
-              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+              className="flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground sm:min-h-9 sm:py-1.5"
             >
               <Check
                 className={cn(
