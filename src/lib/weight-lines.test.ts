@@ -22,6 +22,7 @@ function row(over: Partial<DcWeightLineRow>): DcWeightLineRow {
     material: "EN8",
     sort_order: 0,
     sent_qty: 500,
+    rejection_qty: 0,
     weight_state: "not_configured",
     weight_id: null,
     weight_master_id: null,
@@ -75,7 +76,7 @@ test("no active master: not configured, and no weights at all", () => {
   assert.equal(line.recorded, null);
 });
 
-test("an active master: pending, with scrap worked out on the DC's Sent Qty", () => {
+test("an active master: pending, with scrap worked out on Sent Qty plus Rejection Qty", () => {
   const line = weightLineFromRow(row(PENDING));
   assert.equal(line.status, "pending");
   assert.equal(line.master?.scrapPerPieceMg, 200_000);
@@ -83,7 +84,7 @@ test("an active master: pending, with scrap worked out on the DC's Sent Qty", ()
   assert.equal(line.recorded, null);
 });
 
-test("a recorded line shows exactly what was stored", () => {
+test("a recorded line uses its saved Sent Qty plus current Rejection Qty", () => {
   const line = weightLineFromRow(row(RECORDED));
   assert.equal(line.status, "recorded");
   assert.equal(line.recorded?.roughMg, 1_200_000);
@@ -91,6 +92,12 @@ test("a recorded line shows exactly what was stored", () => {
   assert.equal(line.recorded?.valuePaise, 800_000, "₹8,000");
   assert.equal(line.recorded?.ratePaisePerKg, 8000);
   assert.equal(line.master, null, "a recorded line never shows the current master");
+});
+
+test("a rejection quantity adds its scrap and value to an existing recorded line", () => {
+  const line = weightLineFromRow(row({ ...RECORDED, rejection_qty: 2 }));
+  assert.equal(line.recorded?.totalScrapMg, 100_400_000, "0.2 kg × (500 sent + 2 rejected)");
+  assert.equal(line.recorded?.valuePaise, 803_200, "₹8,032");
 });
 
 test("a changed Sent Qty is flagged and the recorded totals stay", () => {
@@ -114,6 +121,7 @@ const lines: WeightLine[] = [
       customer_name: "Other Ltd",
       ...RECORDED,
       sent_qty: 480,
+      rejection_qty: 2,
       sent_qty_changed: true,
     })
   ),
@@ -138,7 +146,7 @@ test("DC no, customer, component, material, dates and search", () => {
   assert.equal(ids(filterWeightLines(lines, { q: "bracket" })), "c");
 });
 
-test("totals count only what was recorded, as recorded", () => {
+test("totals include recorded scrap, pending estimates, and rejection quantities", () => {
   const totals = summarizeWeightLines(lines);
   assert.equal(totals.lines, 4);
   assert.equal(totals.recordedLines, 2);
@@ -146,6 +154,6 @@ test("totals count only what was recorded, as recorded", () => {
   assert.equal(totals.notConfiguredLines, 1);
   assert.equal(totals.sentChangedLines, 1);
   assert.equal(totals.recordedQty, 1000, "both recorded with 500");
-  assert.equal(totals.totalScrapMg, 200_000_000);
-  assert.equal(totals.totalValuePaise, 1_600_000);
+  assert.equal(totals.totalScrapMg, 300_400_000);
+  assert.equal(totals.totalValuePaise, 1_603_200);
 });
