@@ -448,6 +448,7 @@ export type DcWeightLineRow = {
   material: string | null;
   sort_order: number;
   sent_qty: number;
+  rejection_qty: number;
   weight_state: "recorded" | "pending" | "not_configured";
   weight_id: string | null;
   weight_master_id: string | null;

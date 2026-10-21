@@ -26,6 +26,8 @@ export type WeightLine = {
   material: string | null;
   /** This line's own Sent Qty, read from the challan. Never entered here. */
   sentQty: number;
+  /** Current rejection quantity; included with Sent Qty when calculating scrap. */
+  rejectionQty: number;
   sortOrder: number;
   status: WeightStatus;
   /** What was recorded, exactly as stored. */
@@ -64,6 +66,7 @@ export function weightLineFromRow(
   effectiveRatePaisePerKg: number | null = null
 ): WeightLine {
   const sentQty = Number(row.sent_qty) || 0;
+  const rejectionQty = Number(row.rejection_qty) || 0;
   const isRecorded = row.weight_state === "recorded" && row.weight_id !== null;
   const recordedRatePaisePerKg = isRecorded
     ? row.scrap_rate_per_kg === null
@@ -78,11 +81,16 @@ export function weightLineFromRow(
         scrapPerPieceMg: gramsToMilligrams(row.recorded_scrap_g ?? 0),
         sentQty: Number(row.sent_qty_at_save) || 0,
         ratePaisePerKg: recordedRatePaisePerKg,
-        totalScrapMg: gramsToMilligrams(row.total_scrap_g ?? 0),
+        totalScrapMg: scrapFigures(
+          gramsToMilligrams(row.recorded_rough_g ?? 0),
+          gramsToMilligrams(row.recorded_finished_g ?? 0),
+          (Number(row.sent_qty_at_save) || 0) + rejectionQty,
+          recordedRatePaisePerKg
+        ).totalScrapMg,
         valuePaise: scrapFigures(
           gramsToMilligrams(row.recorded_rough_g ?? 0),
           gramsToMilligrams(row.recorded_finished_g ?? 0),
-          Number(row.sent_qty_at_save) || 0,
+          (Number(row.sent_qty_at_save) || 0) + rejectionQty,
           recordedRatePaisePerKg
         ).totalValuePaise,
         recordedAt: row.recorded_at,
@@ -92,7 +100,7 @@ export function weightLineFromRow(
   if (!isRecorded && row.weight_state === "pending" && row.master_id) {
     const roughMg = gramsToMilligrams(row.master_rough_g ?? 0);
     const finishedMg = gramsToMilligrams(row.master_finished_g ?? 0);
-    const figures = scrapFigures(roughMg, finishedMg, sentQty, null);
+    const figures = scrapFigures(roughMg, finishedMg, sentQty + rejectionQty, null);
     master = {
       id: row.master_id,
       unit: unitOf(row.master_unit),
@@ -119,6 +127,7 @@ export function weightLineFromRow(
     component: row.component,
     material: row.material,
     sentQty,
+    rejectionQty,
     sortOrder: row.sort_order,
     status,
     recorded,
@@ -207,7 +216,7 @@ export type WeightTotals = {
   totalValuePaise: number | null;
 };
 
-/** Totals of what has been recorded, as recorded. Pending lines add nothing. */
+/** Totals of the filtered lines, using Sent Qty + Rejection Qty for scrap. */
 export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
   const totals: WeightTotals = {
     lines: lines.length,
@@ -224,12 +233,15 @@ export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
     if (line.status === "pending") totals.pendingLines += 1;
     if (line.status === "notConfigured") totals.notConfiguredLines += 1;
     if (line.status === "sentChanged") totals.sentChangedLines += 1;
-    if (!line.recorded) continue;
-    totals.recordedLines += 1;
-    qtyHundredths += Math.round(line.recorded.sentQty * 100);
-    totals.totalScrapMg += line.recorded.totalScrapMg;
-    if (line.recorded.valuePaise !== null) {
-      totals.totalValuePaise = (totals.totalValuePaise ?? 0) + line.recorded.valuePaise;
+    if (line.recorded) {
+      totals.recordedLines += 1;
+      qtyHundredths += Math.round(line.recorded.sentQty * 100);
+      totals.totalScrapMg += line.recorded.totalScrapMg;
+      if (line.recorded.valuePaise !== null) {
+        totals.totalValuePaise = (totals.totalValuePaise ?? 0) + line.recorded.valuePaise;
+      }
+    } else if (line.master) {
+      totals.totalScrapMg += line.master.totalScrapMg;
     }
   }
   totals.recordedQty = qtyHundredths / 100;

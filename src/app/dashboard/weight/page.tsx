@@ -120,7 +120,11 @@ export default async function WeightPage({
                   : "As recorded"
               }
             />
-            <Figure label="Total scrap (recorded)" value={formatWeight(totals.totalScrapMg)} />
+            <Figure
+              label="Total scrap"
+              value={formatWeight(totals.totalScrapMg)}
+              note={totals.pendingLines > 0 ? "Includes pending estimates from the Weight/Scrap Master" : undefined}
+            />
             <Figure
               label="Scrap value (recorded)"
               value={
@@ -155,6 +159,7 @@ export default async function WeightPage({
                       <th>Component</th>
                       <th>Material</th>
                       <th className="text-right">Sent Qty</th>
+                      <th className="text-right">Rejection Qty</th>
                       <th className="text-right">Rough / pc</th>
                       <th className="text-right">Finished / pc</th>
                       <th className="text-right">Scrap / pc</th>
@@ -194,6 +199,7 @@ export default async function WeightPage({
                               </div>
                             )}
                           </td>
+                          <td className="text-right tabular-nums">{qty(line.rejectionQty)}</td>
                           {line.status === "notConfigured" ? (
                             <td colSpan={6} className="text-amber-800 dark:text-amber-300">
                               {NOT_CONFIGURED_TEXT}
@@ -261,7 +267,7 @@ function lineCells(line: WeightLine) {
     const valuePaise = scrapFigures(
       m.roughMg,
       m.finishedMg,
-      line.sentQty,
+      line.sentQty + line.rejectionQty,
       m.ratePaisePerKg
     ).totalValuePaise;
     return {
@@ -305,6 +311,8 @@ function LineCard({ line }: { line: WeightLine }) {
         <dd>{line.material ?? "—"}</dd>
         <dt>Sent Qty</dt>
         <dd className="font-medium">{qty(line.sentQty)}</dd>
+        <dt>Rejection Qty</dt>
+        <dd className="font-medium">{qty(line.rejectionQty)}</dd>
         {line.status !== "notConfigured" && (
           <>
             <dt>Rough / pc</dt>
