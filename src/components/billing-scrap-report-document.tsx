@@ -50,10 +50,9 @@ export function BillingScrapReportDocument({
         </p>
       </header>
 
-      <section aria-label="Period totals" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <section aria-label="Period totals" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
         <Summary label="Completed DCs" value={qty(report.completedDcs)} />
         <Summary label="DC work value" value={money(report.totalDcValue)} />
-        <Summary label="Issued invoices" value={qty(report.invoices.length)} note={money(report.invoiceTotal)} />
         <Summary label="Recorded scrap" value={kilograms(report.recordedScrapMg)} />
         <Summary
           label="Scrap value"
