@@ -8,7 +8,7 @@ export const dcViews = {
     "Nothing is completed yet. A line appears here once its sent, material problem and rejection quantities together match what came in.",
   completedLines: "Completed lines",
   sentBack: "Sent back",
-  mpRejection: "Material problem / rejection",
+  mpRejection: "Mat. Rej / Rej/withoutprocess",
   completedLineCountOne: "1 completed line",
   completedLineCount: "{count} completed lines",
   completedPrintTitle: "Print Completed DCs",

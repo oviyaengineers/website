@@ -11,7 +11,7 @@ export const dcViews: Dictionary["dcViews"] = {
     "இன்னும் எதுவும் முடியவில்லை. அனுப்பியது, பொருள் குறைபாடு, நிராகரிப்பு அளவுகள் சேர்ந்து பெற்றதற்குச் சமமானதும் வரிசை இங்கே தோன்றும்.",
   completedLines: "முடிந்த வரிசைகள்",
   sentBack: "திருப்பி அனுப்பியது",
-  mpRejection: "பொருள் குறைபாடு / நிராகரிப்பு",
+  mpRejection: "பொருள் நிராகரிப்பு / செயல்முறை இல்லா நிராகரிப்பு",
   completedLineCountOne: "1 முடிந்த வரிசை",
   completedLineCount: "{count} முடிந்த வரிசைகள்",
   completedPrintTitle: "முடிந்த DCகளை அச்சிடு",
