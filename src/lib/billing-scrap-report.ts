@@ -56,6 +56,11 @@ export type BillingScrapLine = {
   state: "Recorded" | "Sent Qty changed" | "Archived" | "Not recorded";
 };
 
+export type BillingScrapMaterialTotal = {
+  totalScrapMg: number;
+  valuePaise: number | null;
+};
+
 export type BillingScrapReport = {
   dcs: BillingScrapDc[];
   completedDcs: number;
@@ -66,6 +71,10 @@ export type BillingScrapReport = {
   scrapLines: BillingScrapLine[];
   recordedScrapMg: number;
   scrapValuePaise: number | null;
+  scrapByMaterial: {
+    ms: BillingScrapMaterialTotal;
+    cf8m: BillingScrapMaterialTotal;
+  };
   unpricedScrapLines: number;
 };
 
@@ -232,6 +241,17 @@ export async function fetchBillingScrapReport(
   );
   const recordedScrap = scrapLines.filter((line) => line.totalScrapMg !== null);
   const pricedScrap = recordedScrap.filter((line) => line.valuePaise !== null);
+  const sumScrapGroup = (matches: (material: string) => boolean): BillingScrapMaterialTotal => {
+    const lines = recordedScrap.filter((line) => line.material !== null && matches(line.material.trim().toLowerCase()));
+    const pricedLines = lines.filter((line) => line.valuePaise !== null);
+    return {
+      totalScrapMg: lines.reduce((sum, line) => sum + (line.totalScrapMg ?? 0), 0),
+      valuePaise:
+        pricedLines.length === 0
+          ? null
+          : pricedLines.reduce((sum, line) => sum + (line.valuePaise ?? 0), 0),
+    };
+  };
 
   return {
     dcs,
@@ -246,6 +266,11 @@ export async function fetchBillingScrapReport(
       pricedScrap.length === 0
         ? null
         : pricedScrap.reduce((sum, line) => sum + (line.valuePaise ?? 0), 0),
+    scrapByMaterial: {
+      ms: sumScrapGroup((material) => material === "ms" || material === "a105" || material === "wcb"),
+      cf8m: sumScrapGroup((material) => material === "cf8m"),
+    },
     unpricedScrapLines: recordedScrap.filter((line) => line.valuePaise === null).length,
   };
 }
+

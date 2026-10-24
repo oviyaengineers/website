@@ -57,6 +57,31 @@ export function BillingScrapReportDocument({
         />
       </section>
 
+      <section aria-label="Recorded scrap by material" className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-md border border-neutral-300 p-3">
+          <h2 className="text-sm font-bold">MS</h2>
+          <p className="mb-2 text-xs text-neutral-600">Includes A105 and WCB</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Summary label="Recorded weight" value={kilograms(report.scrapByMaterial.ms.totalScrapMg)} />
+            <Summary
+              label="Recorded value"
+              value={report.scrapByMaterial.ms.valuePaise === null ? "—" : formatRupeesFromPaise(report.scrapByMaterial.ms.valuePaise)}
+            />
+          </div>
+        </div>
+        <div className="rounded-md border border-neutral-300 p-3">
+          <h2 className="text-sm font-bold">Cf8m</h2>
+          <p className="mb-2 text-xs text-neutral-600">Recorded scrap</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Summary label="Recorded weight" value={kilograms(report.scrapByMaterial.cf8m.totalScrapMg)} />
+            <Summary
+              label="Recorded value"
+              value={report.scrapByMaterial.cf8m.valuePaise === null ? "—" : formatRupeesFromPaise(report.scrapByMaterial.cf8m.valuePaise)}
+            />
+          </div>
+        </div>
+      </section>
+
       {report.unratedDcLines > 0 ? (
         <p className="text-xs text-neutral-700">
           {report.unratedDcLines} DC line(s) have no matching Rate List entry; their value is excluded.
@@ -203,3 +228,4 @@ function Summary({ label, value, note }: { label: string; value: string; note?: 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-md border border-dashed p-3 text-xs text-neutral-600">{children}</p>;
 }
+
