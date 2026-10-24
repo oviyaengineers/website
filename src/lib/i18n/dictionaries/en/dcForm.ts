@@ -19,6 +19,8 @@ export const dcForm = {
     "{onDraft} of that is already on a draft follow-up, so up to {bookable} can go on this one.",
   enterOutgoing:
     "Enter what is going out on this challan. The received quantity stays on the original, so the same pieces are never counted twice.",
+  materialProblemLabel: "Mat. Rej",
+  rejectionLabel: "Rej/withoutprocess",
   ourDcNumber: "Our DC Number",
   assignedOnSave: "Assigned on save",
   dateRequired: "Date *",

@@ -144,8 +144,8 @@ export function DcItemRows({
                 under this heading is what is left to send. */}
             <span>{everyRowContinues ? t("dc.qty.pending") : t("dc.qty.received")}</span>
             <span>{t("dc.qty.sent")}</span>
-            <span>{t("dcDetail.materialProblem")}</span>
-            <span>{t("dc.qty.rejection")}</span>
+            <span>{t("dcForm.materialProblemLabel")}</span>
+            <span>{t("dcForm.rejectionLabel")}</span>
             <span>{t("dc.qty.total")}</span>
             <span>{t("dc.qty.balance")}</span>
             <span />
@@ -259,7 +259,7 @@ export function DcItemRows({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className={PHONE_LABEL}>{t("dc.qty.matProblem")}</Label>
+                    <Label className={PHONE_LABEL}>{t("dcForm.materialProblemLabel")}</Label>
                     <DcQuantityInput
                       name="item_material_problem_qty"
                       value={row.material_problem_qty}
@@ -269,7 +269,7 @@ export function DcItemRows({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className={PHONE_LABEL}>{t("dc.qty.rejection")}</Label>
+                    <Label className={PHONE_LABEL}>{t("dcForm.rejectionLabel")}</Label>
                     <DcQuantityInput
                       name="item_rejection_qty"
                       value={row.rejection_qty}
