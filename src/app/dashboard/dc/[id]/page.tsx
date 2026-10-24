@@ -261,8 +261,8 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                     : t("dcDetail.receivedQty")}
                 </TableHead>
                 <TableHead>{t("dcDetail.sentQty")}</TableHead>
-                <TableHead>{t("dcDetail.materialProblem")}</TableHead>
-                <TableHead>{t("dc.qty.rejection")}</TableHead>
+                <TableHead>{t("dcForm.materialProblemLabel")}</TableHead>
+                <TableHead>{t("dcForm.rejectionLabel")}</TableHead>
                 <TableHead>{t("dc.qty.total")}</TableHead>
                 <TableHead>{t("dc.qty.balance")}</TableHead>
                 <TableHead />
@@ -496,8 +496,8 @@ export default async function DcDetailPage({ params }: { params: Promise<{ id: s
                   <TableHead>{t("common.component")}</TableHead>
                   <TableHead>{t("common.material")}</TableHead>
                   <TableHead className="text-right">{t("dc.qty.sent")}</TableHead>
-                  <TableHead className="text-right">{t("dc.qty.matProblem")}</TableHead>
-                  <TableHead className="text-right">{t("dc.qty.rejection")}</TableHead>
+                  <TableHead className="text-right">{t("dcForm.materialProblemLabel")}</TableHead>
+                  <TableHead className="text-right">{t("dcForm.rejectionLabel")}</TableHead>
                   <TableHead className="text-right">{t("dcDetail.remainingBalance")}</TableHead>
                   <TableHead>{t("common.status")}</TableHead>
                   <TableHead className="text-right">{t("common.actions")}</TableHead>
