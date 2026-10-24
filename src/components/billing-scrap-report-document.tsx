@@ -31,6 +31,10 @@ export function BillingScrapReportDocument({
   const dcLineCount = report.dcs.reduce((sum, dc) => sum + dc.lines.length, 0);
   const recordedScrapLines = report.scrapLines.filter((line) => line.totalScrapMg !== null).length;
   const pendingScrapLines = report.scrapLines.length - recordedScrapLines;
+  const totalIncome = report.totalDcValue + (report.scrapValuePaise ?? 0) / 100;
+  const totalIncomeNote = report.unpricedScrapLines
+    ? "DC work + priced scrap; unpriced scrap excluded"
+    : "DC work + recorded scrap value";
 
   return (
     <article className="dc-list-print billing-scrap-print space-y-4 bg-white p-4 text-black">
@@ -46,7 +50,7 @@ export function BillingScrapReportDocument({
         </p>
       </header>
 
-      <section aria-label="Period totals" className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <section aria-label="Period totals" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <Summary label="Completed DCs" value={qty(report.completedDcs)} />
         <Summary label="DC work value" value={money(report.totalDcValue)} />
         <Summary label="Issued invoices" value={qty(report.invoices.length)} note={money(report.invoiceTotal)} />
@@ -55,6 +59,7 @@ export function BillingScrapReportDocument({
           label="Scrap value"
           value={report.scrapValuePaise === null ? "—" : formatRupeesFromPaise(report.scrapValuePaise)}
         />
+        <Summary label="Total Income" value={money(totalIncome)} note={totalIncomeNote} />
       </section>
 
       <section aria-label="Recorded scrap by material" className="grid gap-3 sm:grid-cols-2">
