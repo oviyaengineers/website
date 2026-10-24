@@ -202,7 +202,7 @@ export const dcPrint = {
   material: "Material",
   qty: "Qty",
   matProblem: "Mat. Rej",
-  rejection: "Rej/withoutprocess",
+  rejection: "W/O Pro",
   total: "Total",
   note: "Note",
   noteText: "Sent after machining",

@@ -12,7 +12,7 @@ export const dc = {
     sent: "Sent",
     matProblem: "Mat. Rej",
     materialProblem: "Mat. Rej",
-    rejection: "Rej/withoutprocess",
+    rejection: "W/O Pro",
     balance: "Balance",
     pending: "Pending",
     total: "Total",

@@ -20,7 +20,7 @@ export const dcForm = {
   enterOutgoing:
     "Enter what is going out on this challan. The received quantity stays on the original, so the same pieces are never counted twice.",
   materialProblemLabel: "Mat. Rej",
-  rejectionLabel: "Rej/withoutprocess",
+  rejectionLabel: "W/O Pro",
   ourDcNumber: "Our DC Number",
   assignedOnSave: "Assigned on save",
   dateRequired: "Date *",

@@ -70,7 +70,7 @@ export const dcHistory = {
   totalReceived: "Total received",
   totalSent: "Total sent",
   totalMaterialProblem: "Total Mat. Rej",
-  totalRejection: "Total Rej/withoutprocess",
+  totalRejection: "Total W/O Pro",
   totalBalance: "Total balance",
   totalsNote:
     "Sent, material problem and rejection are counted on the challan that made them. Balance counts each original lot once, however many of its follow-ups are listed, plus what is received on scanned DCs waiting for our challan.",
