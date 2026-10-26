@@ -26,7 +26,7 @@ export type WeightLine = {
   material: string | null;
   /** This line's own Sent Qty, read from the challan. Never entered here. */
   sentQty: number;
-  /** Current rejection quantity; included with Sent Qty when calculating scrap. */
+  /** Rejection quantity from this challan line; included with Sent Qty in scrap. */
   rejectionQty: number;
   sortOrder: number;
   status: WeightStatus;
@@ -216,7 +216,7 @@ export type WeightTotals = {
   totalValuePaise: number | null;
 };
 
-/** Totals of the filtered lines, using Sent Qty + Rejection Qty for scrap. */
+/** Totals for the filtered list: saved snapshots plus pending master estimates. */
 export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
   const totals: WeightTotals = {
     lines: lines.length,
@@ -241,6 +241,9 @@ export function summarizeWeightLines(lines: WeightLine[]): WeightTotals {
         totals.totalValuePaise = (totals.totalValuePaise ?? 0) + line.recorded.valuePaise;
       }
     } else if (line.master) {
+      // Pending lines already show a current master estimate in the list;
+      // include that same amount in the filtered total. Unconfigured lines
+      // have no weights and therefore cannot contribute a scrap quantity.
       totals.totalScrapMg += line.master.totalScrapMg;
     }
   }

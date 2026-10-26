@@ -123,7 +123,11 @@ export default async function WeightPage({
             <Figure
               label="Total scrap"
               value={formatWeight(totals.totalScrapMg)}
-              note={totals.pendingLines > 0 ? "Includes pending estimates from the Weight/Scrap Master" : undefined}
+              note={
+                totals.pendingLines > 0
+                  ? `Includes ${totals.pendingLines} pending ${totals.pendingLines === 1 ? "estimate" : "estimates"} from the Weight/Scrap Master`
+                  : undefined
+              }
             />
             <Figure
               label="Scrap value (recorded)"
@@ -267,7 +271,7 @@ function lineCells(line: WeightLine) {
     const valuePaise = scrapFigures(
       m.roughMg,
       m.finishedMg,
-      line.sentQty + line.rejectionQty,
+      line.sentQty,
       m.ratePaisePerKg
     ).totalValuePaise;
     return {
