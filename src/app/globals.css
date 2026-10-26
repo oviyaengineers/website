@@ -1252,6 +1252,11 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 
 /* Keep the table's darker horizontal rules, while making its two outside
    vertical edges the same dark ink from the heading through the blank rows. */
+.dc-print-sheet-single > .dc-print-items {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .dc-print-sheet-single .dc-print-items-table tr > :first-child {
   border-left-color: #111827 !important;
 }
