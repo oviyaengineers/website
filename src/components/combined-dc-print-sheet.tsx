@@ -210,7 +210,7 @@ function CombinedCopy({
         </div>
       </section>
 
-      <section className="dc-print-block dc-print-foot">
+      <section className="dc-print-foot">
         <div className="dc-print-fields">
           <PrintNoteField t={t} />
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>

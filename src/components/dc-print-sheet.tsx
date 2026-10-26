@@ -335,10 +335,8 @@ function DcCopy({
         </div>
       </section>
 
-      {/* The standing note and both signatures share one ruled strip, so the
-          foot of the challan reads as part of the same form rather than as
-          three separate cards. */}
-      <section className="dc-print-block dc-print-foot">
+      {/* The note and signature fields share one outer ruled line. */}
+      <section className="dc-print-foot">
         <div className="dc-print-fields">
           <PrintNoteField t={t} />
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>

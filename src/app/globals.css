@@ -213,6 +213,15 @@
   margin-bottom: 0 !important;
 }
 
+.dc-print-sheet .dc-print-foot {
+  border: 0;
+  padding: 0 !important;
+}
+
+.dc-print-sheet:not(.dc-print-sheet-full) .dc-print-foot .dc-print-cell-tall {
+  min-height: 16mm;
+}
+
 /* --- Delivery challan sheet, shared by screen and print ------------------
    These rules used to live inside @media print, so the screen showed the
    challan at its airy screen sizes while the printer got a far more compact
