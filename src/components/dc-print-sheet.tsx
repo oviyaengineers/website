@@ -128,7 +128,7 @@ export function PrintRejectionHeading({
   const slashIndex = label.indexOf("/");
   const hasCombinedLabel = slashIndex >= 0;
   const firstLabel = hasCombinedLabel
-    ? `${label.slice(0, slashIndex).trim()} /`
+    ? label.slice(0, slashIndex).trim()
     : standardRejectionLabel;
   const secondLabel = hasCombinedLabel ? label.slice(slashIndex + 1).trim() : label;
 
