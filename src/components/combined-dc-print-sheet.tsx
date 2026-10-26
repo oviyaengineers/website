@@ -2,6 +2,7 @@ import {
   PRINT_CELL,
   PrintField,
   PrintLetterhead,
+  PrintNoteField,
   PrintSignatoryField,
   PrintTableFiller,
 } from "@/components/dc-print-sheet";
@@ -211,15 +212,14 @@ function CombinedCopy({
 
       <section className="dc-print-block dc-print-foot">
         <div className="dc-print-fields">
-          <PrintField label={t("dcPrint.note")} span={4}>
-            {t("dcPrint.noteText")}
-          </PrintField>
+          <PrintNoteField t={t} />
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
           </PrintField>
-          <PrintSignatoryField authorizedBy={authorizedBy} t={t} />
+          <PrintSignatoryField authorizedBy={authorizedBy} />
         </div>
       </section>
     </div>
   );
 }
+

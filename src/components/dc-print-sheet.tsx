@@ -96,21 +96,23 @@ export function PrintField({
   );
 }
 
-/**
- * The company's signature box: "For OVIYA ENGINEERS" at the top, room to sign
- * (with the authorising person's name when there is one), and "Authorised
- * Signatory" at the foot, the way the invoice closes. The company name is
- * never translated. The box keeps the height of the receiver's box beside it.
- */
-export function PrintSignatoryField({ authorizedBy, t }: { authorizedBy: string; t: Translate }) {
+/** The company's signature box, with its label at the foot of the signing area. */
+export function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) {
   return (
     <div
       className="dc-print-cell dc-print-cell-tall dc-print-signatory"
       style={{ gridColumn: "span 2" }}
     >
-      <p className="dc-print-cell-label">For OVIYA ENGINEERS</p>
       <div className="dc-print-cell-value">{authorizedBy}</div>
-      <p className="dc-print-cell-label">{t("dcPrint.authorizedSignatory")}</p>
+      <p className="dc-print-cell-label">For OVIYA ENGINEERS</p>
+    </div>
+  );
+}
+
+export function PrintNoteField({ t }: { t: Translate }) {
+  return (
+    <div className="dc-print-cell dc-print-note-line" style={{ gridColumn: "span 4" }}>
+      <strong>{t("dcPrint.note")}:</strong> <strong>{t("dcPrint.noteText")}</strong>
     </div>
   );
 }
@@ -338,15 +340,14 @@ function DcCopy({
           three separate cards. */}
       <section className="dc-print-block dc-print-foot">
         <div className="dc-print-fields">
-          <PrintField label={t("dcPrint.note")} span={4}>
-            {t("dcPrint.noteText")}
-          </PrintField>
+          <PrintNoteField t={t} />
           <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
             {""}
           </PrintField>
-          <PrintSignatoryField authorizedBy={authorizedBy} t={t} />
+          <PrintSignatoryField authorizedBy={authorizedBy} />
         </div>
       </section>
     </div>
   );
 }
+

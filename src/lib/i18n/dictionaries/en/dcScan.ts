@@ -202,7 +202,7 @@ export const dcPrint = {
   material: "Material",
   qty: "Qty",
   matProblem: "Mat. Rej",
-  rejection: "W/O Pro",
+  rejection: "Rej / W/O Pro",
   total: "Total",
   note: "Note",
   noteText: "Sent after machining",
@@ -215,3 +215,4 @@ export const dcPrint = {
   pdfFailed: "The PDF could not be made. Please try again.",
   mobileDirectPrintHint: "Print opens a clean PDF. Use the PDF viewer's Print option.",
 };
+

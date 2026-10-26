@@ -1050,8 +1050,8 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   padding-bottom: 10mm;
 }
 
-/* The company's signature box: "For OVIYA ENGINEERS" at the top and
-   "Authorised Signatory" at the foot, with the room to sign between. */
+/* The company's signature box keeps the company label at the foot, with room
+   for an authorised person's name to sign above it. */
 .dc-print-signatory {
   display: flex;
   flex-direction: column;
@@ -1329,3 +1329,4 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .invoice-print-page .dc-print-company {
   font-size: 21px !important;
 }
+
