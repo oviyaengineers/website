@@ -3,6 +3,7 @@ import {
   PrintField,
   PrintLetterhead,
   PrintNoteField,
+  PrintRejectionHeading,
   PrintSignatoryField,
   PrintTableFiller,
 } from "@/components/dc-print-sheet";
@@ -182,7 +183,9 @@ function CombinedCopy({
                 <th className={`${CELL} text-center`}>{t("dcPrint.material")}</th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.qty")}</th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.matProblem")}</th>
-                <th className={`${CELL} text-center`}>{t("dcPrint.rejection")}</th>
+                <th className={`${CELL} text-center`}>
+                  <PrintRejectionHeading label={t("dcPrint.rejection")} />
+                </th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.total")}</th>
               </tr>
             </thead>
@@ -222,4 +225,3 @@ function CombinedCopy({
     </div>
   );
 }
-

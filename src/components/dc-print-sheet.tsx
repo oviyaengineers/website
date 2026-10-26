@@ -117,6 +117,20 @@ export function PrintNoteField({ t }: { t: Translate }) {
   );
 }
 
+/** Keep the W/O Pro abbreviation together on the line below "Rej /". */
+export function PrintRejectionHeading({ label }: { label: string }) {
+  const slashIndex = label.indexOf("/");
+  if (slashIndex < 0) return label;
+
+  return (
+    <>
+      <span>{label.slice(0, slashIndex + 1).trim()}</span>
+      <br />
+      <span className="whitespace-nowrap">{label.slice(slashIndex + 1).trim()}</span>
+    </>
+  );
+}
+
 /** The letterhead. Never translated. */
 export function PrintLetterhead({ originalLogoColors = false }: { originalLogoColors?: boolean }) {
   return (
@@ -309,7 +323,7 @@ function DcCopy({
                   {t("dcPrint.matProblem")}
                 </th>
                 <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
-                  {t("dcPrint.rejection")}
+                  <PrintRejectionHeading label={t("dcPrint.rejection")} />
                 </th>
                 <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
                   {t("dcPrint.total")}
@@ -348,4 +362,3 @@ function DcCopy({
     </div>
   );
 }
-
