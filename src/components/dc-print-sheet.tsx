@@ -117,17 +117,33 @@ export function PrintNoteField({ t }: { t: Translate }) {
   );
 }
 
-/** Keep the W/O Pro abbreviation together on the line below "Rej /". */
-export function PrintRejectionHeading({ label }: { label: string }) {
+/** Print two empty type boxes beside the rejection labels for marking by hand. */
+export function PrintRejectionHeading({
+  label,
+  standardRejectionLabel,
+}: {
+  label: string;
+  standardRejectionLabel: string;
+}) {
   const slashIndex = label.indexOf("/");
-  if (slashIndex < 0) return label;
+  const hasCombinedLabel = slashIndex >= 0;
+  const firstLabel = hasCombinedLabel
+    ? `${label.slice(0, slashIndex).trim()} /`
+    : standardRejectionLabel;
+  const secondLabel = hasCombinedLabel ? label.slice(slashIndex + 1).trim() : label;
 
   return (
-    <>
-      <span>{label.slice(0, slashIndex + 1).trim()}</span>
+    <span className="dc-print-rejection-heading">
+      <span className={`dc-print-rejection-option${hasCombinedLabel ? " whitespace-nowrap" : ""}`}>
+        <span aria-hidden="true" className="dc-print-type-checkbox" />
+        {firstLabel}
+      </span>
       <br />
-      <span className="whitespace-nowrap">{label.slice(slashIndex + 1).trim()}</span>
-    </>
+      <span className={`dc-print-rejection-option${hasCombinedLabel ? " whitespace-nowrap" : ""}`}>
+        <span aria-hidden="true" className="dc-print-type-checkbox" />
+        {secondLabel}
+      </span>
+    </span>
   );
 }
 
@@ -323,7 +339,10 @@ function DcCopy({
                   {t("dcPrint.matProblem")}
                 </th>
                 <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
-                  <PrintRejectionHeading label={t("dcPrint.rejection")} />
+                  <PrintRejectionHeading
+                    label={t("dcPrint.rejection")}
+                    standardRejectionLabel={t("dc.qty.rejection")}
+                  />
                 </th>
                 <th className={`${CELL} text-center`} style={{ backgroundColor: "#fff" }}>
                   {t("dcPrint.total")}

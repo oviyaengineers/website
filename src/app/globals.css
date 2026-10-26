@@ -1261,6 +1261,16 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   border-left-color: #111827 !important;
 }
 
+.dc-print-type-checkbox {
+  display: inline-block;
+  width: 2.2mm;
+  height: 2.2mm;
+  margin-right: 0.5mm;
+  border: 0.25mm solid currentColor;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
 .dc-print-sheet-single .dc-print-items-table tr > :last-child {
   border-right-color: #111827 !important;
 }

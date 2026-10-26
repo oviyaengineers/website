@@ -184,7 +184,10 @@ function CombinedCopy({
                 <th className={`${CELL} text-center`}>{t("dcPrint.qty")}</th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.matProblem")}</th>
                 <th className={`${CELL} text-center`}>
-                  <PrintRejectionHeading label={t("dcPrint.rejection")} />
+                  <PrintRejectionHeading
+                    label={t("dcPrint.rejection")}
+                    standardRejectionLabel={t("dc.qty.rejection")}
+                  />
                 </th>
                 <th className={`${CELL} text-center`}>{t("dcPrint.total")}</th>
               </tr>
