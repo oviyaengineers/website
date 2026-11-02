@@ -201,8 +201,14 @@ export async function fetchBillingScrapReport(
     total: Number(invoice.grand_total),
   }));
 
+  const archiveRows = (archiveResult.data ?? []) as WeightScrapArchiveRow[];
+  // A reset archives the exact weight-record ID before deleting it. If a live
+  // row with that same ID is still returned, count the archived snapshot once.
+  // A later re-record has a different weight ID and remains a separate line.
+  const archivedWeightIds = new Set(archiveRows.map((row) => row.source_weight_id));
   const activeScrap: BillingScrapLine[] = weightLines
     .filter((line) => line.dcDate >= from && line.dcDate <= to)
+    .filter((line) => !line.recorded || !archivedWeightIds.has(line.recorded.id))
     .map((line) => ({
       id: `live:${line.itemId}`,
       date: line.dcDate,
@@ -220,7 +226,7 @@ export async function fetchBillingScrapReport(
           : "Recorded"
         : "Not recorded",
     }));
-  const archivedScrap: BillingScrapLine[] = ((archiveResult.data ?? []) as WeightScrapArchiveRow[]).map(
+  const archivedScrap: BillingScrapLine[] = archiveRows.map(
     (row) => ({
       id: `archive:${row.id}`,
       date: row.dc_date,
