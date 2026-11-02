@@ -32,6 +32,7 @@ export type WeightLine = {
   status: WeightStatus;
   /** What was recorded, exactly as stored. */
   recorded: {
+    id: string;
     unit: WeightUnit;
     roughMg: number;
     finishedMg: number;
@@ -75,6 +76,7 @@ export function weightLineFromRow(
     : null;
   const recorded = isRecorded
     ? {
+        id: row.weight_id as string,
         unit: unitOf(row.recorded_unit),
         roughMg: gramsToMilligrams(row.recorded_rough_g ?? 0),
         finishedMg: gramsToMilligrams(row.recorded_finished_g ?? 0),
