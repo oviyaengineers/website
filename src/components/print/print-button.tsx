@@ -172,8 +172,44 @@ export function PrintButton({ label, english = false }: { label?: string; englis
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    window.open(href, "_blank", "noopener");
-  }, [firstCall, href]);
+    const popup = window.open("", "_blank");
+    if (!popup) {
+      // Keep the original behavior when the browser blocks a managed popup.
+      window.open(href, "_blank", "noopener");
+      return;
+    }
+
+    popup.opener = null;
+    popup.document.title = "Preparing print";
+    popup.document.body.style.cssText =
+      "margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f6f9;color:#172033;font:16px system-ui,sans-serif";
+    const message = popup.document.createElement("p");
+    message.textContent = "Preparing your document for printing…";
+    popup.document.body.replaceChildren(message);
+
+    void fetch(href, { credentials: "same-origin" })
+      .then(async (response) => {
+        const type = response.headers.get("Content-Type") ?? "";
+        if (!response.ok || !type.includes("application/pdf")) {
+          const detail = await failureText(response);
+          throw new Error(detail || t("dcPrint.pdfFailed"));
+        }
+        const pdf = await response.blob();
+        if (!pdf.size) throw new Error(t("dcPrint.pdfFailed"));
+        return pdf;
+      })
+      .then((pdf) => {
+        if (!popup.closed) popup.location.replace(URL.createObjectURL(pdf));
+      })
+      .catch((error: unknown) => {
+        if (popup.closed) return;
+        popup.document.title = "Print unavailable";
+        const detail = popup.document.createElement("p");
+        detail.setAttribute("role", "alert");
+        detail.textContent = error instanceof Error ? error.message : t("dcPrint.pdfFailed");
+        popup.document.body.replaceChildren(detail);
+      });
+  }, [firstCall, href, t]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

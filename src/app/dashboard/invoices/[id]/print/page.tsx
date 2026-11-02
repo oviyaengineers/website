@@ -78,6 +78,10 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       back={{ href: `/dashboard/invoices/${invoice.id}`, label: "Close", close: true }}
       english
     >
+      <style>{`@media print {
+        .invoice-print-page { break-inside: auto !important; page-break-inside: auto !important; }
+        .invoice-print-page.dc-print-copy-original { break-after: auto !important; page-break-after: auto !important; }
+      }`}</style>
       <div className="invoice-print-stage invoice-preview-stage">
         <InvoiceDocument data={data} />
       </div>
