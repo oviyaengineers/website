@@ -668,6 +668,37 @@
   line-height: 1.4;
 }
 
+.invoice-print-page.dc-print-copy-original {
+  --print-ink: #00843d;
+}
+
+.invoice-print-page.dc-print-copy-duplicate {
+  --print-ink: #10233f;
+}
+
+.invoice-copy-label {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: 1px solid currentColor;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.invoice-print-page .dc-print-logo img {
+  background-color: var(--print-ink);
+  -webkit-mask-image: url("/logo.png");
+  mask-image: url("/logo.png");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .invoice-preview-zoom-controls {
   display: flex;
   flex-wrap: wrap;
@@ -767,6 +798,21 @@
     min-height: 276mm;
     padding: 0;
     box-shadow: none !important;
+  }
+
+  .invoice-print-page + .invoice-print-page {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .invoice-print-page {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .invoice-print-page.dc-print-copy-original {
+    break-after: page;
+    page-break-after: always;
   }
 
   .invoice-print-page tr {

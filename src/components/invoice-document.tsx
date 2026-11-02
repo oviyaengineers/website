@@ -99,7 +99,9 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
   );
 
   return (
-    <div className="invoice-print-page" data-print-name={data.number}>
+    <div className="invoice-print-copies" data-print-name={data.number}>
+      {(["original", "duplicate"] as const).map((copy) => (
+      <div key={copy} className={`invoice-print-page dc-print-copy-${copy}`}>
       {data.watermark ? (
         <div
           className={`invoice-cancelled-mark ${data.watermark === "PREVIEW" ? "invoice-preview-mark" : ""}`}
@@ -109,8 +111,9 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       ) : null}
 
       {/* The delivery challan's own letterhead, in the same ruled box. */}
-      <header className="border border-[#222] bg-white px-6 py-2 text-[#172033]">
-        <PrintLetterhead />
+      <header className="relative border border-[#222] bg-white px-6 py-2 text-[#172033]">
+        <div className="invoice-copy-label">{copy === "original" ? "ORIGINAL" : "DUPLICATE"}</div>
+        <PrintLetterhead originalLogoColors />
         {gst && (seller?.gstin || seller?.state) ? (
           <p className="mt-1 text-center text-xs font-semibold">
             {[
@@ -282,6 +285,8 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
           </div>
         </div>
       </div>
+      </div>
+      ))}
     </div>
   );
 }

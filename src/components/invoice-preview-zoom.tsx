@@ -46,7 +46,10 @@ export function InvoicePreviewZoom({ children }: { children: ReactNode }) {
         <div className="invoice-zoom-scroll">
           <div
             className="invoice-zoom-frame"
-            style={{ width: PAGE_WIDTH_PX * scale, height: PAGE_HEIGHT_PX * scale }}
+            style={{
+              width: PAGE_WIDTH_PX * scale,
+              height: PAGE_HEIGHT_PX * scale * 2,
+            }}
           >
             <div
               className="invoice-zoom-content"
