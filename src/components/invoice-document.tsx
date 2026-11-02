@@ -149,7 +149,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
           {detail(gst ? "Invoice No." : "Bill No.", data.number, true)}
           {detail(gst ? "Invoice Date" : "Bill Date", day(data.invoiceDate))}
           {detail("Billing Month", month)}
-          {detail("Due Date", day(data.dueDate))}
+          {copy === "duplicate" ? detail("Due Date", day(data.dueDate)) : null}
           {gst ? detail("Place of Supply", data.placeOfSupply ?? "-") : null}
         </div>
       </div>
