@@ -11,8 +11,8 @@ import { PrintLetterhead } from "@/components/dc-print-sheet";
  *
  * The page covers the app with the document exactly as it will be printed,
  * under a toolbar that never prints: a way back, and the Print and Download
- * PDF buttons (or the page's own actions). The generated PDF uses the page's
- * print CSS and omits browser-generated headers and footers.
+ * PDF buttons (or the page's own actions). Printing uses the page's print CSS;
+ * Download PDF uses the clean PDF endpoint without browser headers or footers.
  *
  * A new printout needs only this shell around its document, and its page
  * listed in src/lib/print/allowed-print-paths.ts.
