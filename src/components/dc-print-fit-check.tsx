@@ -11,10 +11,16 @@ const OVERFLOW_FLAG = "dcPrintOverflow";
 
 /** True when anything inside any copy reaches past the bottom of its page or half. */
 function sheetOverflows(): boolean {
+  const zoomContent = document.querySelector<HTMLElement>(".print-preview-zoom-content");
+  const zoomScale = zoomContent?.offsetWidth
+    ? zoomContent.getBoundingClientRect().width / zoomContent.offsetWidth
+    : 1;
   const sheets = document.querySelectorAll<HTMLElement>(".dc-print-page .dc-print-sheet");
   return [...sheets].some((sheet) => {
     const bottom = sheet.getBoundingClientRect().bottom;
-    return [...sheet.children].some((child) => child.getBoundingClientRect().bottom > bottom + 0.5);
+    return [...sheet.children].some(
+      (child) => child.getBoundingClientRect().bottom > bottom + 0.5 * zoomScale
+    );
   });
 }
 

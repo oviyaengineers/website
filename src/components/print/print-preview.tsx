@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DownloadPdfButton, PrintButton } from "@/components/print/print-button";
+import { PrintPreviewZoom } from "@/components/print/print-preview-zoom";
 import { PrintLetterhead } from "@/components/dc-print-sheet";
 
 /**
@@ -48,7 +49,7 @@ export function PrintPreview({
         </div>
         {notes}
       </div>
-      {children}
+      <PrintPreviewZoom>{children}</PrintPreviewZoom>
     </div>
   );
 }

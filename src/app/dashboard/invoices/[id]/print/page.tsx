@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { PrintPreview } from "@/components/print/print-preview";
 import { InvoiceDocument, type InvoiceDocumentData } from "@/components/invoice-document";
-import { InvoicePreviewZoom } from "@/components/invoice-preview-zoom";
 import { fetchInvoiceDetail } from "@/lib/billing-data";
 
 /**
@@ -79,9 +78,9 @@ export default async function InvoicePrintPage({ params }: { params: Promise<{ i
       back={{ href: `/dashboard/invoices/${invoice.id}`, label: "Close", close: true }}
       english
     >
-      <InvoicePreviewZoom>
+      <div className="invoice-print-stage invoice-preview-stage">
         <InvoiceDocument data={data} />
-      </InvoicePreviewZoom>
+      </div>
     </PrintPreview>
   );
 }

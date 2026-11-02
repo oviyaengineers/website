@@ -699,16 +699,16 @@
   mask-size: contain;
 }
 
-.invoice-preview-zoom-controls {
+.print-preview-zoom-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 12px 0;
+  padding: 10px 12px;
 }
 
-.invoice-preview-zoom-controls button {
+.print-preview-zoom-controls button {
   display: inline-flex;
   min-height: 40px;
   min-width: 40px;
@@ -722,23 +722,45 @@
   font-weight: 600;
 }
 
-.invoice-zoom-scroll {
+.print-preview-zoom-input {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.print-preview-zoom-input input {
+  width: 42px;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-preview-zoom-scroll {
   width: 100%;
   overflow: auto;
 }
 
-.invoice-zoom-frame {
+.print-preview-zoom-frame {
   position: relative;
   flex: none;
   margin: 0 auto;
 }
 
-.invoice-zoom-content {
+.print-preview-zoom-content {
   position: absolute;
   left: 0;
   top: 0;
-  width: 210mm;
-  height: 297mm;
+  width: max-content;
+  display: flow-root;
   transform-origin: top left;
 }
 
@@ -757,6 +779,11 @@
 }
 
 @media print {
+  .dashboard-page-zoom-content {
+    width: 100% !important;
+    zoom: 1 !important;
+  }
+
   /* The margin belongs to the page, so a bill long enough to run on keeps
      the same margin at the top of its second sheet. */
   @page invoice-a4 {
@@ -773,19 +800,24 @@
     padding: 0 !important;
   }
 
-  .invoice-zoom-scroll {
-    overflow: visible !important;
+  .print-preview-zoom-controls {
+    display: none !important;
   }
 
-  .invoice-zoom-frame {
-    width: 100% !important;
+  .print-preview-zoom-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .print-preview-zoom-frame {
+    width: auto !important;
     height: auto !important;
     margin: 0 !important;
   }
 
-  .invoice-zoom-content {
+  .print-preview-zoom-content {
     position: static !important;
-    width: 100% !important;
+    width: auto !important;
     height: auto !important;
     transform: none !important;
   }
@@ -822,6 +854,66 @@
 
 /* Sidebar menu: a visible, slim scroll bar. The kit's no-scrollbar utility
    lives in the utilities layer, so this unlayered rule wins over it. */
+.dashboard-page-zoom-controls {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgb(255 255 255 / 0.94);
+  padding: 4px 12px;
+  backdrop-filter: blur(8px);
+}
+.dashboard-page-zoom-controls button {
+  display: inline-flex;
+  min-height: 40px;
+  min-width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dashboard-page-zoom-title {
+  margin-right: auto;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+.dashboard-page-zoom-input {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dashboard-page-zoom-input input {
+  width: 42px;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+body:has(.print-preview-zoom-controls) .dashboard-page-zoom-controls {
+  display: none;
+}
+body:has(.print-preview-zoom-controls) .dashboard-page-zoom-content {
+  width: 100% !important;
+  zoom: 1 !important;
+}
 .sidebar-scroll {
   -ms-overflow-style: auto;
   scrollbar-width: thin;

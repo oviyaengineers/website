@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ScanQrCode } from "lucide-react";
 import { DashboardScanButton } from "@/components/dashboard-scan-button";
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
+import { DashboardPageZoom } from "@/components/dashboard-page-zoom";
 import { HistoryNav } from "@/components/history-nav";
 import { I18nProvider } from "@/components/i18n-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -88,12 +89,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 />
               </div>
             </header>
-            <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-              <div className="dashboard-chrome">
-                <DashboardBreadcrumb />
+            <DashboardPageZoom>
+              <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+                <div className="dashboard-chrome">
+                  <DashboardBreadcrumb />
+                </div>
+                {children}
               </div>
-              {children}
-            </div>
+            </DashboardPageZoom>
           </SidebarInset>
         </SidebarProvider>
       </div>

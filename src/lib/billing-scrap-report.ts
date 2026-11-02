@@ -202,31 +202,33 @@ export async function fetchBillingScrapReport(
   }));
 
   const archiveRows = (archiveResult.data ?? []) as WeightScrapArchiveRow[];
-  const activeLines = weightLines.filter((line) => line.dcDate >= from && line.dcDate <= to);
-  const activeScrap: BillingScrapLine[] = activeLines.map((line) => ({
-    id: `live:${line.itemId}`,
-    date: line.dcDate,
-    dcNumber: line.dcNumber,
-    customer: line.customerName,
-    component: line.component,
-    material: line.material,
-    sentQty: line.recorded?.sentQty ?? line.sentQty,
-    totalScrapMg: line.recorded?.totalScrapMg ?? null,
-    ratePaisePerKg: line.recorded?.ratePaisePerKg ?? null,
-    valuePaise: line.recorded?.valuePaise ?? null,
-    state: line.recorded
-      ? line.status === "sentChanged"
-        ? "Sent Qty changed"
-        : "Recorded"
-      : "Not recorded",
-  }));
-  // Prefer a current recorded row over its archived snapshot in this report.
-  const currentRecordedItemIds = new Set(
-    activeLines.filter((line) => line.recorded).map((line) => line.itemId)
-  );
-  const archivedScrap: BillingScrapLine[] = archiveRows
-    .filter((row) => !currentRecordedItemIds.has(row.dc_item_id))
-    .map((row) => ({
+  // A reset archives the exact weight-record ID before deleting it. If a live
+  // row with that same ID is still returned (for example, while the view has
+  // not caught up), count the archived snapshot only once. A later re-record
+  // has a different weight ID and remains a separate report line.
+  const archivedWeightIds = new Set(archiveRows.map((row) => row.source_weight_id));
+  const activeScrap: BillingScrapLine[] = weightLines
+    .filter((line) => line.dcDate >= from && line.dcDate <= to)
+    .filter((line) => !line.recorded || !archivedWeightIds.has(line.recorded.id))
+    .map((line) => ({
+      id: `live:${line.itemId}`,
+      date: line.dcDate,
+      dcNumber: line.dcNumber,
+      customer: line.customerName,
+      component: line.component,
+      material: line.material,
+      sentQty: line.recorded?.sentQty ?? line.sentQty,
+      totalScrapMg: line.recorded?.totalScrapMg ?? null,
+      ratePaisePerKg: line.recorded?.ratePaisePerKg ?? null,
+      valuePaise: line.recorded?.valuePaise ?? null,
+      state: line.recorded
+        ? line.status === "sentChanged"
+          ? "Sent Qty changed"
+          : "Recorded"
+        : "Not recorded",
+    }));
+  const archivedScrap: BillingScrapLine[] = archiveRows.map(
+    (row) => ({
       id: `archive:${row.id}`,
       date: row.dc_date,
       dcNumber: row.dc_number,
@@ -239,7 +241,8 @@ export async function fetchBillingScrapReport(
         row.scrap_rate_per_kg === null ? null : Math.round(Number(row.scrap_rate_per_kg) * 100),
       valuePaise: row.scrap_value === null ? null : Math.round(Number(row.scrap_value) * 100),
       state: "Archived",
-    }));
+    })
+  );
   const scrapLines = [...activeScrap, ...archivedScrap].sort(
     (a, b) => b.date.localeCompare(a.date) || b.dcNumber.localeCompare(a.dcNumber)
   );
@@ -277,4 +280,3 @@ export async function fetchBillingScrapReport(
     unpricedScrapLines: recordedScrap.filter((line) => line.valuePaise === null).length,
   };
 }
-
