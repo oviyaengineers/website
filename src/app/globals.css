@@ -593,17 +593,18 @@
     box-shadow: none !important;
   }
 
-  /* A single DC is exactly one A4 portrait sheet. Keep both half-page copies
-     and the cut line together so the browser cannot move the DUPLICATE onto
-     another page or split either copy. */
+  /* A single DC is one A4 portrait sheet. Keep both half-page copies and the
+     cut line together so the browser cannot move the DUPLICATE onto another
+     page or split either copy. The slight height tolerance below prevents
+     browser rounding from creating an empty second page. */
   .dc-print-page-single {
     box-sizing: border-box;
     position: relative !important;
     display: block !important;
     width: 210mm !important;
-    height: 297mm !important;
-    min-height: 297mm !important;
-    max-height: 297mm !important;
+    height: 296.5mm !important;
+    min-height: 296.5mm !important;
+    max-height: 296.5mm !important;
     overflow: hidden !important;
     break-before: avoid-page !important;
     page-break-before: avoid !important;
@@ -619,9 +620,9 @@
     top: 0 !important;
     box-sizing: border-box !important;
     width: 210mm !important;
-    height: 148.5mm !important;
-    min-height: 148.5mm !important;
-    max-height: 148.5mm !important;
+    height: 148.25mm !important;
+    min-height: 148.25mm !important;
+    max-height: 148.25mm !important;
     flex: none !important;
     overflow: hidden !important;
     break-inside: avoid-page !important;
@@ -629,11 +630,11 @@
   }
 
   .dc-print-page-single > .dc-print-sheet-single:last-child {
-    top: 148.5mm !important;
+    top: 148.25mm !important;
   }
 
   .dc-print-page-single > .dc-print-cut {
-    top: 148.5mm !important;
+    top: 148.25mm !important;
     z-index: 2;
     margin: 0 !important;
     border-top-width: 0.25mm !important;
