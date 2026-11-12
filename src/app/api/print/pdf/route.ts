@@ -107,6 +107,30 @@ async function launchBrowser() {
   return puppeteer.launch({ executablePath: local, headless: true });
 }
 
+
+// Keep Chromium warm while a serverless instance is reused. Each request
+// still receives its own isolated browser context and cookies below.
+let reusableBrowserPromise: Promise<Awaited<ReturnType<typeof launchBrowser>>> | null = null;
+async function getReusableBrowser() {
+  if (reusableBrowserPromise) {
+    try {
+      const browser = await reusableBrowserPromise;
+      if (browser.connected) return browser;
+    } catch {
+      reusableBrowserPromise = null;
+    }
+  }
+
+  const next = launchBrowser();
+  reusableBrowserPromise = next;
+  try {
+    return await next;
+  } catch (error) {
+    if (reusableBrowserPromise === next) reusableBrowserPromise = null;
+    throw error;
+  }
+}
+
 function message(status: number, text: string): Response {
   return new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Print</title><p style="font:16px system-ui;margin:2rem">${text}</p>`,
@@ -134,16 +158,18 @@ export async function GET(request: NextRequest) {
   // secret is in any of them: no cookie, token or page content.
   let step = "starting the print browser";
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
+  let context: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>["createBrowserContext"]>> | null = null;
   try {
-    browser = await launchBrowser();
+    browser = await getReusableBrowser();
     step = "preparing the page";
-    const tab = await browser.newPage();
+    context = await browser.createBrowserContext();
+    const tab = await context.newPage();
     await tab.setViewport({ width: 1240, height: 1754 });
     // An ordinary Chrome name: a "HeadlessChrome" visitor can be taken for a
     // bot and held at a challenge page that never finishes loading.
     const agent = (await browser.userAgent()).replace(/HeadlessChrome/g, "Chrome");
     await tab.setUserAgent({ userAgent: agent });
-    await browser.setCookie(
+    await context.setCookie(
       ...jar.map((c) => ({
         name: c.name,
         value: c.value,
@@ -185,8 +211,9 @@ export async function GET(request: NextRequest) {
     await tab.waitForSelector(".dc-print-page, .invoice-print-page, .dc-list-print", {
       timeout: 20_000,
     });
-    // Images (logo, QR) and fonts; a quiet moment is enough, not total silence.
-    await tab.waitForNetworkIdle({ idleTime: 400, timeout: 8_000 }).catch(() => undefined);
+    // Images (logo, QR) and fonts; cap network settling so slow analytics or
+    // long-lived browser requests cannot hold a download for several seconds.
+    await tab.waitForNetworkIdle({ idleTime: 250, timeout: 1_500 }).catch(() => undefined);
     await tab.evaluate(async () => {
       await document.fonts.ready;
       // Let the page's own fit check measure the final layout.
@@ -231,6 +258,6 @@ export async function GET(request: NextRequest) {
       `The PDF could not be made (${step}). Please try again.${detail ? ` <small style="color:#666">${detail.replace(/[<>&]/g, "")}</small>` : ""}`
     );
   } finally {
-    await browser?.close().catch(() => undefined);
+    await context?.close().catch(() => undefined);
   }
 }
