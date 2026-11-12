@@ -792,8 +792,19 @@
     margin: 10mm;
   }
 
+  /* Safari 18.2+ and current Chromium support @page margins. Zero margin gives
+     their print UI no area for a browser-generated URL/date/page footer. */
+  @page invoice-a4-no-browser-footer {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   body:has(.invoice-print-page) {
     page: invoice-a4;
+  }
+
+  body[data-print-browser-footer="hide"]:has(.invoice-print-page) {
+    page: invoice-a4-no-browser-footer;
   }
 
   .invoice-print-stage {
@@ -831,6 +842,14 @@
     min-height: 276mm;
     padding: 0;
     box-shadow: none !important;
+  }
+
+  /* Keep the bill's own 10mm safe area when the browser page margin is zero. */
+  body[data-print-browser-footer="hide"] .invoice-print-page {
+    min-height: 296mm;
+    padding: 10mm;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
 
   .invoice-print-page + .invoice-print-page {
@@ -1509,4 +1528,10 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 .invoice-print-page .dc-print-company {
   font-size: 21px !important;
+}
+/* Keep item columns and the outside boundary, without horizontal rules between numbered rows. */
+.dc-print-sheet .dc-print-items table tbody td,
+.invoice-items > table:first-child tbody td {
+  border-top: 0 !important;
+  border-bottom: 0 !important;
 }
