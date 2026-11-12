@@ -1153,9 +1153,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 :is(.dc-print-page, .invoice-print-page, .dc-list-print)
   *:not(.invoice-cancelled-mark):not(.dc-print-qr-code):not(.dc-print-qr-code *):not(
     .dc-list-print th
-  ):not(.dc-print-items-table thead th):not(.dc-print-copy-stamp):not(
-    .dc-print-cell-label
-  ) {
+  ):not(.dc-print-copy-stamp) {
   color: var(--print-ink) !important;
   border-color: var(--print-ink) !important;
 }
@@ -1177,12 +1175,6 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 
 /* Delivery Challan copies use the already-transparent brand-color asset.
    Keep its alpha and original blue instead of applying the copy-ink mask. */
-.dc-print-sheet .dc-print-logo-original img {
-  background-color: transparent !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-}
-
 /* The items section takes whatever height the copy has left, and the filler
    under the table carries its column rules down to the note and signatures,
    so a short challan shows an open ruled table rather than an empty band. */
@@ -1416,7 +1408,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 .dc-print-sheet-single .dc-print-items-table tr > :first-child {
-  border-left-color: #111827 !important;
+  border-left-color: var(--print-ink) !important;
 }
 
 .dc-print-type-checkbox {
@@ -1430,15 +1422,15 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 .dc-print-sheet-single .dc-print-items-table tr > :last-child {
-  border-right-color: #111827 !important;
+  border-right-color: var(--print-ink) !important;
 }
 
 .dc-print-sheet-single .dc-print-filler > span:first-child {
-  border-left-color: #111827 !important;
+  border-left-color: var(--print-ink) !important;
 }
 
 .dc-print-sheet-single .dc-print-filler > span:last-child {
-  border-right-color: #111827 !important;
+  border-right-color: var(--print-ink) !important;
 }
 
 .dc-print-sheet-single .dc-print-copy-stamp {
@@ -1457,7 +1449,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 .dc-print-sheet-single .dc-print-cell-label {
-  color: #526174 !important;
+  color: var(--print-ink) !important;
   font-size: 6pt;
   letter-spacing: 0.055em;
 }
@@ -1477,10 +1469,10 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 
 .dc-print-sheet-single .dc-print-items-table thead tr:nth-child(2) th {
-  color: #111827 !important;
+  color: var(--print-ink) !important;
   background: #fff !important;
   background-image: none !important;
-  border-color: #111827 !important;
+  border-color: var(--print-ink) !important;
   letter-spacing: 0.025em;
   font-weight: 700 !important;
   -webkit-print-color-adjust: exact !important;
