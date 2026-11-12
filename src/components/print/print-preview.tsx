@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DownloadPdfButton, PrintButton } from "@/components/print/print-button";
+import { PrintFooterOption } from "@/components/print/print-footer-option";
 import { PrintPreviewZoom } from "@/components/print/print-preview-zoom";
 import { PrintLetterhead } from "@/components/dc-print-sheet";
 
@@ -45,6 +46,7 @@ export function PrintPreview({
           </Button>
           <div className="flex flex-wrap items-start justify-end gap-2">
             {actions ?? <PrintActions english={english} />}
+            <PrintFooterOption />
           </div>
         </div>
         {notes}
