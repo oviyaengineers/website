@@ -213,5 +213,7 @@ export const dcPrint = {
   preparing: "Preparing...",
   preparingPdf: "Preparing the PDF... this can take a few seconds.",
   pdfFailed: "The PDF could not be made. Please try again.",
+  hideBrowserFooter: "Hide browser headers/footers",
+  browserFooterHint: "If still shown, turn them off in printer options.",
   mobileDirectPrintHint: "Print opens your browser's print options. Use Download PDF to save a copy.",
 };
