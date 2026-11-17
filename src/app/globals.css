@@ -1220,6 +1220,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 .dc-print-signature {
   display: block;
+  align-self: center;
   flex: none;
   width: 30mm;
   height: 10mm;
@@ -1236,7 +1237,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 }
 .dc-print-signatory > .dc-print-cell-label:last-child {
   margin: 0;
-  text-align: right;
+  text-align: center;
 }
 
 /* --- Customer Statement -------------------------------------------------
