@@ -564,8 +564,11 @@
      name changes, and the empty notification area after the sheet still
      carried the unnamed page, so naming only the sheet printed a blank
      second page behind it. */
+  html:has(.dc-print-page),
   body:has(.dc-print-page) {
     page: dc-sheet;
+    break-after: avoid-page !important;
+    page-break-after: avoid !important;
   }
 
   /* The dashboard root is a full-height flex column on screen. In print that
