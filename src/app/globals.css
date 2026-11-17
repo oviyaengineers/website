@@ -574,9 +574,11 @@
      to the sheet and remove the app-wide toast host from the print flow. */
   html:has(.dc-print-page),
   body:has(.dc-print-page) {
-    height: 297mm !important;
+    /* Keep the root itself below A4 height too; an exact 297mm root can round
+       up to a trailing blank page in browser print engines. */
+    height: 296mm !important;
     min-height: 0 !important;
-    max-height: 297mm !important;
+    max-height: 296mm !important;
     margin: 0 !important;
     overflow: hidden !important;
   }
@@ -655,9 +657,9 @@
     position: relative !important;
     display: block !important;
     width: 210mm !important;
-    height: 296mm !important;
-    min-height: 296mm !important;
-    max-height: 296mm !important;
+    height: 295.5mm !important;
+    min-height: 295.5mm !important;
+    max-height: 295.5mm !important;
     overflow: hidden !important;
     break-before: avoid-page !important;
     page-break-before: avoid !important;
@@ -673,9 +675,9 @@
     top: 0 !important;
     box-sizing: border-box !important;
     width: 210mm !important;
-    height: 148mm !important;
-    min-height: 148mm !important;
-    max-height: 148mm !important;
+    height: 147.75mm !important;
+    min-height: 147.75mm !important;
+    max-height: 147.75mm !important;
     flex: none !important;
     overflow: hidden !important;
     break-inside: avoid-page !important;
@@ -683,11 +685,11 @@
   }
 
   .dc-print-page-single > .dc-print-sheet-single:last-child {
-    top: 148mm !important;
+    top: 147.75mm !important;
   }
 
   .dc-print-page-single > .dc-print-cut {
-    top: 148mm !important;
+    top: 147.75mm !important;
     z-index: 2;
     margin: 0 !important;
     border-top-width: 0.25mm !important;
