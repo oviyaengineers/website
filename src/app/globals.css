@@ -402,6 +402,25 @@
     gap: 0 !important;
   }
 
+  /* The hidden sidebar leaves its provider wrapper mounted. That wrapper has
+     min-height: 100svh and can extend past the DC sheet in print, producing a
+     trailing blank page even though the sidebar itself is hidden. */
+  body:has(.dc-print-page) [data-slot="sidebar-wrapper"],
+  body:has(.dc-print-page) [data-slot="sidebar-inset"] {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
+  body:has(.dc-print-page) .dashboard-page-zoom-content,
+  body:has(.dc-print-page) .dashboard-page-zoom-content > div {
+    height: auto !important;
+    min-height: 0 !important;
+    flex: none !important;
+  }
+
   /* The printed size of this box is set in the second print block below, after
      the on-screen rule, because a size set here loses to that rule. */
   .dc-print-page {
