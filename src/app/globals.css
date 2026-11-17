@@ -574,9 +574,11 @@
      to the sheet and remove the app-wide toast host from the print flow. */
   html:has(.dc-print-page),
   body:has(.dc-print-page) {
-    height: auto !important;
+    height: 297mm !important;
     min-height: 0 !important;
+    max-height: 297mm !important;
     margin: 0 !important;
+    overflow: hidden !important;
   }
 
   body:has(.dc-print-page) {
@@ -646,16 +648,16 @@
 
   /* A single DC is one A4 portrait sheet. Keep both half-page copies and the
      cut line together so the browser cannot move the DUPLICATE onto another
-     page or split either copy. The slight height tolerance below prevents
-     browser rounding from creating an empty second page. */
+     page or split either copy. Leave a 1mm safety gap under A4's physical
+     height to absorb print-engine rounding at 100% scale. */
   .dc-print-page-single {
     box-sizing: border-box;
     position: relative !important;
     display: block !important;
     width: 210mm !important;
-    height: 296.5mm !important;
-    min-height: 296.5mm !important;
-    max-height: 296.5mm !important;
+    height: 296mm !important;
+    min-height: 296mm !important;
+    max-height: 296mm !important;
     overflow: hidden !important;
     break-before: avoid-page !important;
     page-break-before: avoid !important;
@@ -671,9 +673,9 @@
     top: 0 !important;
     box-sizing: border-box !important;
     width: 210mm !important;
-    height: 148.25mm !important;
-    min-height: 148.25mm !important;
-    max-height: 148.25mm !important;
+    height: 148mm !important;
+    min-height: 148mm !important;
+    max-height: 148mm !important;
     flex: none !important;
     overflow: hidden !important;
     break-inside: avoid-page !important;
@@ -681,11 +683,11 @@
   }
 
   .dc-print-page-single > .dc-print-sheet-single:last-child {
-    top: 148.25mm !important;
+    top: 148mm !important;
   }
 
   .dc-print-page-single > .dc-print-cut {
-    top: 148.25mm !important;
+    top: 148mm !important;
     z-index: 2;
     margin: 0 !important;
     border-top-width: 0.25mm !important;
