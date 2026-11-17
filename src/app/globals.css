@@ -407,18 +407,17 @@
      trailing blank page even though the sidebar itself is hidden. */
   body:has(.dc-print-page) [data-slot="sidebar-wrapper"],
   body:has(.dc-print-page) [data-slot="sidebar-inset"] {
-    display: block !important;
+    display: contents !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    flex: none !important;
   }
 
   body:has(.dc-print-page) .dashboard-page-zoom-content,
   body:has(.dc-print-page) .dashboard-page-zoom-content > div {
+    display: contents !important;
     height: auto !important;
     min-height: 0 !important;
-    flex: none !important;
   }
 
   /* The printed size of this box is set in the second print block below, after
