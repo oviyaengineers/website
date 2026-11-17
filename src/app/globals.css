@@ -568,11 +568,50 @@
     page: dc-sheet;
   }
 
+  /* The dashboard root is a full-height flex column on screen. In print that
+     minimum height can outlive the A4 sheet and make the browser add a blank
+     trailing page. A challan is a fixed-size document, so let its root shrink
+     to the sheet and remove the app-wide toast host from the print flow. */
+  html:has(.dc-print-page),
+  body:has(.dc-print-page) {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+  }
+
+  body:has(.dc-print-page) {
+    display: block !important;
+  }
+
+  body:has(.dc-print-page) [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  body:has(.dc-print-page) > .fixed:has(.dc-print-page) {
+    position: static !important;
+    inset: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
   /* The stage is screen furniture: no padding, no scrolling, no shadow. */
   .dc-print-stage {
     display: block !important;
     padding: 0 !important;
     overflow: visible !important;
+  }
+
+  body:has(.dc-print-page) .print-preview-zoom-scroll {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body:has(.dc-print-page) .print-preview-zoom-frame,
+  body:has(.dc-print-page) .print-preview-zoom-content {
+    height: auto !important;
+    min-height: 0 !important;
   }
 
   /* In print the sheet is exactly one A4 page, 210 x 297mm, so each copy is
