@@ -593,6 +593,18 @@
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
+    page: dc-sheet;
+  }
+
+  /* `page` is not inherited. Keep the page name continuous down to the sheet
+     itself; otherwise Chromium/Safari can treat the transition from the app
+     shell's named page to the sheet's automatic page as another page. */
+  body:has(.dc-print-page) .print-preview-zoom-scroll,
+  body:has(.dc-print-page) .print-preview-zoom-frame,
+  body:has(.dc-print-page) .print-preview-zoom-content,
+  body:has(.dc-print-page) .dc-print-stage,
+  body:has(.dc-print-page) .dc-print-page {
+    page: dc-sheet;
   }
 
   /* The stage is screen furniture: no padding, no scrolling, no shadow. */
