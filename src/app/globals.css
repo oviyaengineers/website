@@ -1218,6 +1218,22 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .dc-print-signatory > .dc-print-cell-value {
   flex: 1;
 }
+.dc-print-signature {
+  display: block;
+  flex: none;
+  width: 30mm;
+  height: 10mm;
+  background-color: var(--print-ink);
+  -webkit-mask-image: url("/signature.png");
+  mask-image: url("/signature.png");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  object-fit: contain;
+}
 .dc-print-signatory > .dc-print-cell-label:last-child {
   margin: 0;
   text-align: right;

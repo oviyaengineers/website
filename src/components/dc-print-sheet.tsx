@@ -104,6 +104,14 @@ export function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) 
       style={{ gridColumn: "span 2" }}
     >
       <div className="dc-print-cell-value">{authorizedBy}</div>
+      <Image
+        src="/signature.png"
+        alt=""
+        width={2172}
+        height={724}
+        unoptimized
+        className="dc-print-signature"
+      />
       <p className="dc-print-cell-label">For OVIYA ENGINEERS</p>
     </div>
   );
