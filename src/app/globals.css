@@ -728,6 +728,20 @@
     margin: 0 !important;
     border-top-width: 0.25mm !important;
   }
+
+  /* Android Chrome can paginate a named @page transition as an extra sheet.
+     A single DC already supplies an un-named A4 page setup, so keep every
+     element on that same default page instead of switching page names. */
+  html:has(.dc-print-page-single),
+  body:has(.dc-print-page-single),
+  body:has(.dc-print-page-single) > .fixed:has(.dc-print-page-single),
+  body:has(.dc-print-page-single) .print-preview-zoom-scroll,
+  body:has(.dc-print-page-single) .print-preview-zoom-frame,
+  body:has(.dc-print-page-single) .print-preview-zoom-content,
+  body:has(.dc-print-page-single) .dc-print-stage,
+  body:has(.dc-print-page-single) .dc-print-page-single {
+    page: auto !important;
+  }
 }
 
 /* --- Tax invoice, one A4 sheet -------------------------------------------------
