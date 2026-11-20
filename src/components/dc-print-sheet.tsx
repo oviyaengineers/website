@@ -10,7 +10,7 @@ import type { CustomerRow } from "@/types/database";
  * Material, Mat. Problem and Rejection hold short values, so they are kept
  * tight and the room goes to the description.
  */
-const COLUMN_WIDTHS = [6, 45, 9, 9, 10, 9, 12];
+const COLUMN_WIDTHS = [6, 42, 9, 8, 10, 10, 15];
 
 export type PrintItem = {
   id: string;
@@ -308,8 +308,8 @@ function DcCopy({
           block around it printed as two concentric rectangles. The caption
           rides in the table's first row instead of floating above it. */}
       <section className="dc-print-block-flush dc-print-items mb-3">
-        <div className="dc-print-table-wrap overflow-auto">
-          <table className="dc-print-items-table w-full min-w-[700px] border-collapse text-xs">
+        <div className="dc-print-table-wrap min-w-0 w-full">
+          <table className="dc-print-items-table w-full min-w-0 max-w-full table-fixed border-collapse text-xs">
             {/* Widths live here, not on the header cells. The table is laid
                 out fixed, so the first row decides the columns — and the first
                 row is the single merged caption, which squeezed the

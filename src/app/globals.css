@@ -313,13 +313,21 @@
 /* The table is width-constrained on screen for horizontal scrolling; in
    print it must simply fit the page. */
 .dc-print-sheet .dc-print-table-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: visible !important;
 }
 .dc-print-sheet table {
   min-width: 0 !important;
+  max-width: 100%;
   width: 100% !important;
   font-size: 7pt !important;
   table-layout: fixed;
+}
+.dc-print-sheet .dc-print-items-table th:last-child,
+.dc-print-sheet .dc-print-items-table td:last-child {
+  white-space: nowrap;
 }
 .dc-print-sheet th,
 .dc-print-sheet td {
