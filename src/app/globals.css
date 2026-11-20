@@ -1305,15 +1305,9 @@ body:has([lang="ta"]) [data-sonner-toaster] {
   flex: none;
   width: 30mm;
   height: 10mm;
-  background-color: var(--print-ink);
-  -webkit-mask-image: url("/signature.png");
-  mask-image: url("/signature.png");
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: left center;
-  mask-position: left center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
+  background-color: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
   object-fit: contain;
 }
 .dc-print-signatory > .dc-print-cell-label:last-child {

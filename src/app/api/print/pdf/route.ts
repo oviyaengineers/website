@@ -159,11 +159,31 @@ export async function GET(request: NextRequest) {
   let step = "starting the print browser";
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
   let context: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>["createBrowserContext"]>> | null = null;
+  let temporaryBrowser = false;
   try {
     browser = await getReusableBrowser();
     step = "preparing the page";
-    context = await browser.createBrowserContext();
-    const tab = await context.newPage();
+    let tab: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>["newPage"]>>;
+    try {
+      context = await browser.createBrowserContext();
+      tab = await context.newPage();
+    } catch (error) {
+      await context?.close().catch(() => undefined);
+      context = null;
+      const targetClosed =
+        error instanceof Error &&
+        (error.message.includes("Target.createTarget") || error.message.includes("Target closed"));
+      if (!targetClosed) throw error;
+
+      // A warm Chromium can remain marked connected after its target service
+      // has closed. Retry this request with a fresh process; don't close the
+      // shared browser because another print may be using it concurrently.
+      reusableBrowserPromise = null;
+      browser = await launchBrowser();
+      temporaryBrowser = true;
+      context = await browser.createBrowserContext();
+      tab = await context.newPage();
+    }
     await tab.setViewport({ width: 1240, height: 1754 });
     // An ordinary Chrome name: a "HeadlessChrome" visitor can be taken for a
     // bot and held at a challenge page that never finishes loading.
@@ -259,5 +279,6 @@ export async function GET(request: NextRequest) {
     );
   } finally {
     await context?.close().catch(() => undefined);
+    if (temporaryBrowser) await browser?.close().catch(() => undefined);
   }
 }
