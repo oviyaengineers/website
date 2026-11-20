@@ -602,10 +602,15 @@
     max-height: 296mm !important;
     margin: 0 !important;
     overflow: hidden !important;
+    overflow: clip !important;
   }
 
   body:has(.dc-print-page) {
     display: block !important;
+  }
+
+  body:has(.dc-print-page) > *:not(:has(.dc-print-page)) {
+    display: none !important;
   }
 
   body:has(.dc-print-page) [data-sonner-toaster] {
