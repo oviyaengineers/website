@@ -208,18 +208,10 @@
   word-break: break-word;
 }
 
-/* The foot is pinned to the bottom of each half by the sheet's own rules. */
+/* DC copies should end with the items table; omit the old note/receiver
+   signature footer from both the single and combined DC print layouts. */
 .dc-print-foot {
-  margin-bottom: 0 !important;
-}
-
-.dc-print-sheet .dc-print-foot {
-  border: 0;
-  padding: 0 !important;
-}
-
-.dc-print-sheet:not(.dc-print-sheet-full) .dc-print-foot .dc-print-cell-tall {
-  min-height: 16mm;
+  display: none !important;
 }
 
 /* --- Delivery challan sheet, shared by screen and print ------------------
