@@ -603,14 +603,14 @@
      to the sheet and remove the app-wide toast host from the print flow. */
   html:has(.dc-print-page),
   body:has(.dc-print-page) {
-    /* Keep the root itself below A4 height too; an exact 297mm root can round
-       up to a trailing blank page in browser print engines. */
-    height: 296mm !important;
+    /* Let the DC sheet define the page height. Fixing the document root to
+       almost A4 as well can make mobile print engines paginate the root as a
+       second sheet after the fixed-size DC. */
+    height: auto !important;
     min-height: 0 !important;
-    max-height: 296mm !important;
+    max-height: none !important;
     margin: 0 !important;
-    overflow: hidden !important;
-    overflow: clip !important;
+    overflow: visible !important;
   }
 
   body:has(.dc-print-page) {
