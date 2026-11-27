@@ -212,7 +212,7 @@ export const dcPrint: Dictionary["dcPrint"] = {
   material: "பொருள்",
   qty: "அளவு",
   matProblem: "பொருள் நிராகரிப்பு",
-  rejection: "செயல்முறை இல்லா நிராகரிப்பு",
+  rejection: "நிராகரிப்பு / செயல்முறை இல்லா",
   total: "மொத்தம்",
   note: "குறிப்பு",
   noteText: "இயந்திரப் பணிக்குப் பின் அனுப்பப்பட்டது",

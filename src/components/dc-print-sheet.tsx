@@ -97,7 +97,7 @@ export function PrintField({
 }
 
 /** The company's signature box, with its label at the foot of the signing area. */
-export function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) {
+function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) {
   return (
     <div
       className="dc-print-cell dc-print-cell-tall dc-print-signatory"
@@ -117,11 +117,14 @@ export function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) 
   );
 }
 
-export function PrintNoteField({ t }: { t: Translate }) {
+export function PrintSignatureFields({ authorizedBy, t }: { authorizedBy: string; t: Translate }) {
   return (
-    <div className="dc-print-cell dc-print-note-line" style={{ gridColumn: "span 4" }}>
-      <strong>{t("dcPrint.note")}:</strong> <strong>{t("dcPrint.noteText")}</strong>
-    </div>
+    <section className="dc-print-fields dc-print-signatures">
+      <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
+        {""}
+      </PrintField>
+      <PrintSignatoryField authorizedBy={authorizedBy} />
+    </section>
   );
 }
 
@@ -192,7 +195,7 @@ export const PRINT_CELL = "border border-[#222] p-1.5";
 /**
  * The item table's columns carried on down to the foot of the copy.
  *
- * The note and signatures sit at the bottom of each half, so a short challan
+ * The signatures sit at the bottom of each half, so a short challan
  * left a wide empty band between the last row and the foot. Continuing the
  * column rules through that space makes it part of the table, the way a
  * printed challan book looks, instead of a gap. It takes only the room that is
@@ -376,16 +379,7 @@ function DcCopy({
         </div>
       </section>
 
-      {/* The note and signature fields share one outer ruled line. */}
-      <section className="dc-print-foot">
-        <div className="dc-print-fields">
-          <PrintNoteField t={t} />
-          <PrintField label={t("dcPrint.receiverSignature")} span={2} tall>
-            {""}
-          </PrintField>
-          <PrintSignatoryField authorizedBy={authorizedBy} />
-        </div>
-      </section>
+      <PrintSignatureFields authorizedBy={authorizedBy} t={t} />
     </div>
   );
 }

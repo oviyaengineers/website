@@ -208,10 +208,12 @@
   word-break: break-word;
 }
 
-/* DC copies should end with the items table; omit the old note/receiver
-   signature footer from both the single and combined DC print layouts. */
-.dc-print-foot {
-  display: none !important;
+.dc-print-sheet .dc-print-signatures {
+  padding: 0 !important;
+}
+
+.dc-print-sheet:not(.dc-print-sheet-full) .dc-print-signatures .dc-print-cell-tall {
+  min-height: 16mm;
 }
 
 /* --- Delivery challan sheet, shared by screen and print ------------------
@@ -1271,7 +1273,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 /* Delivery Challan copies use the already-transparent brand-color asset.
    Keep its alpha and original blue instead of applying the copy-ink mask. */
 /* The items section takes whatever height the copy has left, and the filler
-   under the table carries its column rules down to the note and signatures,
+   under the table carries its column rules down to the signatures,
    so a short challan shows an open ruled table rather than an empty band. */
 .dc-print-sheet .dc-print-items {
   flex: 1 1 auto;
@@ -1297,7 +1299,7 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 .dc-print-filler > span:first-child {
   border-left: 1px solid #222;
 }
-/* Clear space under the note and signatures, before the cut line or the
+/* Clear space under the signatures, before the cut line or the
    foot of the sheet, so the signature strip is not tight against the edge
    where each copy is torn off. The ruled table above gives up the room. */
 .dc-print-page > .dc-print-sheet {
@@ -1515,6 +1517,10 @@ body:has([lang="ta"]) [data-sonner-toaster] {
 
 .dc-print-sheet-single .dc-print-items-table tr > :first-child {
   border-left-color: var(--print-ink) !important;
+}
+
+.dc-print-rejection-option:lang(ta) {
+  white-space: normal;
 }
 
 .dc-print-type-checkbox {
