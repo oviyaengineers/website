@@ -107,9 +107,9 @@ function PrintSignatoryField({ authorizedBy }: { authorizedBy: string }) {
       <Image
         src="/signature.png"
         alt=""
-        width={2172}
-        height={724}
-        unoptimized
+        width={540}
+        height={180}
+        loading="eager"
         className="dc-print-signature"
       />
       <p className="dc-print-cell-label">For OVIYA ENGINEERS</p>
@@ -173,6 +173,7 @@ export function PrintLetterhead({ originalLogoColors = false }: { originalLogoCo
             alt="Oviya Engineers"
             width={220}
             height={143}
+            unoptimized
             className="h-full w-full object-contain"
             priority
           />

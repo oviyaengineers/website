@@ -182,12 +182,28 @@ export function PrintButton({
   const t = useStrings(english);
   const href = usePrintPdfHref();
   const firstCall = useOncePerTap();
+  const [preparing, setPreparing] = useState(false);
+
+  useEffect(() => {
+    if (!preparing) return;
+    const reset = () => setPreparing(false);
+    // Back can restore this preview from the browser's page cache. Some phones
+    // download the PDF and stay on this page, so also clear the status there.
+    window.addEventListener("pageshow", reset);
+    const timeout = window.setTimeout(reset, 30_000);
+    return () => {
+      window.removeEventListener("pageshow", reset);
+      window.clearTimeout(timeout);
+    };
+  }, [preparing]);
 
   const print = useCallback(() => {
-    if (!firstCall()) return;
-    if (mobilePdf && isMobileBrowser()) window.location.assign(href);
-    else window.print();
-  }, [firstCall, href, mobilePdf]);
+    if (preparing || !firstCall()) return;
+    if (mobilePdf && isMobileBrowser()) {
+      setPreparing(true);
+      window.location.assign(href);
+    } else window.print();
+  }, [firstCall, href, mobilePdf, preparing]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -206,19 +222,28 @@ export function PrintButton({
         render={mobilePdf ? <a href={href} /> : undefined}
         onClick={(event) => {
           // Let the link hand the PDF to the phone in the current tab.
-          if (mobilePdf && isMobileBrowser()) return;
+          if (mobilePdf && isMobileBrowser()) {
+            if (preparing || !firstCall()) event.preventDefault();
+            else setPreparing(true);
+            return;
+          }
           event.preventDefault();
           print();
         }}
         variant="outline"
         className="h-11 sm:h-9"
+        aria-busy={preparing}
       >
-        <Printer className="h-4 w-4" />{" "}
+        {preparing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}{" "}
         {label ?? t("dcPrint.print")}
       </Button>
-      <p className={`basis-full text-xs text-muted-foreground sm:hidden${mobilePdf ? " [@media(pointer:coarse)]:block" : ""}`}>
-        {t(mobilePdf ? "dcPrint.mobilePdfPrintHint" : "dcPrint.mobileDirectPrintHint")}
-      </p>
+      {preparing ? (
+        <StatusLine status={{ busy: true, error: null }} english={english} />
+      ) : (
+        <p className={`basis-full text-xs text-muted-foreground sm:hidden${mobilePdf ? " [@media(pointer:coarse)]:block" : ""}`}>
+          {t(mobilePdf ? "dcPrint.mobilePdfPrintHint" : "dcPrint.mobileDirectPrintHint")}
+        </p>
+      )}
     </div>
   );
 }

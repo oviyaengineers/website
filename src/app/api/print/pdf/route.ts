@@ -188,11 +188,22 @@ export async function GET(request: NextRequest) {
     await tab.waitForSelector(".dc-print-page, .invoice-print-page, .dc-list-print", {
       timeout: 20_000,
     });
-    // Images (logo, QR) and fonts; cap network settling so slow analytics or
-    // long-lived browser requests cannot hold a download for several seconds.
-    await tab.waitForNetworkIdle({ idleTime: 250, timeout: 1_500 }).catch(() => undefined);
+    // The single challan is rendered on the server. Combined sheets and other
+    // printouts can depend on client code, so keep their settling period.
+    if (page.kind !== "DC") {
+      await tab.waitForNetworkIdle({ idleTime: 250, timeout: 1_500 }).catch(() => undefined);
+    }
     await tab.evaluate(async () => {
-      await document.fonts.ready;
+      const images = document.querySelectorAll<HTMLImageElement>(
+        ".dc-print-page img, .invoice-print-page img, .dc-list-print img"
+      );
+      await Promise.all([
+        document.fonts.ready,
+        ...[...images].map((image) => {
+          if (image.loading === "lazy") image.loading = "eager";
+          return image.decode().catch(() => undefined);
+        }),
+      ]);
       // Let the page's own fit check measure the final layout.
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     });
