@@ -86,7 +86,7 @@ async function launchBrowser() {
   const puppeteer = (await import("puppeteer-core")).default;
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     const { executablePath, args } = await unpackChromium();
-    const launch = () => puppeteer.launch({ executablePath, args, headless: true });
+    const launch = () => puppeteer.launch({ executablePath, args, headless: "shell" });
     try {
       return await launch();
     } catch (error) {
@@ -105,30 +105,6 @@ async function launchBrowser() {
         ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
         : "/usr/bin/google-chrome");
   return puppeteer.launch({ executablePath: local, headless: true });
-}
-
-
-// Keep Chromium warm while a serverless instance is reused. Each request
-// still receives its own isolated browser context and cookies below.
-let reusableBrowserPromise: Promise<Awaited<ReturnType<typeof launchBrowser>>> | null = null;
-async function getReusableBrowser() {
-  if (reusableBrowserPromise) {
-    try {
-      const browser = await reusableBrowserPromise;
-      if (browser.connected) return browser;
-    } catch {
-      reusableBrowserPromise = null;
-    }
-  }
-
-  const next = launchBrowser();
-  reusableBrowserPromise = next;
-  try {
-    return await next;
-  } catch (error) {
-    if (reusableBrowserPromise === next) reusableBrowserPromise = null;
-    throw error;
-  }
 }
 
 function message(status: number, text: string): Response {
@@ -158,32 +134,13 @@ export async function GET(request: NextRequest) {
   // secret is in any of them: no cookie, token or page content.
   let step = "starting the print browser";
   let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
-  let context: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>["createBrowserContext"]>> | null = null;
-  let temporaryBrowser = false;
   try {
-    browser = await getReusableBrowser();
+    // Serverless Chromium can terminate when a second browser context opens a
+    // page. A fresh process gives each request its own default context and cookies.
+    browser = await launchBrowser();
     step = "preparing the page";
-    let tab: Awaited<ReturnType<Awaited<ReturnType<typeof launchBrowser>>["newPage"]>>;
-    try {
-      context = await browser.createBrowserContext();
-      tab = await context.newPage();
-    } catch (error) {
-      await context?.close().catch(() => undefined);
-      context = null;
-      const targetClosed =
-        error instanceof Error &&
-        (error.message.includes("Target.createTarget") || error.message.includes("Target closed"));
-      if (!targetClosed) throw error;
-
-      // A warm Chromium can remain marked connected after its target service
-      // has closed. Retry this request with a fresh process; don't close the
-      // shared browser because another print may be using it concurrently.
-      reusableBrowserPromise = null;
-      browser = await launchBrowser();
-      temporaryBrowser = true;
-      context = await browser.createBrowserContext();
-      tab = await context.newPage();
-    }
+    const context = browser.defaultBrowserContext();
+    const tab = (await context.pages())[0] ?? (await context.newPage());
     await tab.setViewport({ width: 1240, height: 1754 });
     // An ordinary Chrome name: a "HeadlessChrome" visitor can be taken for a
     // bot and held at a challenge page that never finishes loading.
@@ -261,11 +218,12 @@ export async function GET(request: NextRequest) {
       page.kind,
       /^oviya engineers\b/i.test(title) && firstNumber ? `${page.kind} ${firstNumber}` : title
     );
+    const asciiName = /^[\x20-\x7E]+$/.test(name) ? name : `${page.kind}.pdf`;
     const download = request.nextUrl.searchParams.get("download") === "1";
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${name}"`,
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
@@ -278,7 +236,6 @@ export async function GET(request: NextRequest) {
       `The PDF could not be made (${step}). Please try again.${detail ? ` <small style="color:#666">${detail.replace(/[<>&]/g, "")}</small>` : ""}`
     );
   } finally {
-    await context?.close().catch(() => undefined);
-    if (temporaryBrowser) await browser?.close().catch(() => undefined);
+    await browser?.close().catch(() => undefined);
   }
 }

@@ -7,8 +7,7 @@ import { PrintPreviewZoom } from "@/components/print/print-preview-zoom";
 import { PrintLetterhead } from "@/components/dc-print-sheet";
 
 /**
- * The on-screen print sheet used by ERP printouts. Print opens the generated
- * PDF for this document; Download PDF remains a separate, explicit action.
+ * The on-screen print sheet used by ERP printouts.
  *
  * The page covers the app with the document exactly as it will be printed,
  * under a toolbar that never prints: a way back, and the Print and Download
@@ -23,6 +22,7 @@ export function PrintPreview({
   actions,
   notes,
   english = false,
+  showBrowserFooterOption = true,
   children,
 }: {
   /** Where the toolbar's Back / Close goes. */
@@ -33,6 +33,7 @@ export function PrintPreview({
   notes?: React.ReactNode;
   /** The standard buttons in English whatever the language (Billing). */
   english?: boolean;
+  showBrowserFooterOption?: boolean;
   /** The document itself, in its own print stage. */
   children: React.ReactNode;
 }) {
@@ -46,7 +47,7 @@ export function PrintPreview({
           </Button>
           <div className="flex flex-wrap items-start justify-end gap-2">
             {actions ?? <PrintActions english={english} />}
-            <PrintFooterOption />
+            {showBrowserFooterOption && <PrintFooterOption />}
           </div>
         </div>
         {notes}
@@ -60,13 +61,15 @@ export function PrintPreview({
 export function PrintActions({
   english = false,
   printLabel,
+  mobilePdf,
 }: {
   english?: boolean;
   printLabel?: string;
+  mobilePdf?: boolean;
 }) {
   return (
     <>
-      <PrintButton english={english} label={printLabel} />
+      <PrintButton english={english} label={printLabel} mobilePdf={mobilePdf} />
       <DownloadPdfButton english={english} />
     </>
   );

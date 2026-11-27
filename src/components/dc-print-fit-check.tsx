@@ -96,5 +96,5 @@ export function DcPrintFitCheck({
     );
   }
 
-  return <PrintActions />;
+  return <PrintActions mobilePdf />;
 }

@@ -72,6 +72,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
   return (
     <PrintPreview
       back={{ href: `/dashboard/dc/${dc.id}`, label: t("common.close"), close: true }}
+      showBrowserFooterOption={false}
       actions={
         <>
           {canCombine && (
@@ -86,7 +87,7 @@ export default async function DcPrintPage({ params }: { params: Promise<{ id: st
               <Layers className="h-4 w-4" /> {t("dcCombined.openCombined")}
             </Button>
           )}
-          <PrintActions />
+          <PrintActions mobilePdf />
         </>
       }
       notes={<DcPrintPageSetup />}

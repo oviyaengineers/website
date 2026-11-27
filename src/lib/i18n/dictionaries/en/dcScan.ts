@@ -216,4 +216,5 @@ export const dcPrint = {
   hideBrowserFooter: "Hide browser headers/footers",
   browserFooterHint: "If still shown, turn them off in printer options.",
   mobileDirectPrintHint: "Print opens your browser's print options. Use Download PDF to save a copy.",
+  mobilePdfPrintHint: "On mobile, Print opens the PDF. Choose Print from Share or the PDF menu.",
 };

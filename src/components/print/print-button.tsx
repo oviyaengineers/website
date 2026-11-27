@@ -10,8 +10,8 @@ import { createTranslator } from "@/lib/i18n/translate";
 /**
  * The Print and Download PDF buttons shared by every ERP printout.
  *
- * Print opens the browser's dialog for the current preview. Download PDF
- * remains a separate action and uses the clean PDF endpoint.
+ * Print opens the browser dialog or the printable PDF. Download PDF saves
+ * the file and uses the same endpoint.
  */
 
 /** The address of the clean PDF of the print page this is shown on. */
@@ -69,9 +69,11 @@ function usePdfFetch(english: boolean) {
           });
           return;
         }
-        const name = /filename="([^"]+)"/.exec(
-          response.headers.get("Content-Disposition") ?? ""
-        )?.[1];
+        const disposition = response.headers.get("Content-Disposition") ?? "";
+        const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+        const name = encodedName
+          ? decodeURIComponent(encodedName)
+          : /filename="([^"]+)"/.exec(disposition)?.[1];
         await onPdf(await response.blob(), name ?? "document.pdf");
         setStatus({ busy: false, error: null });
       } catch (error) {
@@ -104,7 +106,11 @@ type FileShareNavigator = Navigator & {
 };
 
 function isMobileBrowser(): boolean {
-  return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+  const agent = navigator.userAgent;
+  return (
+    /android|iphone|ipad|ipod|mobile/i.test(agent) ||
+    (/macintosh/i.test(agent) && navigator.maxTouchPoints > 1)
+  );
 }
 
 function suggestedPdfName(): string {
@@ -164,15 +170,24 @@ function StatusLine({ status, english }: { status: Status; english: boolean }) {
   return null;
 }
 
-/** Open the browser's print dialog without opening another tab. */
-export function PrintButton({ label, english = false }: { label?: string; english?: boolean }) {
+export function PrintButton({
+  label,
+  english = false,
+  mobilePdf = false,
+}: {
+  label?: string;
+  english?: boolean;
+  mobilePdf?: boolean;
+}) {
   const t = useStrings(english);
+  const href = usePrintPdfHref();
   const firstCall = useOncePerTap();
 
   const print = useCallback(() => {
     if (!firstCall()) return;
-    window.print();
-  }, [firstCall]);
+    if (mobilePdf && isMobileBrowser()) window.location.assign(href);
+    else window.print();
+  }, [firstCall, href, mobilePdf]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -188,7 +203,10 @@ export function PrintButton({ label, english = false }: { label?: string; englis
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
       <Button
+        render={mobilePdf ? <a href={href} /> : undefined}
         onClick={(event) => {
+          // Let the link hand the PDF to the phone in the current tab.
+          if (mobilePdf && isMobileBrowser()) return;
           event.preventDefault();
           print();
         }}
@@ -198,8 +216,8 @@ export function PrintButton({ label, english = false }: { label?: string; englis
         <Printer className="h-4 w-4" />{" "}
         {label ?? t("dcPrint.print")}
       </Button>
-      <p className="basis-full text-xs text-muted-foreground sm:hidden">
-        {t("dcPrint.mobileDirectPrintHint")}
+      <p className={`basis-full text-xs text-muted-foreground sm:hidden${mobilePdf ? " [@media(pointer:coarse)]:block" : ""}`}>
+        {t(mobilePdf ? "dcPrint.mobilePdfPrintHint" : "dcPrint.mobileDirectPrintHint")}
       </p>
     </div>
   );

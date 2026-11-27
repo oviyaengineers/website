@@ -125,6 +125,7 @@ export default async function CombinedDcPrintSheetPage({
   return (
     <PrintPreview
       back={{ href: backHref, label: t("dcCombined.back") }}
+      showBrowserFooterOption={false}
       actions={
         <DcPrintFitCheck
           // Remounted per layout, so the new sheet is measured afresh.
